@@ -92,6 +92,8 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 **Sign-in**
 
 - Sign-in is required so outsiders can't edit scripts. Version 1 has one role for everyone, plus an admin (the TD) who invites people.
+- **Decided Oct 28, 2026:** the website uses **Sign in with Google**, limited to people the TD invites.
+- **Authorship:** the site records who wrote and who edited each section's script and rundown row, so the producer knows exactly who wrote and edited each reader.
 
 **Not in version 1:** team chat, per-person permissions, rundown templates, printing scripts.
 
@@ -112,7 +114,9 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 **Connecting**
 
-- The producer plugs the USB-C-to-Ethernet adapter and the TC1 cable into her laptop, opens the app and signs in. The app finds the TC1 on the cable by itself. Producers never change network settings.
+- The producer plugs the USB-C-to-Ethernet adapter and the TC1 cable into her laptop and opens the app. The app finds the TC1 on the cable by itself. Producers never change network settings.
+- **No sign-in in the show app (decided Oct 28, 2026).** Only one laptop is connected at a time, and running the TC1 means being in the studio on the cable.
+- **Proposed, to confirm in Phase 4:** the app still reads the rundown and cues from the website. To keep scripts and the cue feed private, the admin links each show laptop to the website once.
 - Status lights show whether the website, the prompter and the TriCaster are connected.
 
 **Producer screen**

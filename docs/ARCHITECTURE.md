@@ -86,12 +86,15 @@ Every connection to the cloud goes through the Worker, which checks sign-in befo
 
 The browser works out timing from the shared rundown: script words ÷ words per minute, plus clip lengths from the show app's import. Back-times and over/under come from the show's target length. During a show, the episode room records each section's actual start and length from the prompter's events and saves them to D1 at the end.
 
-### 4.4 Sign-in
+### 4.4 Sign-in (decided Oct 28, 2026)
 
 - **"Sign in with Google"** works with any Google account, personal Gmail included. We store no passwords, there's nothing to reset, and no email service is needed.
 - **Only people on the invite list get in.** The TD (admin) adds email addresses on an admin page. Anyone else sees "Ask the TD for an invite."
 - The open question "invited people only, or anyone with a UT email?" becomes a setting: the invite list can also allow a whole email domain later.
-- **The prompter computer and each show-app laptop sign in once as a device.** The device shows a pairing code, and a signed-in person approves it. The device stays signed in until the TD removes it.
+- **Authorship.** Every rundown row and script records who wrote it and who edited it, so the producer can see who wrote and edited each reader.
+- **The prompter computer and each show-app laptop are linked once as devices.** The device shows a pairing code, and a signed-in person approves it on the website. It stays linked until the TD removes it.
+  - **No one signs in to the show app itself** (RG's decision). Only one laptop is connected at a time, and running the TC1 means being in the studio.
+  - **The one-time link keeps scripts and the cue feed private.** Its details get confirmed in Phase 4.
 - **Why not our own passwords:** Cloudflare's free tier allows 10 ms of computing per request, which is too little to store passwords safely. Google handles that part for us.
 
 ### 4.5 Archive and export
@@ -260,7 +263,7 @@ When we get there, I'll give you step-by-step instructions for each. Phase 0 nee
 ## 13. Decisions I need from you
 
 1. ~~**Cloudflare instead of Supabase**~~ (section 2). Approved Oct 28, 2026.
-2. **Sign in with Google plus an invite list** (section 4.4). Still open, and needed before Phase 1. It means everyone who writes scripts needs a Google account, though a personal Gmail works.
+2. ~~**Sign in with Google plus an invite list**~~ (section 4.4). Approved Oct 28, 2026, for the website only. The show app has no sign-in.
 3. ~~**Who owns the Cloudflare account**~~ (section 11). RG's personal account for now. The Google Cloud project for sign-in can follow the same approach.
 
 **One gap in the brief, which I'll raise when we get there:** Part 3 says Pause has a keyboard shortcut "(see below)", but no key is named. I'll suggest one in Phase 4 for your OK.
