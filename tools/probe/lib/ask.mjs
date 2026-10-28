@@ -9,6 +9,9 @@ import readline from 'node:readline/promises';
  */
 export async function ask(question, signal) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  // While a question is waiting, Ctrl+C reaches readline instead of the process. Pass it on so the
+  // probe stops and saves (process.emit, because a real SIGINT on Windows ends the process at once).
+  rl.on('SIGINT', () => process.emit('SIGINT'));
   try {
     return (await rl.question(question, { signal })).trim();
   } catch {
@@ -44,7 +47,7 @@ export function askHidden(question) {
         if (ch === '\u0003') {
           value = '';
           done();
-          process.kill(process.pid, 'SIGINT');
+          process.emit('SIGINT');
           return;
         }
         if (ch === '\u007f' || ch === '\b') {

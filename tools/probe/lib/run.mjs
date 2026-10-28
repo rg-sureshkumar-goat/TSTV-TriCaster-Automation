@@ -285,6 +285,7 @@ export async function runProbe(options = {}) {
         await sleep(step.autoSeconds * 1000);
       } else {
         const reply = await ask('  Press Enter when done, or type s and Enter to skip: ', signal);
+        if (stopped()) break;
         skipped = reply.toLowerCase().startsWith('s');
       }
       await sleep(700); // catch the last updates
