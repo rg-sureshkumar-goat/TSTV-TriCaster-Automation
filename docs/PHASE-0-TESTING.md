@@ -43,11 +43,11 @@ npm run simulator
 
 Try the page. These clicks act like the TD pressing panel buttons:
 
-1. In the **Program** row, click **Camera 2**. The red Program monitor shows Camera 2.
-2. In the **DSK 2** box, click **Off air: take on**. A blue bar appears at the bottom of the Program monitor.
-3. In the **DDR 2** box, click item 1 (`A1_L3_Anchors`), then **Play**. The time counts up, and the clip stops by itself after 8 seconds.
-4. Click **M/E 2 to Program**. The monitor shows "Camera 3 keyed over GFX 1".
-5. Scroll down to **Commands received**. Every click is listed as "Simulator page".
+1. Next to **Cameras**, click **Camera 2**. The red Program monitor shows Camera 2.
+2. Next to **DSK 2**, click **Off: take on**. A blue bar appears at the bottom of the Program monitor, and **On air now** lists the DSK 2 clip.
+3. In the **DDR 2** list, click item 1 (`A1_L3_Anchors`), then **Play**. The time counts up, and the clip stops by itself after 8 seconds.
+4. Next to **Green screen**, click **Take to air**. The monitor shows Camera 3 on the green screen.
+5. Scroll down to **What the show app sent**. It says "Nothing yet". Your clicks stand in for the TD at the panel, so they don't appear there.
 
 Leave the simulator running.
 
@@ -66,23 +66,30 @@ npm run probe -- --host 127.0.0.1:8080
 The probe connects and walks you through the panel steps.
 
 1. Step 1 waits 10 seconds by itself.
-2. For each step after that, do it on the simulator page, then press **Enter** in the terminal. Type `s` and Enter to skip a step.
+2. For each step after that, use the matching button on the simulator page, then press **Enter** in the terminal:
+   - camera step: **Camera 2**, then **Camera 1**
+   - DSK 2 step: on, then off
+   - DDR 2 steps: a list item, then **Play** and **Stop**
+   - green-screen step: **Take to air**, then a camera
+   - record step: **Record**, then stop
+3. The page has no GFX 1 button, so type `s` and Enter to skip that step.
 
 ✅ **Expect at the end:**
 
 - A summary with **YES** next to "Can a laptop on the cable reach the TC1" and "Which remote-control interface".
 - It reports "TSTV Simulator, 7-7 (simulated)".
 - Two files in `tools/probe/results/`.
-- **Most important:** on the simulator page, **Commands received** has **no rows that say "Show app"**. That proves the probe sent no commands.
+- **Most important:** on the simulator page, **What the show app sent** still says **"Nothing yet"**. That proves the probe sent no commands.
 
 ### 5. Practice the password case
 
-1. On the simulator page, under **Practice problems**, type `test` in **LivePanel password** and click **Apply**.
-2. Run the probe again (the same command as step 4).
+1. At the bottom of the simulator page, click **Practice problems** to open it.
+2. Type `test` in **LivePanel password** and click **Apply**.
+3. Run the probe again (the same command as step 4).
 
 ✅ **Expect:** "The TC1 asks for its LivePanel password." For username, press Enter. For password, type `test` (it shows `****`). The probe then says "Password accepted."
 
-When you're done, click **Reset everything** on the simulator page, then press **Ctrl+C** in the simulator's terminal window.
+When you're done, click **Reset everything** under **Practice problems**, then press **Ctrl+C** in the simulator's terminal window.
 
 ## Part B: at the station with the TC1 (about 15 minutes)
 

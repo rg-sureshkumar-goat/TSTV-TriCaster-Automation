@@ -9,75 +9,74 @@
   <body>
     <header class="banner">
       <strong>SIMULATOR</strong>
-      <span>A fake TC1 for practice and testing. Nothing on this page touches the real switcher.</span>
-      <span id="link" class="link">connecting…</span>
+      <span>A fake TC1 for practice. Nothing here touches the real switcher.</span>
+      <span id="link" class="link">Connecting…</span>
     </header>
 
     <main>
-      <section class="monitors">
-        <div class="monitor program">
-          <h2>Program <span id="rec-badge" class="rec-badge" hidden>● REC</span></h2>
-          <div id="pgm-screen" class="screen"></div>
+      <section class="top">
+        <div class="monitor">
+          <h2>Program</h2>
+          <div id="screen" class="screen"></div>
         </div>
-        <div class="monitor preview">
-          <h2>Preview</h2>
-          <div id="pvw-screen" class="screen"></div>
-        </div>
+        <aside class="card">
+          <h2>On air now</h2>
+          <dl id="on-air" class="on-air"></dl>
+        </aside>
       </section>
 
-      <section class="card">
-        <h2>Switcher</h2>
-        <div class="row-label">Program</div>
-        <div id="pgm-row" class="buttons"></div>
-        <div class="row-label">Preview</div>
-        <div id="pvw-row" class="buttons"></div>
-        <div class="buttons transitions">
-          <button data-cmd="main_take">Take</button>
-          <button data-cmd="main_auto">Auto</button>
+      <section class="card controls">
+        <div class="control-row">
+          <span class="row-label">Cameras</span>
+          <div id="cameras" class="buttons"></div>
         </div>
-      </section>
-
-      <section class="grid three">
-        <div class="card" id="dsk-card"></div>
-        <div class="card" id="me-card"></div>
-        <div class="card" id="rec-card"></div>
-      </section>
-
-      <section class="grid two" id="players"></section>
-
-      <section class="card">
-        <h2>Practice problems</h2>
-        <div class="faults">
-          <label><input type="checkbox" id="fault-offline" /> Cable unplugged (the show app can't reach the TC1)</label>
-          <label><input type="checkbox" id="fault-drop" /> Ignore commands (they arrive but do nothing)</label>
-          <label>Slow replies: <input type="number" id="fault-latency" min="0" max="10000" step="50" value="0" /> ms</label>
-          <label>LivePanel password: <input type="text" id="fault-password" placeholder="none" autocomplete="off" /></label>
-          <div class="buttons">
-            <button id="apply-faults">Apply</button>
-            <button id="reset" class="secondary">Reset everything</button>
-          </div>
+        <div class="control-row">
+          <span class="row-label">Green screen</span>
+          <div id="green-screen" class="buttons"></div>
+        </div>
+        <div class="control-row">
+          <span class="row-label">DSK 2</span>
+          <div id="dsk2" class="buttons"></div>
+        </div>
+        <div class="control-row">
+          <span class="row-label">DDR 2</span>
+          <div id="ddr2" class="ddr"></div>
+        </div>
+        <div class="control-row">
+          <span class="row-label">Record</span>
+          <div id="record" class="buttons"></div>
         </div>
       </section>
 
       <section class="card">
         <h2>
-          Commands received
-          <button id="clear-log" class="small secondary">Clear</button>
+          What the show app sent
+          <button id="clear-log" class="small">Clear</button>
         </h2>
-        <p class="hint">
-          Every command the simulator receives, newest first. "Show app" rows came over the network, the same way they'd reach the real TC1.
-          <span class="guess">guessed name</span> means the real TC1's name for that command isn't confirmed yet.
-        </p>
-        <div id="connections" class="hint"></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Time</th><th>From</th><th>Command</th><th>Value</th><th>Result</th></tr>
-            </thead>
-            <tbody id="log"></tbody>
-          </table>
-        </div>
+        <ol id="log" class="log"></ol>
       </section>
+
+      <details class="card practice">
+        <summary>Practice problems</summary>
+        <div class="practice-body">
+          <label><input type="checkbox" id="fault-offline" /> Cable unplugged: the show app can't reach the TC1</label>
+          <label><input type="checkbox" id="fault-drop" /> Ignore commands: they arrive but do nothing</label>
+          <label>
+            Slow replies
+            <input type="number" id="fault-latency" min="0" max="10000" step="50" value="0" /> ms
+            <button id="apply-latency" class="small">Apply</button>
+          </label>
+          <label>
+            LivePanel password
+            <input type="text" id="fault-password" placeholder="none" autocomplete="off" />
+            <button id="apply-password" class="small">Apply</button>
+          </label>
+          <div class="buttons">
+            <button id="end-clip">Make the DDR 2 clip end now</button>
+            <button id="reset">Reset everything</button>
+          </div>
+        </div>
+      </details>
     </main>
 
     <script src="app.js"></script>

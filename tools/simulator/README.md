@@ -33,10 +33,17 @@ It identifies itself as **TSTV Simulator**, both in `/v1/version` and in an `X-T
 
 ## The simulator page
 
-- **Program and Preview monitors** show the main source, keyed layers and whatever is on air in a DSK, with clip time.
-- **Buttons** act like the TD at the panel. Clicks are logged as "Simulator page".
-- **Practice problems** fake trouble on demand: cable unplugged, ignored commands, slow replies, and a LivePanel password.
-- **Commands received** logs every command, newest first. Rows marked "Show app" came over the network.
+The page shows only what TSTV uses. The fake TC1 behind it still has every input, M/E and player listed above, so the show app gets tested against a full switcher.
+
+- **Program monitor and On air now** show what's on air: the camera or green screen, DSK 2 with its clip time, recording, and whether a show app is connected.
+- **Buttons** act like the TD at the panel:
+  - Camera 1–3
+  - Green screen (M/E 2 to air)
+  - DSK 2 on and off
+  - the DDR 2 playlist, with Play and Stop
+  - Record
+- **What the show app sent** lists, newest first and in plain English, every command that arrived over the network, with the raw command name underneath. Your own clicks don't appear here.
+- **Practice problems** is folded away at the bottom. It fakes trouble on demand: cable unplugged, ignored commands, slow replies, a LivePanel password, and making the DDR 2 clip end early.
 
 ## Names that are still guesses
 

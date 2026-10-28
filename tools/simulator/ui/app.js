@@ -1,17 +1,12 @@
-// The simulator page. It shows the fake switcher's state and sends "panel" presses, the way the TD
-// would use the TC1SP. Commands from the show app arrive over the network instead and show in the log.
+// The simulator page. Shows only what TSTV uses: the three cameras, the green screen (M/E 2 over GFX 1),
+// DSK 2 with the DDR 2 playlist, and recording. Buttons act like the TD at the panel. The fake TC1 behind
+// the page still behaves like the full switcher.
 'use strict';
 
 const $ = (id) => document.getElementById(id);
+const CAMERAS = ['input1', 'input2', 'input3'];
+const GREEN_SCREEN_ME = 'v2';
 let state = null;
-let names = {};
-
-const SOURCE_LABELS = { ddr1: 'DDR 1', ddr2: 'DDR 2', gfx1: 'GFX 1', gfx2: 'GFX 2', v1: 'M/E 1', v2: 'M/E 2', v3: 'M/E 3', v4: 'M/E 4', black: 'Black' };
-const FROM_LABELS = { http: 'Show app (web API)', tcp: 'Show app (state port)', panel: 'Simulator page', macro: 'Macro' };
-
-function label(source) {
-  return names[source] ?? SOURCE_LABELS[source] ?? source;
-}
 
 function esc(text) {
   return String(text ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -22,150 +17,155 @@ function time(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function clipText(player) {
-  const clip = player.playlist[player.index];
-  if (!clip) return `${player.label}: empty`;
-  if (player.stills || clip.durationMs === 0) return `${player.label}: ${clip.name}`;
-  return `${player.label}: ${clip.name} · ${time(player.positionMs)} / ${time(clip.durationMs)}${player.playing ? ' ▶' : ''}`;
+function label(source) {
+  const input = state.switcher.inputs.find((i) => i.id === source);
+  if (input) return input.longName;
+  if (source === GREEN_SCREEN_ME) return 'Green screen';
+  return { ddr1: 'DDR 1', ddr2: 'DDR 2', gfx1: 'GFX 1', gfx2: 'GFX 2', v1: 'M/E 1', v3: 'M/E 3', v4: 'M/E 4', black: 'Black' }[source] ?? source;
 }
 
-async function panel(name, value) {
-  await fetch('/sim/api/panel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, value }) });
+function currentClip(player) {
+  return player.playlist[player.index];
+}
+
+/** "B5_VO_Basketball 0:12 / 0:25" for a player, or "nothing loaded". */
+function clipText(player) {
+  const clip = currentClip(player);
+  if (!clip) return 'nothing loaded';
+  if (!clip.durationMs) return clip.name;
+  return `${clip.name}  ${time(player.positionMs)} / ${time(clip.durationMs)}`;
+}
+
+/** Plain-English description of a command, for the log. */
+function describe(c) {
+  const v = c.value;
+  const n = (x) => Number(x) + 1;
+  const table = {
+    main_a_row: () => (v === GREEN_SCREEN_ME ? 'Took the green screen to air' : `Took ${label(v)} to air`),
+    main_b_row: () => `Put ${label(v)} in preview`,
+    main_take: () => 'Swapped program and preview',
+    main_auto: () => 'Swapped program and preview',
+    main_background_take: () => 'Swapped program and preview',
+    main_background_auto: () => 'Swapped program and preview',
+    main_dsk2_take: () => 'Switched DSK 2 on or off',
+    main_dsk2_auto: () => 'Switched DSK 2 on or off',
+    main_dsk2_value: () => (v === '1' ? 'Put DSK 2 on air' : 'Took DSK 2 off air'),
+    main_dsk2_select: () => `Set DSK 2 to show ${label(v)}`,
+    ddr2_play: () => 'Played DDR 2',
+    ddr2_stop: () => 'Stopped DDR 2',
+    ddr2_play_toggle: () => 'Played or paused DDR 2',
+    ddr2_select_index: () => `Cued DDR 2 item ${n(v)}`,
+    ddr2_back: () => 'Moved DDR 2 back one item',
+    ddr2_forward: () => 'Moved DDR 2 forward one item',
+    gfx1_select_index: () => `Loaded GFX 1 item ${n(v)} (green-screen background)`,
+    record_toggle: () => (v === '1' ? 'Started recording' : v === '0' ? 'Stopped recording' : 'Started or stopped recording'),
+    record_start: () => 'Started recording',
+    record_stop: () => 'Stopped recording',
+    play_macro_byname: () => `Ran the macro "${v}"`,
+  };
+  return table[c.name]?.() ?? (c.result === 'unknown' ? `Unknown command "${c.name}"` : `Other command: ${c.name}`);
 }
 
 async function post(route, body) {
   await fetch(`/sim/api/${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
 }
 
-function sourcesList(sw) {
-  return [...sw.inputs.map((i) => i.id), 'ddr1', 'ddr2', 'gfx1', 'gfx2', 'v1', 'v2', 'v3', 'v4', 'black'];
-}
-
-function screenHtml(sw, source, withDsks) {
-  let html = `<div><div class="main-source">${esc(label(source))}</div>`;
-  const me = sw.mes[source];
-  if (me) html += `<div class="sub">${esc(label(me.key ?? me.b))} keyed over ${esc(label(me.a))}${sw.players[me.a] ? ` (${esc(clipText(sw.players[me.a]))})` : ''}</div>`;
-  if (sw.players[source]) html += `<div class="sub">${esc(clipText(sw.players[source]))}</div>`;
-  html += '</div>';
-  if (withDsks) {
-    const onAir = Object.entries(sw.dsks).filter(([, d]) => d.onAir);
-    for (const [id, dsk] of onAir) {
-      const player = sw.players[dsk.source];
-      html += `<div class="overlay">${esc(id.replace('main_dsk', 'DSK '))}: ${esc(player ? clipText(player) : label(dsk.source))}</div>`;
-    }
-  }
-  return html;
-}
+const press = (name, value) => post('panel', { name, value });
 
 function render() {
   if (!state) return;
   const sw = state.switcher;
-  names = Object.fromEntries(sw.inputs.map((i) => [i.id, i.longName]));
-
-  $('pgm-screen').innerHTML = screenHtml(sw, sw.program, true);
-  $('pvw-screen').innerHTML = screenHtml(sw, sw.preview, false);
-  $('rec-badge').hidden = !sw.recording.on;
-
-  const sources = sourcesList(sw);
-  $('pgm-row').innerHTML = sources
-    .map((s) => `<button data-cmd="main_a_row" data-value="${s}" class="${s === sw.program ? 'on-pgm' : ''}">${esc(label(s))}</button>`)
-    .join('');
-  $('pvw-row').innerHTML = sources
-    .map((s) => `<button data-cmd="main_b_row" data-value="${s}" class="${s === sw.preview ? 'on-pvw' : ''}">${esc(label(s))}</button>`)
-    .join('');
-
+  const ddr2 = sw.players.ddr2;
+  const gfx1 = sw.players.gfx1;
+  const me = sw.mes[GREEN_SCREEN_ME];
   const dsk = sw.dsks.main_dsk2;
-  $('dsk-card').innerHTML = `
-    <h2>DSK 2</h2>
-    <p>Source: <strong>${esc(label(dsk.source))}</strong></p>
-    <div class="buttons">
-      <button data-cmd="main_dsk2_take" class="${dsk.onAir ? 'on-pgm' : ''}">${dsk.onAir ? 'ON AIR: take off' : 'Off air: take on'}</button>
-      <button data-cmd="main_dsk2_select" data-value="ddr2" class="${dsk.source === 'ddr2' ? 'on' : ''}">Source DDR 2</button>
-      <button data-cmd="main_dsk2_select" data-value="gfx2" class="${dsk.source === 'gfx2' ? 'on' : ''}">Source GFX 2</button>
-    </div>`;
+  const dskPlayer = sw.players[dsk.source];
+  const greenOnAir = sw.program === GREEN_SCREEN_ME;
+  const appConnected = state.connections.stateStream + state.connections.notifications > 0;
 
-  const me = sw.mes.v2;
-  $('me-card').innerHTML = `
-    <h2>M/E 2 (green screen)</h2>
-    <p>${esc(label(me.key ?? me.b))} keyed over <strong>${esc(label(me.a))}</strong></p>
-    <div class="buttons">
-      <button data-cmd="main_a_row" data-value="v2" class="${sw.program === 'v2' ? 'on-pgm' : ''}">M/E 2 to Program</button>
-      <button data-cmd="v2_key" data-value="input1">Key Camera 1</button>
-      <button data-cmd="v2_key" data-value="input3">Key Camera 3</button>
-    </div>`;
+  // Program monitor
+  let screen = greenOnAir
+    ? `<div><div class="main">${esc(label(me.key))}</div><div class="sub">on the green screen, over ${esc(currentClip(gfx1)?.name ?? 'GFX 1')}</div></div>`
+    : `<div><div class="main">${esc(label(sw.program))}</div></div>`;
+  if (dsk.onAir) screen += `<div class="overlay">DSK 2: ${esc(dskPlayer ? clipText(dskPlayer) : label(dsk.source))}</div>`;
+  $('screen').innerHTML = screen;
 
-  $('rec-card').innerHTML = `
-    <h2>Recording</h2>
-    <p>${sw.recording.on ? `<strong class="rec-badge">● Recording</strong> ${time(sw.recording.seconds * 1000)}` : 'Not recording'}</p>
-    <div class="buttons"><button data-cmd="record_toggle" class="${sw.recording.on ? 'on-pgm' : ''}">${sw.recording.on ? 'Stop' : 'Record'}</button></div>
-    <p class="muted">Macros: ${sw.macros.map((m) => `<button class="small" data-cmd="play_macro_byname" data-value="${esc(m.name)}">${esc(m.name)}</button>`).join(' ')}</p>`;
+  // On air now
+  const row = (term, value, live = false) => `<dt>${term}</dt><dd class="${live ? 'live' : ''}">${value}</dd>`;
+  $('on-air').innerHTML = [
+    row('Program', esc(greenOnAir ? `Green screen (${label(me.key)})` : label(sw.program))),
+    row('DSK 2', dsk.onAir ? esc(dskPlayer ? currentClip(dskPlayer)?.name ?? 'on' : label(dsk.source)) : 'Off', dsk.onAir),
+    row('Recording', sw.recording.on ? `● ${time(sw.recording.seconds * 1000)}` : 'Off', sw.recording.on),
+    row('Show app', appConnected ? 'Connected' : 'Not connected'),
+  ].join('');
 
-  $('players').innerHTML = Object.values(sw.players)
-    .map((p) => {
-      const clip = p.playlist[p.index];
-      const pct = clip && clip.durationMs ? Math.min(100, (p.positionMs / clip.durationMs) * 100) : 0;
-      const items = p.playlist
-        .map((c, i) => `<li data-cmd="${p.id}_select_index" data-value="${i}" class="${i === p.index ? 'current' : ''}"><span>${i + 1}. ${esc(c.name)}</span><span class="muted">${c.durationMs ? time(c.durationMs) : 'still'}</span></li>`)
-        .join('');
-      const controls = p.stills
-        ? `<button data-cmd="${p.id}_back">◀ Previous</button><button data-cmd="${p.id}_forward">Next ▶</button>`
-        : `<button data-cmd="${p.id}_play" class="${p.playing ? 'on' : ''}">Play</button>
-           <button data-cmd="${p.id}_stop">Stop</button>
-           <button data-cmd="${p.id}_back">◀ Back</button>
-           <button data-cmd="${p.id}_forward">Forward ▶</button>
-           <button data-action="clip-end" data-player="${p.id}" class="secondary" ${p.playing ? '' : 'disabled'}>End clip now</button>`;
-      return `<div class="card">
-        <h2>${esc(p.label)}</h2>
-        <div class="muted">${esc(clipText(p))}${clip && clip.durationMs ? ` · ${time(clip.durationMs - p.positionMs)} left` : ''}</div>
-        ${p.stills ? '' : `<div class="progress"><div style="width:${pct}%"></div></div>`}
-        <ul class="playlist">${items || '<li class="muted">Empty playlist</li>'}</ul>
-        <div class="buttons">${controls}</div>
-      </div>`;
+  // Controls
+  $('cameras').innerHTML = CAMERAS.map(
+    (id) => `<button data-cmd="main_a_row" data-value="${id}" class="${sw.program === id ? 'on' : ''}">${esc(label(id))}</button>`,
+  ).join('');
+  $('green-screen').innerHTML = `<button data-cmd="main_a_row" data-value="${GREEN_SCREEN_ME}" class="${greenOnAir ? 'on' : ''}">${greenOnAir ? 'On air' : 'Take to air'}</button>
+    <span class="muted">${esc(label(me.key))} over ${esc(currentClip(gfx1)?.name ?? 'GFX 1')}</span>`;
+  $('dsk2').innerHTML = `<button data-cmd="main_dsk2_take" class="${dsk.onAir ? 'on' : ''}">${dsk.onAir ? 'On air: take off' : 'Off: take on'}</button>`;
+
+  const items = ddr2.playlist
+    .map((clip, i) => {
+      const current = i === ddr2.index;
+      const pct = current && clip.durationMs ? Math.min(100, (ddr2.positionMs / clip.durationMs) * 100) : 0;
+      return `<li data-cmd="ddr2_select_index" data-value="${i}" class="${current ? 'current' : ''}">
+        <div class="item"><span>${current && ddr2.playing ? '▶ ' : ''}${i + 1}. ${esc(clip.name)}</span>
+        <span class="muted">${current ? `${time(ddr2.positionMs)} / ` : ''}${time(clip.durationMs)}</span></div>
+        ${current ? `<div class="progress"><div style="width:${pct}%"></div></div>` : ''}
+      </li>`;
     })
     .join('');
+  $('ddr2').innerHTML = `<ol>${items || '<li class="muted">Playlist is empty</li>'}</ol>
+    <div class="buttons">
+      <button data-cmd="ddr2_play" class="${ddr2.playing ? 'on' : ''}">Play</button>
+      <button data-cmd="ddr2_stop">Stop</button>
+    </div>`;
 
+  $('record').innerHTML = `<button data-cmd="record_toggle" class="${sw.recording.on ? 'on' : ''}">${sw.recording.on ? `● Recording ${time(sw.recording.seconds * 1000)}: stop` : '● Record'}</button>`;
+
+  // What the show app sent (commands that came over the network, not clicks on this page)
+  const fromApp = state.log.filter((c) => c.source === 'http' || c.source === 'tcp' || c.source === 'macro');
+  $('log').innerHTML =
+    fromApp
+      .map((c) => {
+        const problem = c.result !== 'ok';
+        const at = new Date(c.at).toLocaleTimeString([], { hour12: false });
+        const raw = `${c.name}${c.value !== undefined ? ` = ${c.value}` : ''}${c.guessedName ? ' · name not confirmed on the TC1 yet' : ''}`;
+        return `<li class="${problem ? 'problem' : ''}">
+          <span class="time">${at}</span>
+          <span>${esc(describe(c))}${problem ? ` · not done: ${esc(c.note ?? c.result)}` : ''}<br><span class="raw">${esc(raw)}</span></span>
+        </li>`;
+      })
+      .join('') || '<li><span class="empty">Nothing yet. Commands from the show app (or anything else on the network) appear here.</span></li>';
+
+  // Practice problems: keep what's typed while someone is editing
   const f = state.faults;
-  if (document.activeElement !== $('fault-latency')) $('fault-latency').value = f.latencyMs;
-  if (document.activeElement !== $('fault-password')) $('fault-password').value = f.password ?? '';
   $('fault-offline').checked = f.offline;
   $('fault-drop').checked = f.dropCommands;
-
-  $('connections').textContent = `Connected now: ${state.connections.stateStream} on the state port (${state.ports.state}), ${state.connections.notifications} listening for change notifications.`;
-  $('log').innerHTML =
-    state.log
-      .map(
-        (c) => `<tr>
-          <td>${new Date(c.at).toLocaleTimeString([], { hour12: false })}.${String(new Date(c.at).getMilliseconds()).padStart(3, '0')}</td>
-          <td>${esc(FROM_LABELS[c.source] ?? c.source)}</td>
-          <td>${esc(c.name)} ${c.guessedName ? '<span class="guess">guessed name</span>' : ''}</td>
-          <td>${esc(c.value ?? '')}</td>
-          <td class="result-${c.result}">${esc(c.result)}${c.note ? ` · ${esc(c.note)}` : ''}</td>
-        </tr>`,
-      )
-      .join('') || '<tr><td colspan="5" class="muted">No commands yet.</td></tr>';
+  if (document.activeElement !== $('fault-latency')) $('fault-latency').value = f.latencyMs;
+  if (document.activeElement !== $('fault-password')) $('fault-password').value = f.password ?? '';
+  $('end-clip').disabled = !ddr2.playing;
 }
 
 document.addEventListener('click', (event) => {
-  const el = event.target.closest('[data-cmd], [data-action]');
-  if (!el || el.disabled) return;
-  if (el.dataset.cmd) panel(el.dataset.cmd, el.dataset.value);
-  else if (el.dataset.action === 'clip-end') post('clip-end', { player: el.dataset.player });
+  const el = event.target.closest('[data-cmd]');
+  if (el && !el.disabled) press(el.dataset.cmd, el.dataset.value);
 });
 
-$('apply-faults').addEventListener('click', () =>
-  post('faults', {
-    offline: $('fault-offline').checked,
-    dropCommands: $('fault-drop').checked,
-    latencyMs: Number($('fault-latency').value) || 0,
-    password: $('fault-password').value.trim(),
-  }),
-);
+$('fault-offline').addEventListener('change', (e) => post('faults', { offline: e.target.checked }));
+$('fault-drop').addEventListener('change', (e) => post('faults', { dropCommands: e.target.checked }));
+$('apply-latency').addEventListener('click', () => post('faults', { latencyMs: Number($('fault-latency').value) || 0 }));
+$('apply-password').addEventListener('click', () => post('faults', { password: $('fault-password').value.trim() }));
+$('end-clip').addEventListener('click', () => post('clip-end', { player: 'ddr2' }));
 $('reset').addEventListener('click', () => post('reset'));
 $('clear-log').addEventListener('click', () => post('clear-log'));
 
 function connect() {
   const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/sim/events`);
-  ws.onopen = () => ($('link').textContent = 'Page connected');
+  ws.onopen = () => ($('link').textContent = 'Running');
   ws.onmessage = (event) => {
     state = JSON.parse(event.data);
     render();
