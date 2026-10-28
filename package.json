@@ -1,0 +1,29 @@
+{
+  "name": "tstv-show-automation",
+  "private": true,
+  "type": "module",
+  "description": "TSTV Show Automation: rundown, script and prompter website plus the TriCaster show app",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "tools/simulator"
+  ],
+  "scripts": {
+    "probe": "node tools/probe/probe.mjs",
+    "simulator": "tsx tools/simulator/src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tools/simulator && tsc -p tools/probe"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "allowScripts": {
+    "esbuild": false,
+    "fsevents": false
+  }
+}

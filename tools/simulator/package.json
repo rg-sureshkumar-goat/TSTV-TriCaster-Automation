@@ -1,0 +1,12 @@
+{
+  "name": "@tstv/simulator",
+  "private": true,
+  "type": "module",
+  "description": "A fake TriCaster TC1 for development and practice",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  }
+}
