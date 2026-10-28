@@ -1,8 +1,8 @@
 # TSTV Show Automation — Architecture
 
-Oct 28, 2026 · Proposed by Claude Code for RG · **Status: waiting for RG's OK**
+Oct 28, 2026 · Proposed by Claude Code for RG · **Status: approved by RG on Oct 28, 2026 (Cloudflare). Sign-in method still to confirm before Phase 1.**
 
-This document covers what the website, the prompter and the show app are built with, and how they talk to each other. It follows [PROJECT_BRIEF.md](PROJECT_BRIEF.md), which stays the source of truth. One recommendation differs from the brief's suggested default (Cloudflare instead of Supabase). Section 2 explains it, and it needs your OK.
+This document covers what the website, the prompter and the show app are built with, and how they talk to each other. It follows [PROJECT_BRIEF.md](PROJECT_BRIEF.md), which stays the source of truth. One choice differs from the brief's original suggested default: Cloudflare instead of Supabase. Section 2 explains why, and RG approved it.
 
 ## 1. The short version
 
@@ -29,9 +29,7 @@ The brief suggests "a static site on a free host plus Supabase's free tier." I c
 
 **The trade-off.** Supabase comes with a ready-made sign-in system and a spreadsheet-style database editor. On Cloudflare I'll build sign-in around "Sign in with Google" (section 4.4), which is a small, well-known piece of work. Cloudflare's database console is plainer.
 
-If you'd rather stay with Supabase, most of this document still holds. The main differences would be where the data lives, plus a scheduled job that keeps the project from pausing.
-
-**If you approve**, I'll update the "Free hosting only" bullet in `docs/PROJECT_BRIEF.md` in the same commit, following the project rules.
+**Decided:** RG approved Cloudflare on Oct 28, 2026, and the "Free hosting only" bullet in `docs/PROJECT_BRIEF.md` now says so.
 
 ## 3. How the parts talk to each other
 
@@ -227,7 +225,14 @@ You create these, and I never create accounts or repos.
 | Cloudflare account | Free | Phase 1 |
 | Google Cloud project with an OAuth client, for "Sign in with Google" | Free | Phase 1 |
 
-When we get there, I'll give you step-by-step instructions for each. I recommend creating them with a **TSTV-owned Google account** rather than a personal one, so the next TD inherits them. Then add yourself as an admin. Phase 0 needs neither account.
+When we get there, I'll give you step-by-step instructions for each. Phase 0 needs neither account.
+
+**Decided:** the Cloudflare account starts as RG's personal account and can move to a TSTV-owned one later. Moving works like this:
+
+- **There's no one-click transfer.** As far as I can find, Cloudflare offers no button that moves a Worker, a D1 database or Durable Objects to another account. A move means deploying the same code to the new account (one command) and copying the data across.
+- **Copying the data will be easy.** In Phase 1, I'll build an admin **"Back up everything"** export and a matching import. That makes a move routine, and it also gives TSTV a backup.
+- **The web address changes.** The free address includes the account's own `workers.dev` name, so it changes after a move. Bookmarks on the prompter computer and the show-app settings would need the new address.
+- **Simpler option:** add a TSTV login as an administrator of your account. Nothing moves, and the next TD gets access.
 
 ## 12. Code layout and tools
 
@@ -240,11 +245,9 @@ When we get there, I'll give you step-by-step instructions for each. I recommend
 
 ## 13. Decisions I need from you
 
-1. **Cloudflare instead of Supabase** (section 2).
-2. **Sign in with Google plus an invite list** (section 4.4). This means everyone who writes scripts needs a Google account, though a personal Gmail works.
-3. **Who owns the Cloudflare and Google accounts** (section 11).
-
-None of these block Phase 0, because the probe and the simulator don't use any hosting.
+1. ~~**Cloudflare instead of Supabase**~~ (section 2). Approved Oct 28, 2026.
+2. **Sign in with Google plus an invite list** (section 4.4). Still open, and needed before Phase 1. It means everyone who writes scripts needs a Google account, though a personal Gmail works.
+3. ~~**Who owns the Cloudflare account**~~ (section 11). RG's personal account for now. The Google Cloud project for sign-in can follow the same approach.
 
 **One gap in the brief, which I'll raise when we get there:** Part 3 says Pause has a keyboard shortcut "(see below)", but no key is named. I'll suggest one in Phase 4 for your OK.
 

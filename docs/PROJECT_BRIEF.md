@@ -182,7 +182,7 @@ A section "ends" when the next section's start crosses the prompter's reading li
 
 These are settled. Claude Code should check current free-tier limits before committing to a specific service.
 
-- **Free hosting only.** The website and its database must run on free tiers with no credit card. A reasonable default is a static site on a free host plus Supabase's free tier (database, sign-in, live sync), with a shared-editing library such as Yjs for co-editing. Free projects on some services pause after a stretch of inactivity, such as winter break. Document how to wake it.
+- **Free hosting only.** The website and its database must run on free tiers with no credit card. **Decided Oct 28, 2026: Cloudflare's free tier** (Workers for the website and sign-in, a D1 database, and one Durable Object per episode for Yjs co-editing and the cue relay), chosen over Supabase because Cloudflare doesn't pause free projects over breaks. It starts on RG's personal Cloudflare account and can move to a TSTV-owned account later. See `docs/ARCHITECTURE.md`.
 - **Mac and Windows.** The website runs in any modern browser. The show app is one cross-platform desktop app (Electron is the likely choice) with installers for both.
 - **No code-signing fees.** That means Mac and Windows warn on first install. Include the one-time "Open anyway" steps in the user guide.
 - **Nothing installed on the TC1.** The station may not allow it. Changing a TC1 setting, such as a fixed network address or a shared folder, needs approval from whoever is responsible for the equipment.
