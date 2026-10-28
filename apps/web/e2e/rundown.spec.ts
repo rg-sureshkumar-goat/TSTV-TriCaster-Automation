@@ -56,6 +56,22 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByLabel('A2 type').selectOption('VO');
   await expect(sam.getByLabel('A2 type')).toHaveValue('VO');
 
+  // Elements: A2 is a reader with an L3, and a VO playing over the anchor.
+  await rg.getByRole('button', { name: 'Add an element to A2' }).click();
+  await rg.getByRole('menuitem', { name: /^L3/ }).click();
+  await rg.getByRole('button', { name: 'Add an element to A2' }).click();
+  await rg.getByRole('menuitem', { name: /^VO/ }).click();
+  await rg.getByRole('button', { name: 'A2 element 2: VO' }).click();
+  await rg.getByLabel('Name (optional)').fill('Highlights');
+  await rg.getByRole('button', { name: 'Done' }).click();
+  await expect(sam.getByRole('button', { name: 'A2 element 2: VO Highlights' })).toBeVisible();
+  // Sam moves the VO first; RG sees the new order.
+  await sam.getByRole('button', { name: 'A2 element 2: VO Highlights' }).click();
+  await sam.getByRole('button', { name: '← Earlier' }).click();
+  await sam.getByRole('button', { name: 'Done' }).click();
+  await expect(rg.getByRole('button', { name: 'A2 element 1: VO Highlights' })).toBeVisible();
+  await expect(rg.getByRole('button', { name: 'A2 element 2: L3' })).toBeVisible();
+
   // Floating A2 keeps it but drops it from the total, for both people.
   await rg.getByRole('button', { name: 'Actions for A2' }).click();
   await rg.getByRole('menuitem', { name: /^Float/ }).click();
@@ -77,6 +93,7 @@ test('two people build one rundown together', async ({ browser }) => {
   const csv = readFileSync((await download.path())!, 'utf8');
   expect(download.suggestedFilename()).toBe('E2E News - Test Episode rundown.csv');
   expect(csv).toContain('A1,Cold Open');
+  expect(csv).toContain('"VO Highlights, L3"');
   expect(csv).toContain('Sam Writer');
 
   // Export PDF makes a real PDF file.
@@ -88,10 +105,10 @@ test('two people build one rundown together', async ({ browser }) => {
 
   // Search finds the episode by a slug. The room saves search text a few seconds after the last edit.
   await expect
-    .poll(async () => JSON.stringify(await (await rg.request.get('/api/search?q=Basketball')).json()), { timeout: 20_000 })
+    .poll(async () => JSON.stringify(await (await rg.request.get('/api/search?q=Highlights')).json()), { timeout: 20_000 })
     .toContain('Test Episode');
   await rg.getByRole('link', { name: 'Search' }).click();
-  await rg.getByPlaceholder('Search').fill('Basketball');
+  await rg.getByPlaceholder('Search').fill('Highlights');
   await expect(rg.getByRole('link', { name: /Test Episode/ })).toBeVisible();
   await rg.goto(episodeUrl);
 

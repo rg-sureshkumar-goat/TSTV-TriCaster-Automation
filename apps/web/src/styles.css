@@ -740,3 +740,99 @@ tr.dragging td {
 .signin-card .brand-mark {
   justify-self: center;
 }
+
+/* Floating menus and element editing */
+
+.popover {
+  position: fixed;
+  z-index: 50;
+}
+
+.popover .menu {
+  position: static;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.elements-col {
+  min-width: 270px;
+}
+
+.elements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 3px 0;
+}
+
+.element-chip {
+  display: inline-flex;
+  gap: 4px;
+  align-items: baseline;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid transparent;
+}
+
+.element-chip span {
+  font-weight: 400;
+}
+
+.element-chip.graphic {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.element-chip.clip {
+  background: #ffedd5;
+  color: #7c2d12;
+}
+
+@media (prefers-color-scheme: dark) {
+  .element-chip.graphic {
+    background: #1e3a8a;
+    color: #dbeafe;
+  }
+
+  .element-chip.clip {
+    background: #7c2d12;
+    color: #ffedd5;
+  }
+}
+
+.element-chip:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.element-add {
+  padding: 0 7px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.element-editor {
+  display: grid;
+  gap: 10px;
+  width: 300px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.element-editor .buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.element-editor button.danger {
+  color: var(--danger);
+}

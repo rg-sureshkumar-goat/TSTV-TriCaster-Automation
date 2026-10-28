@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import {
+  addElement,
   blockLetter,
   computeRundown,
   deleteRow,
@@ -10,9 +11,13 @@ import {
   initEpisode,
   insertBlock,
   insertSection,
+  moveElement,
   moveRow,
   parseDuration,
   readRows,
+  removeElement,
+  rowsOf,
+  updateElement,
   updateRow,
   type Row,
   type SectionRow,
@@ -32,6 +37,7 @@ const section = (slug: string, estSeconds: number | null, extra: Partial<Section
   greenScreen: '',
   floated: false,
   estSeconds,
+  elements: [],
   ...extra,
 });
 const block = (id: string): Row => ({ id, kind: 'block', title: '' });
@@ -136,6 +142,66 @@ describe('shared document', () => {
     const id = insertSection(doc, alex);
     deleteRow(doc, id);
     expect(readRows(doc)).toEqual([]);
+  });
+});
+
+describe('elements', () => {
+  const sectionWith = () => {
+    const doc = new Y.Doc();
+    const id = insertSection(doc, alex, { slug: 'Basketball', elements: [{ type: 'L3', name: 'Anchors' }] });
+    return { doc, id, section: () => readRows(doc)[0] as SectionRow };
+  };
+
+  it('a reader can have an L3 and a VO over it, in order', () => {
+    const { doc, id, section } = sectionWith();
+    addElement(doc, id, 'VO', sam, 'Highlights');
+    expect(section().elements.map((e) => `${e.type} ${e.name}`)).toEqual(['L3 Anchors', 'VO Highlights']);
+    expect(section().updatedBy).toEqual(sam);
+  });
+
+  it('renames, retypes, reorders and removes elements', () => {
+    const { doc, id, section } = sectionWith();
+    const vo = addElement(doc, id, 'VO', alex)!;
+    updateElement(doc, id, vo, { type: 'SOT', name: 'Coach' }, sam);
+    moveElement(doc, id, vo, 0, sam);
+    expect(section().elements.map((e) => e.type)).toEqual(['SOT', 'L3']);
+    removeElement(doc, id, section().elements[1].id, sam);
+    expect(section().elements.map((e) => `${e.type} ${e.name}`)).toEqual(['SOT Coach']);
+  });
+
+  it('keeps both when two people add elements to the same section at once', () => {
+    const a = new Y.Doc();
+    const b = new Y.Doc();
+    const id = insertSection(a, alex);
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+    addElement(a, id, 'L3', alex);
+    addElement(b, id, 'VO', sam);
+    Y.applyUpdate(a, Y.encodeStateAsUpdate(b));
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+    const types = (doc: Y.Doc) => (readRows(doc)[0] as SectionRow).elements.map((e) => e.type).sort();
+    expect(types(a)).toEqual(['L3', 'VO']);
+    expect(types(b)).toEqual(['L3', 'VO']);
+  });
+
+  it('keeps elements, still editable, when the section moves', () => {
+    const doc = new Y.Doc();
+    insertSection(doc, alex, { slug: 'First' });
+    const id = insertSection(doc, alex, { slug: 'Second', elements: [{ type: 'VO' }] });
+    moveRow(doc, 1, 0);
+    addElement(doc, id, 'L3', alex);
+    expect((readRows(doc)[0] as SectionRow).elements.map((e) => e.type)).toEqual(['VO', 'L3']);
+  });
+
+  it('gives rows made before elements existed an empty list', () => {
+    const doc = new Y.Doc();
+    const old = new Y.Map<unknown>();
+    old.set('id', 'old');
+    old.set('kind', 'section');
+    old.set('slug', 'Old story');
+    rowsOf(doc).push([old]);
+    expect((readRows(doc)[0] as SectionRow).elements).toEqual([]);
+    addElement(doc, 'old', 'FSG', alex);
+    expect((readRows(doc)[0] as SectionRow).elements.map((e) => e.type)).toEqual(['FSG']);
   });
 });
 

@@ -8,6 +8,25 @@ export interface Person {
   name: string;
 }
 
+/**
+ * Things that play during a section, each fired by its own cue. All of them play from DDR2 through DSK 2.
+ * L3, OTSL, OTSR and FSG are graphics; VO, SOT and PKG are clips.
+ */
+export const ELEMENT_TYPES = ['L3', 'OTSL', 'OTSR', 'FSG', 'VO', 'SOT', 'PKG'] as const;
+export type ElementType = (typeof ELEMENT_TYPES)[number];
+
+/** One element of a section, for example the VO that plays while the anchor reads. */
+export interface Element {
+  id: string;
+  type: ElementType;
+  /** Optional name, like "Highlights", which also helps match the graphics file later. */
+  name: string;
+}
+
+export function isElementType(value: unknown): value is ElementType {
+  return typeof value === 'string' && (ELEMENT_TYPES as readonly string[]).includes(value);
+}
+
 export interface BlockRow {
   id: string;
   kind: 'block';
@@ -33,6 +52,8 @@ export interface SectionRow {
   floated: boolean;
   /** Estimated length in seconds, typed in by hand. Later phases add script read time and clip lengths. */
   estSeconds: number | null;
+  /** What plays during the section, in order (a Reader might have an L3, then a VO over the anchor). */
+  elements: Element[];
   createdBy?: Person;
   createdAt?: number;
   updatedBy?: Person;
@@ -40,7 +61,8 @@ export interface SectionRow {
 }
 
 export type Row = BlockRow | SectionRow;
-export type SectionFields = Omit<SectionRow, 'id' | 'kind' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>;
+/** Fields set with updateRow. Elements have their own functions, so concurrent edits never collide. */
+export type SectionFields = Omit<SectionRow, 'id' | 'kind' | 'elements' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>;
 
 export const EMPTY_SECTION: SectionFields = {
   slug: '',
@@ -74,6 +96,11 @@ export function readRow(map: Y.Map<unknown>): Row {
     kind: 'section',
     floated: Boolean(s.floated),
     estSeconds: typeof s.estSeconds === 'number' ? s.estSeconds : null,
+    elements: Array.isArray(s.elements)
+      ? s.elements
+          .filter((e) => e && isElementType(e.type))
+          .map((e) => ({ id: String(e.id), type: e.type, name: String(e.name ?? '') }))
+      : [],
   };
 }
 
@@ -83,8 +110,24 @@ export function readRows(doc: Y.Doc): Row[] {
 
 function toMap(row: Record<string, unknown>): Y.Map<unknown> {
   const map = new Y.Map<unknown>();
-  for (const [key, value] of Object.entries(row)) if (value !== undefined) map.set(key, value);
+  for (const [key, value] of Object.entries(row)) {
+    if (value === undefined) continue;
+    if (key === 'elements' && Array.isArray(value)) {
+      // A shared list, so two people adding elements to the same section never overwrite each other.
+      const list = new Y.Array<Element>();
+      list.push(value as Element[]);
+      map.set(key, list);
+    } else {
+      map.set(key, value);
+    }
+  }
   return map;
+}
+
+function findMap(doc: Y.Doc, id: string): Y.Map<unknown> | undefined {
+  return rowsOf(doc)
+    .toArray()
+    .find((m) => m.get('id') === id);
 }
 
 function indexOf(doc: Y.Doc, id: string): number {
@@ -103,21 +146,25 @@ export function insertBlock(doc: Y.Doc, by: Person, title = '', index?: number):
 }
 
 /** Adds a section at the given position (or the end) and returns its id. */
-export function insertSection(doc: Y.Doc, by: Person, fields: Partial<SectionFields> = {}, index?: number): string {
+export function insertSection(
+  doc: Y.Doc,
+  by: Person,
+  fields: Partial<SectionFields> & { elements?: { type: ElementType; name?: string }[] } = {},
+  index?: number,
+): string {
   const id = newId();
   const rows = rowsOf(doc);
   const now = Date.now();
+  const elements = (fields.elements ?? []).map((e) => ({ id: newId(), type: e.type, name: e.name ?? '' }));
   rows.insert(index ?? rows.length, [
-    toMap({ ...EMPTY_SECTION, ...fields, id, kind: 'section', createdBy: by, createdAt: now, updatedBy: by, updatedAt: now }),
+    toMap({ ...EMPTY_SECTION, ...fields, elements, id, kind: 'section', createdBy: by, createdAt: now, updatedBy: by, updatedAt: now }),
   ]);
   return id;
 }
 
 /** Changes some fields of a row and records who changed it. */
 export function updateRow(doc: Y.Doc, id: string, patch: Partial<SectionFields> | { title: string }, by: Person): void {
-  const map = rowsOf(doc)
-    .toArray()
-    .find((m) => m.get('id') === id);
+  const map = findMap(doc, id);
   if (!map) return;
   doc.transact(() => {
     for (const [key, value] of Object.entries(patch)) {
@@ -125,6 +172,79 @@ export function updateRow(doc: Y.Doc, id: string, patch: Partial<SectionFields> 
     }
     map.set('updatedBy', by);
     map.set('updatedAt', Date.now());
+  });
+}
+
+// ---- Elements ----
+
+function elementsOf(map: Y.Map<unknown>): Y.Array<Element> {
+  let list = map.get('elements');
+  if (!(list instanceof Y.Array)) {
+    // Rows made before elements existed get an empty list the first time someone adds one.
+    const fresh = new Y.Array<Element>();
+    if (Array.isArray(list)) fresh.push(list as Element[]);
+    map.set('elements', fresh);
+    list = fresh;
+  }
+  return list as Y.Array<Element>;
+}
+
+function stamp(map: Y.Map<unknown>, by: Person): void {
+  map.set('updatedBy', by);
+  map.set('updatedAt', Date.now());
+}
+
+/** Adds an element to the end of a section's list (or at a position) and returns its id. */
+export function addElement(doc: Y.Doc, sectionId: string, type: ElementType, by: Person, name = '', index?: number): string | undefined {
+  const map = findMap(doc, sectionId);
+  if (!map || map.get('kind') !== 'section') return undefined;
+  const id = newId();
+  doc.transact(() => {
+    const list = elementsOf(map);
+    list.insert(Math.min(index ?? list.length, list.length), [{ id, type, name }]);
+    stamp(map, by);
+  });
+  return id;
+}
+
+/** Renames an element or changes its type. */
+export function updateElement(doc: Y.Doc, sectionId: string, elementId: string, patch: Partial<Pick<Element, 'type' | 'name'>>, by: Person): void {
+  const map = findMap(doc, sectionId);
+  if (!map) return;
+  doc.transact(() => {
+    const list = elementsOf(map);
+    const i = list.toArray().findIndex((e) => e.id === elementId);
+    if (i < 0) return;
+    const next = { ...list.get(i), ...patch };
+    list.delete(i, 1);
+    list.insert(i, [next]);
+    stamp(map, by);
+  });
+}
+
+export function removeElement(doc: Y.Doc, sectionId: string, elementId: string, by: Person): void {
+  const map = findMap(doc, sectionId);
+  if (!map) return;
+  doc.transact(() => {
+    const list = elementsOf(map);
+    const i = list.toArray().findIndex((e) => e.id === elementId);
+    if (i >= 0) list.delete(i, 1);
+    stamp(map, by);
+  });
+}
+
+/** Moves an element earlier or later in its section (the order elements are expected to fire). */
+export function moveElement(doc: Y.Doc, sectionId: string, elementId: string, to: number, by: Person): void {
+  const map = findMap(doc, sectionId);
+  if (!map) return;
+  doc.transact(() => {
+    const list = elementsOf(map);
+    const from = list.toArray().findIndex((e) => e.id === elementId);
+    if (from < 0 || to < 0 || to >= list.length || from === to) return;
+    const element = list.get(from);
+    list.delete(from, 1);
+    list.insert(to, [element]);
+    stamp(map, by);
   });
 }
 

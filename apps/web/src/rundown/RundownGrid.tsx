@@ -6,15 +6,22 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
+  addElement,
   deleteRow,
+  ELEMENT_TYPES,
   formatClock,
   formatDuration,
   insertBlock,
   insertSection,
+  moveElement,
   moveRow,
   parseDuration,
+  removeElement,
+  updateElement,
   updateRow,
   type ComputedRow,
+  type Element,
+  type ElementType,
   type Person,
   type RundownTiming,
   type SectionRow,
@@ -22,6 +29,7 @@ import {
 } from '@tstv/shared';
 import type { Presence } from './useEpisodeDoc.ts';
 import { timeAgo } from '../lib/format.ts';
+import { Popover } from '../components/Popover.tsx';
 
 interface GridProps {
   doc: Y.Doc;
@@ -58,7 +66,7 @@ export function RundownGrid({ doc, timing, settings, airTime, me, readOnly, othe
             <th>Talent</th>
             <th>Camera</th>
             <th>Green screen</th>
-            <th title="Graphics and clips attached to this section">Elements</th>
+            <th title="Graphics and clips that play during this section, in order">Elements</th>
             <th className="time-col" title="Estimated length">Est.</th>
             <th className="time-col" title={airTime ? 'Clock time this must start to end on time' : 'How far into the show this must start to end on time'}>
               Back-time
@@ -221,9 +229,7 @@ function SectionLine({ computed, index, count, doc, me, settings, readOnly, back
           )}
           {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />)}
           {cell('greenScreen', <TextCell value={row.greenScreen} placeholder="—" readOnly={readOnly} onCommit={(greenScreen) => set({ greenScreen })} ariaLabel={`${computed.label} green screen`} />)}
-          <td className="muted" title="Graphics and clips appear here once scripts (Phase 2) and graphics import (Phase 4) exist.">
-            —
-          </td>
+          {cell('elements', <ElementsCell section={row} label={computed.label} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
           {cell('est', <DurationCell value={row.estSeconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
           <td className="time-col">{backTime}</td>
           <td className="edited-col" title={row.createdBy ? `Created by ${row.createdBy.name}` : undefined}>
@@ -341,37 +347,162 @@ interface MenuItem {
 }
 
 function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [open]);
+  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   return (
-    <div className="row-menu" ref={ref}>
-      <button aria-label={`Actions for ${label}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+    <div className="row-menu">
+      <button aria-label={`Actions for ${label}`} aria-expanded={Boolean(anchor)} onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}>
         ⋯
       </button>
-      {open && (
-        <div className="menu" role="menu">
-          {items.map((item) => (
-            <button
-              key={item.label}
-              role="menuitem"
-              className={item.danger ? 'danger' : ''}
-              disabled={item.disabled}
-              onClick={() => {
-                setOpen(false);
-                item.run();
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+      {anchor && (
+        <Popover anchor={anchor} align="right" onClose={() => setAnchor(null)}>
+          <div className="menu" role="menu">
+            {items.map((item) => (
+              <button
+                key={item.label}
+                role="menuitem"
+                className={item.danger ? 'danger' : ''}
+                disabled={item.disabled}
+                onClick={() => {
+                  setAnchor(null);
+                  item.run();
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </Popover>
       )}
+    </div>
+  );
+}
+
+// ---- Elements ----
+
+const ELEMENT_HELP: Record<ElementType, string> = {
+  L3: 'lower third',
+  OTSL: 'over the shoulder, left',
+  OTSR: 'over the shoulder, right',
+  FSG: 'full-screen graphic',
+  VO: 'video the anchor reads over',
+  SOT: 'sound bite with its own audio',
+  PKG: 'package',
+};
+
+const isClip = (type: ElementType) => type === 'VO' || type === 'SOT' || type === 'PKG';
+
+/** The section's elements as chips, in the order they're expected to fire, plus a + to add one. */
+function ElementsCell({ section, label, doc, me, readOnly }: { section: SectionRow; label: string; doc: Y.Doc; me: Person; readOnly: boolean }) {
+  const [open, setOpen] = useState<{ id: string; anchor: HTMLElement } | null>(null);
+  const close = () => setOpen(null);
+  const toggle = (id: string, anchor: HTMLElement) => setOpen(open?.id === id ? null : { id, anchor });
+  const editing = section.elements.find((e) => e.id === open?.id);
+
+  return (
+    <div className="elements">
+      {section.elements.map((e, i) => (
+        <button
+          key={e.id}
+          className={`element-chip ${isClip(e.type) ? 'clip' : 'graphic'}`}
+          disabled={readOnly}
+          title={`${e.type}: ${ELEMENT_HELP[e.type]}`}
+          aria-label={`${label} element ${i + 1}: ${e.type}${e.name ? ` ${e.name}` : ''}`}
+          onClick={(ev) => toggle(e.id, ev.currentTarget)}
+        >
+          <strong>{e.type}</strong>
+          {e.name && <span>{e.name}</span>}
+        </button>
+      ))}
+      {!readOnly && (
+        <button className="element-add" aria-label={`Add an element to ${label}`} title="Add an element" onClick={(ev) => toggle('add', ev.currentTarget)}>
+          +
+        </button>
+      )}
+      {open?.id === 'add' && (
+        <Popover anchor={open.anchor} onClose={close}>
+          <div className="menu" role="menu" aria-label={`Add an element to ${label}`}>
+            {ELEMENT_TYPES.map((type) => (
+              <button
+                key={type}
+                role="menuitem"
+                onClick={() => {
+                  addElement(doc, section.id, type, me);
+                  close();
+                }}
+              >
+                <strong>{type}</strong> <span className="muted small">{ELEMENT_HELP[type]}</span>
+              </button>
+            ))}
+          </div>
+        </Popover>
+      )}
+      {editing && open && (
+        <Popover anchor={open.anchor} onClose={close}>
+          <ElementEditor element={editing} index={section.elements.indexOf(editing)} count={section.elements.length} sectionId={section.id} label={label} doc={doc} me={me} onDone={close} />
+        </Popover>
+      )}
+    </div>
+  );
+}
+
+function ElementEditor({ element, index, count, sectionId, label, doc, me, onDone }: { element: Element; index: number; count: number; sectionId: string; label: string; doc: Y.Doc; me: Person; onDone: () => void }) {
+  const [name, setName] = useState(element.name);
+  const saveName = () => name.trim() !== element.name && updateElement(doc, sectionId, element.id, { name: name.trim() }, me);
+  return (
+    <div className="element-editor" role="dialog" aria-label={`${label} ${element.type} element`}>
+      <label>
+        Type
+        <select value={element.type} onChange={(e) => updateElement(doc, sectionId, element.id, { type: e.target.value as ElementType }, me)}>
+          {ELEMENT_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}: {ELEMENT_HELP[t]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Name (optional)
+        <input
+          value={name}
+          maxLength={80}
+          placeholder="e.g. Highlights"
+          autoFocus
+          onChange={(e) => setName(e.target.value)}
+          onBlur={saveName}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              saveName();
+              onDone();
+            }
+          }}
+        />
+      </label>
+      <div className="buttons">
+        <button disabled={index === 0} onClick={() => moveElement(doc, sectionId, element.id, index - 1, me)}>
+          ← Earlier
+        </button>
+        <button disabled={index === count - 1} onClick={() => moveElement(doc, sectionId, element.id, index + 1, me)}>
+          Later →
+        </button>
+        <button
+          className="danger"
+          onClick={() => {
+            removeElement(doc, sectionId, element.id, me);
+            onDone();
+          }}
+        >
+          Remove
+        </button>
+        <button
+          className="primary"
+          onClick={() => {
+            saveName();
+            onDone();
+          }}
+        >
+          Done
+        </button>
+      </div>
     </div>
   );
 }

@@ -73,6 +73,11 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 
 - One row per section, grouped under block headers A, B, C. Sections are numbered within the block: A1, A2, B1.
 - Columns: Section, Slug, Segment type (Reader, VO, VO/SOT, SOT, PKG, OTS, Weather and so on, editable list), Talent, Camera, Green-screen background, Elements (attached graphics with Ready or Missing status), Est. duration, Back-time.
+- **Decided Oct 28, 2026:** a section can have several things happening in it, so the **Elements** column lists each section's elements in the order they fire. For example, a Reader can have an L3 and then a VO playing over the anchor.
+  - Element types: L3, OTSL, OTSR, FSG, VO, SOT and PKG. Each element can also have an optional name.
+  - Elements are planned in the rundown first.
+  - In Phase 2 each element is linked to its cue chip in the script. In Phase 4 it's linked to its file, with Ready or Missing.
+  - The TriCaster cueing is built from them.
 - Drag rows to reorder, add or delete sections, and **float** a section (keep it but skip it on air). Section numbers update when rows move.
 
 **Timing**

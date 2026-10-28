@@ -71,7 +71,7 @@ export class EpisodeRoom extends YServer<Env> {
     const timing = computeRundown(rows, 0);
     const sections = rows.filter((r) => r.kind === 'section');
     const searchText = rows
-      .map((r) => (r.kind === 'block' ? r.title : [r.slug, r.type, r.talent, r.greenScreen].join(' ')))
+      .map((r) => (r.kind === 'block' ? r.title : [r.slug, r.type, r.talent, r.greenScreen, ...r.elements.map((e) => `${e.type} ${e.name}`)].join(' ')))
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
