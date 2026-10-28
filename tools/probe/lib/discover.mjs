@@ -1,9 +1,9 @@
 // @ts-check
 // Finds the TC1 on the cable without changing any network settings.
 import net from 'node:net';
-import { arpCandidates, bindAddressFor, isLinkLocalV4, parseArp, parseIpv6Neighbors, runCommand } from './network.mjs';
+import { arpArgs, arpCandidates, bindAddressFor, parseArp, parseIpv6Neighbors, runCommand } from './network.mjs';
 import { queryMdns, querySsdp } from './mdns.mjs';
-import { checkPorts, sweepLinkLocal } from './ports.mjs';
+import { checkPorts } from './ports.mjs';
 import { readOnlyGet } from './http.mjs';
 
 /**
@@ -21,12 +21,14 @@ import { readOnlyGet } from './http.mjs';
  *   platform: string,
  *   httpPort: number,
  *   statePort: number,
- *   sweep: boolean,
+ *   waitSeconds: number,
  *   log: (line: string) => void,
  *   signal?: AbortSignal,
  * }} options
  */
-export async function discover({ wired, platform, httpPort, statePort, sweep, log, signal }) {
+export async function discover({ wired, platform, httpPort, statePort, waitSeconds, log, signal }) {
+  /** @type {{ seconds: number, appeared: string[] } | undefined} */
+  let waited;
   /** @type {Map<string, Candidate>} */
   const candidates = new Map();
   /** @type {Map<string, Set<string>>} */
@@ -55,7 +57,7 @@ export async function discover({ wired, platform, httpPort, statePort, sweep, lo
   };
 
   log('Reading the laptop\'s table of devices it has already seen on the cable...');
-  const arpBefore = await runCommand('arp', ['-a']);
+  const arpBefore = await runCommand('arp', arpArgs(platform));
   for (const entry of arpCandidates(parseArp(arpBefore.stdout), wired)) add(entry.ip, 'ARP table');
 
   log('Asking the cable "who\'s there?" (multicast DNS and UPnP)...');
@@ -75,7 +77,7 @@ export async function discover({ wired, platform, httpPort, statePort, sweep, lo
   }
   for (const reply of ssdp) add(reply.from, 'UPnP answer', [reply.headers.server ?? ''].filter(Boolean));
 
-  const arpAfter = await runCommand('arp', ['-a']);
+  const arpAfter = await runCommand('arp', arpArgs(platform));
   for (const entry of arpCandidates(parseArp(arpAfter.stdout), wired)) add(entry.ip, 'ARP table');
 
   log('Looking for IPv6 neighbors on the cable...');
@@ -88,22 +90,26 @@ export async function discover({ wired, platform, httpPort, statePort, sweep, lo
   for (const c of candidates.values()) log(`  ${c.host} (${c.sources.join(', ')})`);
   await Promise.all([...candidates.values()].map((c) => identify(c, httpPort, statePort)));
 
-  /** @type {(Awaited<ReturnType<typeof sweepLinkLocal>> & { adapter: string })[]} */
-  const sweeps = [];
-  // Most likely adapter first (describeAdapters sorts them); stop as soon as something answers.
-  for (const adapter of wired) {
-    const own = adapter.ipv4.find((x) => isLinkLocalV4(x.address));
-    if (!own || bestOf(candidates) || !sweep || signal?.aborted) continue;
-    log(`Nothing answered yet, so searching every automatic address on ${adapter.name}${adapter.label ? ` (${adapter.label})` : ''}. This can take up to 2 minutes...`);
-    const result = await sweepLinkLocal({
-      localAddress: own.address,
-      ports: [httpPort, statePort],
-      onProgress: (done, total) => log(`  searched ${Math.round((done / total) * 100)}%`),
-      shouldStop: () => Boolean(signal?.aborted),
-    });
-    sweeps.push({ ...result, adapter: adapter.name });
-    for (const host of result.hosts) add(host.host, 'cable search');
-    await Promise.all([...candidates.values()].filter((c) => !c.quickPorts).map((c) => identify(c, httpPort, statePort)));
+  // If nothing answered, wait quietly for the TC1 to show up in the laptop's device list. Windows gives
+  // itself an automatic address about a minute after a cable is plugged in, then announces it on the cable.
+  // (An earlier version searched every address instead; on campus that disrupted the laptop's Wi-Fi.)
+  if (!bestOf(candidates) && waitSeconds > 0 && !signal?.aborted) {
+    log(`Nothing has answered yet. Waiting up to ${waitSeconds} seconds for the TC1 to announce itself on the cable...`);
+    const started = Date.now();
+    /** @type {string[]} */
+    const appeared = [];
+    while (!bestOf(candidates) && Date.now() - started < waitSeconds * 1000 && !signal?.aborted) {
+      await sleep(3000);
+      const arp = await runCommand('arp', arpArgs(platform));
+      for (const entry of arpCandidates(parseArp(arp.stdout), wired)) {
+        if (candidates.has(entry.ip)) continue;
+        appeared.push(entry.ip);
+        add(entry.ip, 'ARP table (appeared while waiting)');
+        log(`  A device appeared at ${entry.ip}. Checking it...`);
+      }
+      await Promise.all([...candidates.values()].filter((c) => !c.quickPorts).map((c) => identify(c, httpPort, statePort)));
+    }
+    waited = { seconds: Math.round((Date.now() - started) / 1000), appeared };
   }
 
   return finish();
@@ -116,7 +122,7 @@ export async function discover({ wired, platform, httpPort, statePort, sweep, lo
       mdns,
       ssdp,
       ipv6,
-      sweeps,
+      waited,
       candidates: [...candidates.values()],
       offSubnet: [...offSubnet.entries()].map(([ip, sources]) => ({
         ip,
@@ -209,3 +215,7 @@ export function explicitCandidate(host, wired) {
   return candidate;
 }
 
+/** @param {number} ms */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

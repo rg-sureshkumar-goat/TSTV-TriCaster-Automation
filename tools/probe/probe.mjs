@@ -19,7 +19,7 @@ Options:
   --state-port <n>      TriCaster state-stream port (default 5951)
   --listen <seconds>    How long to listen when not doing the guided steps (default 60)
   --no-guided           Skip the guided panel steps and just listen
-  --no-sweep            Don't search every automatic address if nothing answers
+  --wait <seconds>      How long to wait for the TC1 to appear on the cable (default 90)
   --out <folder>        Where to save results (default tools/probe/results)
   --yes                 Ask no questions (for automated runs)
   --help                Show this help
@@ -33,8 +33,7 @@ const { values } = parseArgs({
     listen: { type: 'string' },
     guided: { type: 'boolean', default: true },
     'no-guided': { type: 'boolean', default: false },
-    sweep: { type: 'boolean', default: true },
-    'no-sweep': { type: 'boolean', default: false },
+    wait: { type: 'string' },
     out: { type: 'string' },
     yes: { type: 'boolean', default: false },
     help: { type: 'boolean', default: false },
@@ -80,7 +79,7 @@ try {
     statePort: values['state-port'] ? Number(values['state-port']) : undefined,
     listenSeconds: values.listen ? Number(values.listen) : undefined,
     guided: values.guided && !values['no-guided'],
-    sweep: values.sweep && !values['no-sweep'],
+    waitSeconds: values.wait ? Number(values.wait) : undefined,
     outDir: values.out,
     interactive,
     ask,

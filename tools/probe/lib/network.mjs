@@ -172,6 +172,15 @@ export function bindAddressFor(ip, wired) {
 }
 
 /**
+ * Arguments for reading the ARP table. On a Mac, plain `arp -a` looks up a name for every address,
+ * which stalls when Wi-Fi is down; `-n` keeps it to numbers. Windows always prints numbers.
+ * @param {string} platform
+ */
+export function arpArgs(platform) {
+  return platform === 'win32' ? ['-a'] : ['-an'];
+}
+
+/**
  * Parses `arp -a` from macOS or Windows.
  * @param {string} text
  * @returns {ArpEntry[]}

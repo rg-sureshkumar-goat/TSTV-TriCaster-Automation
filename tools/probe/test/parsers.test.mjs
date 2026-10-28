@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  arpArgs,
   arpCandidates,
   bindAddressFor,
   describeAdapters,
@@ -73,6 +74,11 @@ describe('adapters', () => {
 });
 
 describe('ARP tables', () => {
+  it('reads the table as plain numbers on a Mac, so it never stalls looking up names when Wi-Fi is down', () => {
+    expect(arpArgs('darwin')).toEqual(['-an']);
+    expect(arpArgs('win32')).toEqual(['-a']);
+  });
+
   it('reads the macOS format', () => {
     const text = [
       '? (10.145.3.1) at 0:11:22:33:44:55 on en0 ifscope [ethernet]',

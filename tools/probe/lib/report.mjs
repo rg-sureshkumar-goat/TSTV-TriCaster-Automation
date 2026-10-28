@@ -17,9 +17,16 @@ export function buildAnswers(results) {
   const http = results.http?.requests ?? {};
   const version = http['/v1/version'];
   const states = results.stateStream?.states ?? {};
-  const stateNames = Object.keys(states);
+  // The TC1 also reports what every control-panel model would show; those mirrors aren't useful here.
+  const stateNames = Object.keys(states).filter((n) => !PANEL_MIRROR.test(n));
   const steps = results.guidedSteps ?? [];
-  const stepChanges = (/** @type {string} */ id) => Object.keys(steps.find((/** @type {any} */ s) => s.id === id && !s.skipped)?.changedStates ?? {});
+  // Everything that moved during a step, including things switched on and back off again.
+  const stepChanges = (/** @type {string} */ id) => {
+    const step = steps.find((/** @type {any} */ s) => s.id === id && !s.skipped);
+    if (!step) return [];
+    const names = [...(step.sequence ?? []).map((/** @type {any} */ c) => c.name), ...Object.keys(step.changedStates ?? {})];
+    return [...new Set(names)].filter((n) => !PANEL_MIRROR.test(n));
+  };
   const okKeys = Object.entries(results.http?.dictionary ?? {})
     .filter(([, r]) => /** @type {any} */ (r).status === 200 && /** @type {any} */ (r).bytes > 0)
     .map(([key]) => key);
@@ -109,11 +116,13 @@ export function buildAnswers(results) {
 
   // 3. DDR2
   {
-    const ddr2 = matching(/^ddr2_/i);
-    const changedWhilePlaying = [...stepChanges('ddr2_play'), ...stepChanges('ddr2_end')].filter((n) => /^ddr2_/i.test(n));
+    const ddr2 = matching(/^ddr2_(play|stop|select_clips|autoplay_mode_toggle|single_mode_toggle)$/i);
+    const changedWhilePlaying = [...new Set([...stepChanges('ddr2_play'), ...stepChanges('ddr2_end')])].filter((n) => /^ddr2_(play|stop)$/i.test(n));
     const changedOnSelect = stepChanges('ddr2_select').filter((n) => /^ddr2_/i.test(n));
     /** @type {string[]} */
-    const detail = [`DDR2 states reported: ${list(ddr2)}.`];
+    const detail = [`Key DDR2 states: ${list(ddr2)}.`];
+    if (okKeys.includes('ddr_playlist')) detail.push('The playlist itself is readable (ddr_playlist): every clip, its file and its length.');
+    if (okKeys.includes('ddr_timecode')) detail.push('Clip timing is readable (ddr_timecode): seconds elapsed and remaining in the current clip.');
     if (changedOnSelect.length) detail.push(`Picking a playlist item changed: ${list(changedOnSelect)}.`);
     if (changedWhilePlaying.length) detail.push(`Playing and stopping changed: ${list(changedWhilePlaying)}. That means the app can see when a clip stops.`);
     detail.push('Jumping to an item and playing it are commands, so they get confirmed in live mode (Phase 5).');
@@ -133,7 +142,8 @@ export function buildAnswers(results) {
     const detail = [`Windows file sharing (port 445): ${smb ?? 'not checked'}.`];
     if (share?.shareList) {
       const out = `${share.shareList.stdout}\n${share.shareList.stderr}`.trim();
-      detail.push(`Share list: ${out ? out.split(/\r?\n/).slice(0, 8).join(' | ') : '(no output)'}`);
+      if (/auth|access is denied|denied|logon/i.test(out)) detail.push('Listing the shared folders needs a Windows login on the TC1 (the TC1 owner would have to approve one).');
+      else detail.push(`Share list: ${out ? out.split(/\r?\n/).slice(0, 8).join(' | ') : '(no output)'}`);
     }
     detail.push('Loading files into DDR2 and GFX 1 remotely is a command, so it gets confirmed in live mode (Phase 5).');
     answers.push({
@@ -146,11 +156,12 @@ export function buildAnswers(results) {
 
   // 5. Recording
   {
-    const record = matching(/record/i);
-    const changed = stepChanges('record').filter((n) => /record/i.test(n));
+    const record = matching(/^record_/i);
+    const changed = stepChanges('record').filter((n) => /^record_/i.test(n));
     /** @type {string[]} */
     const detail = [`Recording states reported: ${list(record)}.`];
-    if (changed.length) detail.push(`Starting and stopping recording changed: ${list(changed)}.`);
+    if (changed.length) detail.push(`Starting and stopping recording changed: ${list(changed)}, so the app can see when the TC1 is recording.`);
+    if (results.http?.notificationReads?.record_configuration) detail.push('Recording settings are readable (record_configuration).');
     detail.push('Starting recording and setting where it saves are commands, so they get confirmed in live mode (Phase 5).');
     answers.push({
       id: 'record',
@@ -162,8 +173,10 @@ export function buildAnswers(results) {
 
   // 6. Reading what's on air
   {
-    const dsk2 = matching(/dsk2/i);
-    const me2 = matching(/^v2_/i);
+    const dsk2 = matching(/^main_dsk2_(select_named_input|value|take)$/i);
+    const me2 = matching(/^v2_(a|b)_row_named_input$/i);
+    const program = states.main_a_row_named_input?.value;
+    const programTally = states.program_tally?.value;
     const tally = okKeys.includes('tally');
     const switcher = okKeys.includes('switcher');
     /** @type {string[]} */
@@ -173,9 +186,10 @@ export function buildAnswers(results) {
       `DSK 2 states: ${list(dsk2, 8)}.`,
       `M/E 2 states: ${list(me2, 8)}.`,
     ];
-    const cam = stepChanges('camera');
+    if (program) detail.push(`Program row shows: ${program}${programTally ? `; what's on air: ${programTally}` : ''}.`);
+    const cam = stepChanges('camera').filter((n) => /_row_named_input$|^program_tally$/.test(n));
     if (cam.length) detail.push(`Taking a camera changed: ${list(cam, 8)}.`);
-    const dskStep = stepChanges('dsk2');
+    const dskStep = stepChanges('dsk2').filter((n) => /^(main_dsk2_(value|take)|ddr2_(play|stop|select_clips))$/.test(n));
     if (dskStep.length) detail.push(`DSK 2 on/off changed: ${list(dskStep, 8)}.`);
     answers.push({
       id: 'state',
@@ -187,6 +201,8 @@ export function buildAnswers(results) {
 
   return answers;
 }
+
+const PANEL_MIRROR = /^(minics_|strip\d+_|cs\d+_|tcs_|tc1l_|gemini|keyboard_bank|swit45_)/;
 
 /** @param {string} body */
 function describeProduct(body) {

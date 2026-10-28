@@ -65,7 +65,7 @@ export const DEFAULT_OUT_DIR = path.resolve(HERE, '..', 'results');
  *   listenSeconds?: number,
  *   guided?: boolean,
  *   interactive?: boolean,
- *   sweep?: boolean,
+ *   waitSeconds?: number,
  *   outDir?: string,
  *   waitForCableMs?: number,
  *   log?: (line: string) => void,
@@ -85,7 +85,7 @@ export async function runProbe(options = {}) {
     listenSeconds = 60,
     guided = true,
     interactive = false,
-    sweep = true,
+    waitSeconds = 90,
     outDir = DEFAULT_OUT_DIR,
     waitForCableMs = 75_000,
     log = console.log,
@@ -102,7 +102,7 @@ export async function runProbe(options = {}) {
   /** @type {any} */
   const results = {
     probe: { name: 'TSTV TriCaster probe', version: PROBE_VERSION, readOnly: true, startedAt: startedAt.toISOString() },
-    options: { host: host ?? null, httpPort, statePort, listenSeconds, guided: guided && interactive, sweep },
+    options: { host: host ?? null, httpPort, statePort, listenSeconds, guided: guided && interactive, waitSeconds },
     laptop: {},
     discovery: {},
     ports: {},
@@ -166,7 +166,7 @@ export async function runProbe(options = {}) {
     chosen.quickPorts = await checkPorts({ host, localAddress: chosen.localAddress }, [httpPort, statePort]);
     results.discovery = { chosen, note: 'Address typed in, so automatic discovery was skipped.' };
   } else if (wired.length > 0) {
-    const found = await discover({ wired, platform, httpPort, statePort, sweep, log, signal });
+    const found = await discover({ wired, platform, httpPort, statePort, waitSeconds, log, signal });
     results.discovery = found;
     chosen = found.chosen;
   } else {
@@ -251,9 +251,12 @@ export async function runProbe(options = {}) {
   const basicAuth = credentials && results.http.authUsed === 'Basic' ? buildAuthorization('Basic', credentials, '/')?.header : undefined;
   const ws = listenWebSocket(web, '/v1/change_notifications', {
     authorization: basicAuth,
-    onMessage: (text) => {
+    onMessage: (raw) => {
+      // The real TC1 ends each notification with a null character ("tally\0").
+      if (raw.includes('\0')) results.notifications.nullTerminated = true;
+      const text = raw.replace(/\0/g, '').trim();
       notifications.push({ t: Date.now() - t0, text: text.slice(0, 2000) });
-      const key = text.trim();
+      const key = text;
       if (!/^[A-Za-z0-9_]{1,64}$/.test(key) || notificationReads >= 300) return;
       if (Date.now() - (lastRead.get(key) ?? 0) < 3000) return;
       lastRead.set(key, Date.now());

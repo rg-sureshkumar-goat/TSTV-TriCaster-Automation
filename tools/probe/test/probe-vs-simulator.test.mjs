@@ -41,7 +41,10 @@ describe('probe against the simulator', () => {
     expect(results.stateStream.states.main_dsk2_value).toBeDefined();
     expect(results.stateStream.changes).toContainEqual(expect.objectContaining({ name: 'main_dsk2_value', value: '1' }));
     expect(results.notifications.upgraded).toBe(true);
+    // The TC1 ends notifications with a null character; the probe records them without it.
+    expect(results.notifications.nullTerminated).toBe(true);
     expect(results.notifications.messages.map((/** @type {any} */ m) => m.text)).toContain('tally');
+    expect(Object.keys(results.http.notificationReads)).toContain('tally');
     expect(results.answers.find((/** @type {any} */ a) => a.id === 'interface').answer).toBe('Yes');
 
     expect(fs.existsSync(files.json)).toBe(true);
@@ -76,13 +79,14 @@ describe('probe against the simulator', () => {
       interactive: true,
       ask: async () => {
         // Step 2 is "take a different camera": do it on the simulated panel before answering.
-        if (step === 0) sim.switcher.command('panel', 'main_a_row', 'input2');
+        // On TSTV's TC1 cameras are switched on M/E 1, which is on program.
+        if (step === 0) sim.switcher.command('panel', 'v1_a_row', 'INPUT2');
         if (step === 1) sim.switcher.command('panel', 'main_dsk2_take');
         return replies[step++] ?? 's';
       },
     });
     const camera = results.guidedSteps.find((/** @type {any} */ s) => s.id === 'camera');
-    expect(camera.changedStates.main_a_row).toEqual({ from: 'input1', to: 'input2' });
+    expect(camera.changedStates.v1_a_row_named_input).toEqual({ from: 'INPUT1', to: 'INPUT2' });
     const dsk = results.guidedSteps.find((/** @type {any} */ s) => s.id === 'dsk2');
     expect(Object.keys(dsk.changedStates)).toContain('main_dsk2_value');
     expect(sim.externalCommands()).toEqual([]);
