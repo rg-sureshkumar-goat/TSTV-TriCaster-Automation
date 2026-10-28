@@ -23,3 +23,9 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - name: Build the website
+        run: npm run build -w apps/web
+      - name: Browser tests (two people editing one rundown)
+        run: |
+          npx playwright install chromium
+          npm run test:e2e

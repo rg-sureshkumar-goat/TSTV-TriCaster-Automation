@@ -1,0 +1,12 @@
+{
+  "name": "@tstv/shared",
+  "private": true,
+  "type": "module",
+  "description": "Code the website, prompter and show app share: rundown model, timing, numbering",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "yjs": "^13.6.33"
+  }
+}

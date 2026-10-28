@@ -7,13 +7,17 @@
     "node": ">=22"
   },
   "workspaces": [
+    "packages/shared",
+    "apps/web",
     "tools/simulator"
   ],
   "scripts": {
     "probe": "node tools/probe/probe.mjs",
     "simulator": "tsx tools/simulator/src/main.ts",
     "test": "vitest run",
-    "typecheck": "tsc -p tools/simulator && tsc -p tools/probe"
+    "typecheck": "tsc -p tools/simulator && tsc -p tools/probe && tsc -p packages/shared && tsc -p apps/web && tsc -p apps/web/worker",
+    "dev": "npm run dev -w apps/web",
+    "test:e2e": "npm run test:e2e -w apps/web"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
@@ -24,6 +28,8 @@
   },
   "allowScripts": {
     "esbuild": false,
-    "fsevents": false
+    "fsevents": false,
+    "workerd": false,
+    "core-js": false
   }
 }

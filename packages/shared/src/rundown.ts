@@ -1,0 +1,279 @@
+// The rundown: blocks (A, B, C…) and the sections under them (A1, A2, B1…). One episode's rundown is a
+// shared Yjs document, so several people can edit it at once without overwriting each other. Every
+// section remembers who created it and who last edited it.
+import * as Y from 'yjs';
+
+export interface Person {
+  id: string;
+  name: string;
+}
+
+export interface BlockRow {
+  id: string;
+  kind: 'block';
+  title: string;
+  createdBy?: Person;
+  updatedBy?: Person;
+  updatedAt?: number;
+}
+
+export interface SectionRow {
+  id: string;
+  kind: 'section';
+  slug: string;
+  /** Segment type, from the show's editable list (Reader, VO, SOT, PKG…). */
+  type: string;
+  /** Who reads it on air. */
+  talent: string;
+  /** Camera name from the show's camera list; empty means the show's default camera. */
+  camera: string;
+  /** Name of the green-screen background, if the section uses one. */
+  greenScreen: string;
+  /** Kept in the rundown but skipped on air. */
+  floated: boolean;
+  /** Estimated length in seconds, typed in by hand. Later phases add script read time and clip lengths. */
+  estSeconds: number | null;
+  createdBy?: Person;
+  createdAt?: number;
+  updatedBy?: Person;
+  updatedAt?: number;
+}
+
+export type Row = BlockRow | SectionRow;
+export type SectionFields = Omit<SectionRow, 'id' | 'kind' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>;
+
+export const EMPTY_SECTION: SectionFields = {
+  slug: '',
+  type: '',
+  talent: '',
+  camera: '',
+  greenScreen: '',
+  floated: false,
+  estSeconds: null,
+};
+
+/** The shared list of rows in an episode's document. */
+export function rowsOf(doc: Y.Doc): Y.Array<Y.Map<unknown>> {
+  return doc.getArray<Y.Map<unknown>>('rows');
+}
+
+export function newId(): string {
+  return crypto.randomUUID();
+}
+
+export function readRow(map: Y.Map<unknown>): Row {
+  const data = map.toJSON() as Partial<Row> & { kind?: string };
+  if (data.kind === 'block') {
+    return { id: String(data.id), kind: 'block', title: String((data as BlockRow).title ?? ''), createdBy: data.createdBy, updatedBy: data.updatedBy, updatedAt: data.updatedAt };
+  }
+  const s = data as Partial<SectionRow>;
+  return {
+    ...EMPTY_SECTION,
+    ...s,
+    id: String(s.id),
+    kind: 'section',
+    floated: Boolean(s.floated),
+    estSeconds: typeof s.estSeconds === 'number' ? s.estSeconds : null,
+  };
+}
+
+export function readRows(doc: Y.Doc): Row[] {
+  return rowsOf(doc).toArray().map(readRow);
+}
+
+function toMap(row: Record<string, unknown>): Y.Map<unknown> {
+  const map = new Y.Map<unknown>();
+  for (const [key, value] of Object.entries(row)) if (value !== undefined) map.set(key, value);
+  return map;
+}
+
+function indexOf(doc: Y.Doc, id: string): number {
+  return rowsOf(doc)
+    .toArray()
+    .findIndex((m) => m.get('id') === id);
+}
+
+/** Adds a block at the given position (or the end) and returns its id. */
+export function insertBlock(doc: Y.Doc, by: Person, title = '', index?: number): string {
+  const id = newId();
+  const rows = rowsOf(doc);
+  const now = Date.now();
+  rows.insert(index ?? rows.length, [toMap({ id, kind: 'block', title, createdBy: by, updatedBy: by, updatedAt: now })]);
+  return id;
+}
+
+/** Adds a section at the given position (or the end) and returns its id. */
+export function insertSection(doc: Y.Doc, by: Person, fields: Partial<SectionFields> = {}, index?: number): string {
+  const id = newId();
+  const rows = rowsOf(doc);
+  const now = Date.now();
+  rows.insert(index ?? rows.length, [
+    toMap({ ...EMPTY_SECTION, ...fields, id, kind: 'section', createdBy: by, createdAt: now, updatedBy: by, updatedAt: now }),
+  ]);
+  return id;
+}
+
+/** Changes some fields of a row and records who changed it. */
+export function updateRow(doc: Y.Doc, id: string, patch: Partial<SectionFields> | { title: string }, by: Person): void {
+  const map = rowsOf(doc)
+    .toArray()
+    .find((m) => m.get('id') === id);
+  if (!map) return;
+  doc.transact(() => {
+    for (const [key, value] of Object.entries(patch)) {
+      if (map.get(key) !== value) map.set(key, value);
+    }
+    map.set('updatedBy', by);
+    map.set('updatedAt', Date.now());
+  });
+}
+
+export function deleteRow(doc: Y.Doc, id: string): void {
+  const i = indexOf(doc, id);
+  if (i >= 0) rowsOf(doc).delete(i, 1);
+}
+
+/**
+ * Moves a row. Yjs lists can't move items, so the row is copied to its new place and the old one
+ * removed, in one step that everyone sees at once. Its id and authorship stay the same.
+ */
+export function moveRow(doc: Y.Doc, from: number, to: number): void {
+  const rows = rowsOf(doc);
+  if (from === to || from < 0 || to < 0 || from >= rows.length || to >= rows.length) return;
+  doc.transact(() => {
+    const data = rows.get(from).toJSON() as Record<string, unknown>;
+    rows.delete(from, 1);
+    rows.insert(to, [toMap(data)]);
+  });
+}
+
+/** A new episode starts with block A and one empty section. Does nothing if rows already exist. */
+export function initEpisode(doc: Y.Doc, by: Person): void {
+  if (rowsOf(doc).length > 0) return;
+  doc.transact(() => {
+    insertBlock(doc, by);
+    insertSection(doc, by);
+  });
+}
+
+// ---- Numbering and timing ----
+
+export interface ComputedRow {
+  row: Row;
+  /** "A" for a block, "A1" for a section. */
+  label: string;
+  blockLetter: string;
+  /** This section's estimated length (0 for blocks). */
+  seconds: number;
+  /** Seconds from the start of the show when this row starts, if everything runs to time. Null when floated. */
+  startOffset: number | null;
+  /** Seconds from the start of the show when this row must start to finish exactly on time. Null when floated. */
+  backTimeOffset: number | null;
+}
+
+export interface RundownTiming {
+  rows: ComputedRow[];
+  /** Total estimated length of everything that will air (floated sections don't count). */
+  totalSeconds: number;
+  targetSeconds: number;
+  /** Positive = over the target, negative = under. */
+  overUnderSeconds: number;
+  /** Estimated length of each block, by letter. */
+  blockSeconds: Record<string, number>;
+}
+
+/** A, B, … Z, then AA, AB… (shows rarely have more than a handful of blocks). */
+export function blockLetter(index: number): string {
+  let n = index;
+  let out = '';
+  do {
+    out = String.fromCharCode(65 + (n % 26)) + out;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return out;
+}
+
+/**
+ * Numbers every row and works out timing. Sections are numbered within their block (A1, A2, B1…),
+ * floated ones included, so floating a section doesn't renumber the graphics named after it.
+ * Sections above the first block belong to block A.
+ */
+export function computeRundown(rows: Row[], targetSeconds: number, sectionSeconds: (row: SectionRow) => number = (r) => r.estSeconds ?? 0): RundownTiming {
+  const computed: ComputedRow[] = [];
+  const blockSeconds: Record<string, number> = {};
+  let blockIndex = rows[0]?.kind === 'block' ? -1 : 0;
+  let sectionInBlock = 0;
+  let elapsed = 0;
+
+  for (const row of rows) {
+    if (row.kind === 'block') {
+      blockIndex++;
+      sectionInBlock = 0;
+      const letter = blockLetter(blockIndex);
+      blockSeconds[letter] ??= 0;
+      computed.push({ row, label: letter, blockLetter: letter, seconds: 0, startOffset: elapsed, backTimeOffset: null });
+      continue;
+    }
+    sectionInBlock++;
+    const letter = blockLetter(Math.max(0, blockIndex));
+    const seconds = Math.max(0, sectionSeconds(row));
+    const airs = !row.floated;
+    computed.push({ row, label: `${letter}${sectionInBlock}`, blockLetter: letter, seconds, startOffset: airs ? elapsed : null, backTimeOffset: null });
+    if (airs) {
+      elapsed += seconds;
+      blockSeconds[letter] = (blockSeconds[letter] ?? 0) + seconds;
+    }
+  }
+
+  // Back-times: work backwards from the target end.
+  let remaining = 0;
+  for (let i = computed.length - 1; i >= 0; i--) {
+    const c = computed[i];
+    if (c.row.kind === 'section') {
+      if (c.row.floated) continue;
+      remaining += c.seconds;
+    }
+    c.backTimeOffset = targetSeconds - remaining;
+  }
+
+  return { rows: computed, totalSeconds: elapsed, targetSeconds, overUnderSeconds: elapsed - targetSeconds, blockSeconds };
+}
+
+// ---- Formatting ----
+
+/** 95 → "1:35", 3725 → "1:02:05", -30 → "-0:30". */
+export function formatDuration(totalSeconds: number): string {
+  const sign = totalSeconds < 0 ? '-' : '';
+  const s = Math.round(Math.abs(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, '0');
+  return h > 0 ? `${sign}${h}:${String(m).padStart(2, '0')}:${sec}` : `${sign}${m}:${sec}`;
+}
+
+/** "1:35" → 95, "95" → 95, "1:02:05" → 3725, "" → null. Returns undefined when it can't be read. */
+export function parseDuration(text: string): number | null | undefined {
+  const t = text.trim();
+  if (t === '') return null;
+  if (!/^\d+(:\d{1,2}){0,2}$/.test(t)) return undefined;
+  return t.split(':').reduce((acc, part) => acc * 60 + Number(part), 0);
+}
+
+/** "+2:10 over", "1:05 under", "on time". */
+export function formatOverUnder(seconds: number): string {
+  if (Math.round(seconds) === 0) return 'on time';
+  return seconds > 0 ? `${formatDuration(seconds)} over` : `${formatDuration(-seconds)} under`;
+}
+
+/** Clock time for an offset into a show that starts at "HH:MM" (24-hour), e.g. "7:12:30 PM". */
+export function formatClock(startTime: string, offsetSeconds: number): string {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(startTime.trim());
+  if (!match) return `+${formatDuration(offsetSeconds)}`;
+  const total = Math.round(Number(match[1]) * 3600 + Number(match[2]) * 60 + offsetSeconds);
+  const day = ((total % 86400) + 86400) % 86400;
+  const h24 = Math.floor(day / 3600);
+  const m = String(Math.floor((day % 3600) / 60)).padStart(2, '0');
+  const s = String(day % 60).padStart(2, '0');
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${m}:${s} ${h24 < 12 ? 'AM' : 'PM'}`;
+}

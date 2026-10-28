@@ -30,3 +30,7 @@ desktop.ini
 !.vscode/extensions.json
 .idea/
 *.log
+
+# Browser test output
+apps/web/test-results/
+apps/web/playwright-report/

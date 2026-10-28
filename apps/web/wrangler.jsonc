@@ -1,0 +1,30 @@
+// Cloudflare settings for the TSTV website. Free plan only: Workers, D1 and SQLite Durable Objects.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tstv-show",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    // Anything that isn't a file is a page of the app.
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/parties/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tstv-show",
+      // Filled in when the database is created on TSTV's Cloudflare account (Phase 1 deploy).
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "EpisodeRoom", "class_name": "EpisodeRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["EpisodeRoom"] }],
+  "vars": {
+    // Only the local .dev.vars file turns this on, and only for localhost.
+    "DEV_LOGIN": "false"
+  }
+}

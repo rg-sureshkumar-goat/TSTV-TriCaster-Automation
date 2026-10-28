@@ -1,0 +1,150 @@
+# Phase 1: website foundation
+
+Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archive and export. This page explains how to try it on your Mac, how to put it online (one time, about 30 minutes), and how to run the Phase 1 test.
+
+## What's in Phase 1
+
+- **Sign in with Google**, open only to people the TD invites. The **People** page (admins only) is where you invite and remove people.
+- **Shows.** Anyone can add a show. Each show has settings for:
+  - target length (default 30:00)
+  - reading speed
+  - camera names and the default camera
+  - usual talent, each with a color
+  - segment types
+- **Episodes**, each with a title, air date and start time.
+- **The rundown grid**:
+  - Blocks A, B, C, with sections numbered A1, A2, B1. Numbers update when rows move.
+  - Columns: Slug, Type, Talent, Camera, Green screen, Elements, Est., Back-time, and Last edit.
+  - **Live editing:** everyone in the episode sees changes within about a second, plus colored initials for who else is there and a highlight on the cell they're editing.
+  - **Authorship:** every row records who created it and who last edited it.
+  - Drag the ⋮⋮ handle to reorder rows. The ⋯ menu floats, moves, inserts and deletes rows.
+- **Timing:** total, target, over or under, block lengths, and back-times. Back-times are clock times when the episode has a start time.
+- **Archive:** the episode becomes read-only, including for anyone who has it open, but stays searchable. Only an admin can un-archive.
+- **Export** to CSV and PDF, and **Search** across all episodes, archived ones included.
+
+**Not yet:**
+- Script pages and cue chips come in Phase 2.
+- The prompter, plus actual section timing recorded from it, comes in Phase 3.
+- The **Elements** column fills in once scripts (Phase 2) and graphics import (Phase 4) exist.
+- The admin usage panel still needs to be built: it shows today's Cloudflare usage against the free limits. It needs the website to be online first.
+
+## Try it on your Mac first (no accounts needed)
+
+In Terminal, run these one at a time:
+
+```bash
+cd "/Users/rg_sureshkumar/AI Apps/TSTV Automated Technical Director"
+```
+
+```bash
+npm install
+```
+
+```bash
+npm run db:migrate:local -w apps/web
+```
+
+```bash
+npm run dev
+```
+
+1. Open <http://localhost:5173>.
+2. On your Mac, the sign-in page offers **pretend people** (RG (TD), Alex Producer, Sam Writer), so you can try everything without Google. This only works on your own Mac, never on the real website.
+3. To see live editing, sign in as RG in Safari and as Sam in Chrome, and open the same episode in both.
+4. Press **Ctrl+C** in Terminal to stop.
+
+On a fresh copy of the project, copy `apps/web/.dev.vars.example` to `apps/web/.dev.vars` first. It's already there on your Mac.
+
+## Put it online (one time, about 30 minutes)
+
+### A. Create your free Cloudflare account
+
+1. Go to <https://dash.cloudflare.com/sign-up> and sign up with your email. Verify the email.
+2. **Don't add a payment method.** If Cloudflare ever asks for a card, stop and tell me.
+
+### B. Connect this Mac to the account
+
+```bash
+cd "/Users/rg_sureshkumar/AI Apps/TSTV Automated Technical Director/apps/web"
+```
+
+```bash
+npx wrangler login
+```
+
+Your browser opens a Cloudflare page. Check that it's your account and click **Allow**. That lets this Mac publish the website to your account.
+
+### C. Create the database and publish (I can run these with you)
+
+1. `npx wrangler d1 create tstv-show` creates the free database and prints a `database_id`. That ID goes into `apps/web/wrangler.jsonc`.
+2. `npm run db:migrate:remote -w apps/web` sets up the database's tables.
+3. `npm run deploy -w apps/web` publishes the website.
+   - The first time, Cloudflare asks you to choose a free `workers.dev` name, for example `tstv`.
+   - The website's address will then look like `https://tstv-show.tstv.workers.dev`.
+
+### D. Set up "Sign in with Google" (free, no card)
+
+Google's screens change from time to time, so the wording might differ a little.
+
+1. Go to <https://console.cloud.google.com> and sign in with the Google account that should own this. Yours is fine for now.
+2. **Create a project** named `TSTV Rundowns`.
+3. Open **Google Auth Platform**, which some screens call the "OAuth consent screen". Then:
+   1. Fill in **Branding**: app name `TSTV Rundowns`, your email as the support email, and your email as the developer contact.
+   2. Under **Audience**, choose **External** and **Publish app** (In production).
+   3. The site only asks for name, email and profile picture, so Google doesn't need to review it.
+4. Open **Clients**, then **Create client**, then **Web application**. Name it `TSTV website`.
+5. Under **Authorized redirect URIs**, add your website's address followed by `/api/auth/google/callback`, for example `https://tstv-show.tstv.workers.dev/api/auth/google/callback`.
+6. Click **Create**. Keep the **Client ID** and **Client secret** handy for the next step.
+
+### E. Give the website its sign-in settings
+
+You type these yourself; they're stored by Cloudflare, never in the project or on GitHub. Run each command in `apps/web`, paste the value when asked, and press Enter:
+
+```bash
+npx wrangler secret put GOOGLE_CLIENT_ID
+```
+
+```bash
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+```bash
+npx wrangler secret put ADMIN_EMAILS
+```
+
+For `ADMIN_EMAILS`, type the Gmail address you'll sign in with. That account is always allowed in and is the admin.
+
+### F. Sign in
+
+Open your website and click **Sign in with Google**. You're the admin. Use **People** to invite everyone else by the email of their Google account (personal Gmail works).
+
+## The Phase 1 test: build a real episode's rundown
+
+1. **Sign in** with Google on the real website.
+2. **People:** invite one other person, such as a producer or writer, and have them sign in.
+3. **Shows:** add a real show, then open **Show settings** and set:
+   - target length
+   - cameras (for example Camera 1, Camera 2, Camera 3 (wide))
+   - default camera
+   - talent, with colors
+   - segment types
+4. **Create an episode** with its real air date and start time.
+5. **Rebuild a past episode's rundown from Rundown Creator:** blocks, sections, slugs, types, talent, cameras, green-screen backgrounds and estimates.
+6. **Check timing** against Rundown Creator: total, over or under, and back-times.
+7. **Drag a row** to a new place, then **float** a section. Check that the numbers and totals update.
+8. **Edit at the same time as the other person.** You should see:
+   - their edits within about a second
+   - their initials at the top of the page
+   - a colored outline on the cell they're editing
+   - their name under **Last edit**
+9. **Export CSV and PDF,** then open both files.
+10. **Archive** the episode. It becomes read-only. Find it on the **Search** page.
+11. **Tell me** what's missing or awkward compared with Rundown Creator, and whether Phase 1 is approved.
+
+## Behind the scenes
+
+- **Automated tests:** `npm test` runs the logic tests. `npm run test:e2e` runs the browser tests, where two pretend people build one rundown at the same time. GitHub runs both on Mac and Windows for every change.
+- **Where data lives:**
+  - each episode's rundown: in its own episode room on Cloudflare
+  - users, shows, the episode list and search text: in the D1 database
+  - media: never online

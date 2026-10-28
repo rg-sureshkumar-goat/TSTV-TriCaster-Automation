@@ -1,0 +1,8 @@
+# Copy this file to .dev.vars for local development. .dev.vars is never committed.
+# Lets you sign in as a pretend user on localhost, without Google.
+DEV_LOGIN=true
+# Emails that are always allowed in and are admins.
+ADMIN_EMAILS=rg@dev.local
+# Fill these in to try real Google sign-in locally (see docs/PHASE-1-SETUP.md).
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=

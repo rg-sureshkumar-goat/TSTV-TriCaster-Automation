@@ -1,0 +1,32 @@
+import { describe, expect, it } from 'vitest';
+import { computeRundown, type Row } from '@tstv/shared';
+import { toCsv } from '../src/rundown/export.ts';
+
+const sam = { id: 'u2', name: 'Sam Writer' };
+const rows: Row[] = [
+  { id: 'a', kind: 'block', title: 'Top stories' },
+  { id: 's1', kind: 'section', slug: 'Basketball, "big" win', type: 'VO', talent: 'Jordan', camera: '', greenScreen: '', floated: false, estSeconds: 90, createdBy: sam, updatedBy: sam },
+  { id: 's2', kind: 'section', slug: 'Weather', type: 'Weather', talent: 'Riley', camera: 'Camera 3', greenScreen: 'Weather Map BG', floated: true, estSeconds: 60 },
+];
+
+describe('CSV export', () => {
+  const csv = toCsv(computeRundown(rows, 1800), { showName: 'News', episodeTitle: 'Ep', airDate: '', airTime: '19:00', defaultCamera: 'Camera 1' });
+  const lines = csv.trim().split('\r\n');
+
+  it('has a header and one line per row', () => {
+    expect(lines[0]).toBe('#,Slug,Type,Talent,Camera,Green screen,Floated,Est.,Back-time,Written by,Last edited by');
+    expect(lines).toHaveLength(4);
+  });
+
+  it('quotes commas and quotes, fills in the default camera, and names the writer', () => {
+    expect(lines[2]).toBe('A1,"Basketball, ""big"" win",VO,Jordan,Camera 1,,,1:30,7:28:30 PM,Sam Writer,Sam Writer');
+  });
+
+  it('marks floated sections and gives them no back-time', () => {
+    expect(lines[3]).toBe('A2,Weather,Weather,Riley,Camera 3,Weather Map BG,Floated,1:00,,,');
+  });
+
+  it('shows block lines with their total', () => {
+    expect(lines[1]).toBe('A,BLOCK A: Top stories,,,,,,1:30,7:28:30 PM,,');
+  });
+});

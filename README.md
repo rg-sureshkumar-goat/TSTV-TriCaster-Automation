@@ -24,10 +24,11 @@ You need [Node.js](https://nodejs.org) 22 or newer (the "LTS" version), on Mac o
 | --- | --- |
 | `npm install` | Downloads the development tools. Run it once, and again whenever the tools change. |
 | `npm test` | Runs every automated test. |
+| `npm run dev` | Runs the website on this computer at http://localhost:5173. |
 | `npm run simulator` | Starts the fake TC1 and opens its page in your browser. |
 | `npm run probe` | Runs the read-only TriCaster probe. Run it at the station with the laptop cabled to the TC1. |
 
-Phase 0 step-by-step test instructions are in [docs/PHASE-0-TESTING.md](docs/PHASE-0-TESTING.md).
+Step-by-step test instructions: [Phase 0](docs/PHASE-0-TESTING.md), [Phase 1](docs/PHASE-1.md).
 
 ## Safety rules
 
