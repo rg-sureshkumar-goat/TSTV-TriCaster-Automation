@@ -10,10 +10,13 @@ import { Switcher, type ChangeEvent, type CommandRecord } from './switcher.ts';
 import { MACROS, type ClipSpec } from './profile.ts';
 import {
   buildXml,
+  ddrPlaylistXml,
+  ddrTimecodeXml,
   effectsXml,
   macrosXml,
   parseShortcutCommands,
   productInformationXml,
+  recordConfigurationXml,
   shortcutStatesXml,
   switcherXml,
   tallyXml,
@@ -74,7 +77,8 @@ export async function startSimulator(options: SimulatorOptions = {}): Promise<Ru
       const xml = `${shortcutStatesXml(event.states)}\n`;
       for (const client of registered) client.write(xml);
     }
-    for (const key of event.keys) for (const ws of notifyClients) ws.send(key);
+    // The real TC1 ends each notification with a null character.
+    for (const key of event.keys) for (const ws of notifyClients) ws.send(`${key}\0`);
     pushUi();
   });
   let uiTimer: NodeJS.Timeout | undefined;
@@ -150,7 +154,9 @@ export async function startSimulator(options: SimulatorOptions = {}): Promise<Ru
       case '/v1/dictionary': {
         const key = url.searchParams.get('key') ?? '';
         const body = dictionary(key);
-        return body === undefined ? xml(res, '', 404) : xml(res, body);
+        // The real TC1 drops the connection when asked for data it doesn't have.
+        if (body === undefined) return void req.socket.destroy();
+        return xml(res, body);
       }
       case '/v1/datalink':
         return xml(res, '<datalink_values></datalink_values>');
@@ -174,13 +180,17 @@ export async function startSimulator(options: SimulatorOptions = {}): Promise<Ru
       case 'tally':
         return tallyXml(switcher.tallyColumns());
       case 'switcher':
-        return switcherXml(switcher.program, switcher.preview);
+        return switcherXml(switcher.program, switcher.preview, switcher.dsks);
       case 'macros_list':
         return macrosXml(MACROS);
       case 'switcher_ui_effects':
         return effectsXml();
-      case 'product_information':
-        return productInformationXml();
+      case 'ddr_playlist':
+        return ddrPlaylistXml(Object.values(switcher.snapshot().players));
+      case 'ddr_timecode':
+        return ddrTimecodeXml(Object.values(switcher.snapshot().players));
+      case 'record_configuration':
+        return recordConfigurationXml(switcher.recording.on);
       default:
         return undefined;
     }

@@ -100,7 +100,7 @@ Archiving makes the episode room read-only and copies the scripts' text into D1 
 
 ## 5. Prompter
 
-- **What it is:** a page of the website (`/prompter/<episode>`), opened full-screen in Chrome or another modern browser on the existing prompter computer. Nothing is installed.
+- **What it is:** a page of the website (`/prompter/<episode>`), opened full-screen in Safari on the existing prompter computer, a Mac. Nothing is installed. It's tested in Safari as well as Chrome.
 - **Content:** it reads from the same episode room as the editors, so script edits appear within about a second. Each section starts with its number and talent name, color-coded by talent, and cue chips show as bold colored markers. Floated sections are skipped.
 - **Scrolling:** smooth scrolling runs in the browser at 60 frames a second. The arrow keys change speed and the spacebar pauses, exactly like today. Other keys jump between sections. The settings from the brief (text size, margins, colors, reading-line position) are saved on that computer.
 - **Keeping its place during edits:** the prompter tracks which word sits on the reading line. When text above it changes height, it shifts the scroll by exactly that amount, so the line the anchor is reading doesn't move.
@@ -134,11 +134,17 @@ Electron is what apps like Slack and VS Code are built with. One codebase produc
 
 ### 6.4 Reaching the TC1 with no settings changes
 
-When two computers are joined by a single cable with no router, each one gives itself an automatic "self-assigned" address (169.254.x.x), and then they can talk. Windows does this when a port is set to get its address automatically, which is the default, and Macs do the same. The app looks for the TC1 only on the wired adapter. The probe will confirm three things:
+When two computers are joined by a single cable with no router, each one gives itself an automatic "self-assigned" address (169.254.x.x), and then they can talk. The app looks for the TC1 only on the wired adapter.
 
-- the TC1's port is set to automatic, not a fixed address;
-- Windows Firewall on the TC1 lets the connection through;
-- a Mac sends the traffic over the cable rather than Wi-Fi. This is a known quirk when both connections are on, and the app handles it by sending from the cable's own address.
+**Confirmed at the studio on Oct 28, 2026:**
+
+- The laptop and the TC1 each gave themselves an address, and they talked with no settings changed. The TC1 was at 169.254.193.52, and it kept that address after the cable was replugged.
+- Windows on the TC1 takes about a minute after the cable goes in to set its address.
+- Windows Firewall on the TC1 lets the web control, the state stream and file sharing through.
+- **On a Mac, the automatic-address range is also attached to Wi-Fi.** The app never sends a burst of traffic across that range. An early version of the probe did, and campus Wi-Fi dropped. Instead the app:
+  - remembers the TC1's last address,
+  - waits for the TC1 to announce itself on the cable,
+  - always sends from the cable's own address.
 
 ### 6.5 Installing and updating
 
@@ -156,9 +162,17 @@ I read [bitfocus/node-tricaster](https://github.com/bitfocus/node-tricaster) and
 | Change notifications | 80 (WebSocket at `/v1/change_notifications`) | The TriCaster announces which part of its state just changed |
 | State stream | TCP 5951 | A tool sends `<register name="NTK_states"/>`, and the TriCaster then streams every state value as XML. This port also accepts commands |
 
-Command names Companion uses include `main_a_row` and `main_b_row` (program and preview source), `main_dsk2_auto`, `ddr1_play`, `record_toggle` and `play_macro_byname`. Bitfocus tested on a TC2 Elite and a TC Mini 4K, not a TC1 on version 7, so **the probe confirms the exact names and formats on our unit.** Companion also asks users to turn off the LivePanel password. The probe will report whether ours is on. If it is, you can type it in when the probe asks, and the probe won't save it.
+Command names Companion uses include `main_a_row` and `main_b_row` (program and preview source), `main_dsk2_auto`, `ddr1_play`, `record_toggle` and `play_macro_byname`. Bitfocus tested on a TC2 Elite and a TC Mini 4K, not a TC1 on version 7, so the probe checked our unit. On Oct 28, 2026 it confirmed the web control and state names on our TC1 (version 7-7), with **no LivePanel password** set. Details are in [TC1-FINDINGS.md](TC1-FINDINGS.md). Companion also asks users to turn off the LivePanel password. The probe will report whether ours is on. If it is, you can type it in when the probe asks, and the probe won't save it.
 
 If a direct command turns out not to exist, the fallback from the brief still applies: the TD builds a TriCaster macro once, and the app triggers it with `play_macro_byname`.
+
+**What the probe found about how TSTV's TC1 is set up**, which shapes the show app:
+
+- **Program runs through M/E 1,** so the app takes cameras on M/E 1's A row (`v1_a_row`).
+- **The green screen** means switching the program row to M/E 2.
+- **DSK 2 shows DDR 2 with AutoPlay.** Taking DSK 2 on plays the cued clip, and taking it off stops DDR 2 and cues the next one.
+- **When a clip ends by itself, DSK 2 stays on,** so the app sends "DSK 2 off" for the brief's "clip ends first" rule.
+- **The TC1 reports the DDR playlists (`ddr_playlist`) and the seconds left in each clip (`ddr_timecode`).**
 
 ### 7.1 The probe (Phase 0)
 

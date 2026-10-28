@@ -40,9 +40,14 @@ describe('simulator web API', () => {
   });
 
   it('runs a shortcut command and logs it as coming from the web API', async () => {
-    await api('/v1/shortcut?name=main_a_row&value=input3');
-    expect(await (await api('/v1/dictionary?key=switcher')).text()).toContain('main_source="input3"');
-    expect(sim.externalCommands()).toMatchObject([{ source: 'http', name: 'main_a_row', value: 'input3', result: 'ok' }]);
+    await api('/v1/shortcut?name=v1_a_row&value=INPUT3');
+    expect(sim.switcher.mes.v1.a).toBe('input3');
+    await api('/v1/shortcut?name=main_a_row&value=V2');
+    expect(await (await api('/v1/dictionary?key=switcher')).text()).toContain('main_source="V2"');
+    expect(sim.externalCommands()).toMatchObject([
+      { source: 'http', name: 'v1_a_row', value: 'INPUT3', result: 'ok' },
+      { source: 'http', name: 'main_a_row', value: 'V2', result: 'ok' },
+    ]);
   });
 
   it('accepts XML commands in a POST', async () => {
@@ -51,8 +56,17 @@ describe('simulator web API', () => {
     expect(sim.switcher.recording.on).toBe(true);
   });
 
-  it('answers 404 for data it does not have', async () => {
-    expect((await api('/v1/dictionary?key=nothing_here')).status).toBe(404);
+  it('drops the connection when asked for data it does not have, like the real TC1', async () => {
+    await expect(api('/v1/dictionary?key=nothing_here')).rejects.toThrow();
+  });
+
+  it('reports DDR playlists, clip timing and recording the way the real TC1 does', async () => {
+    const playlist = await (await api('/v1/dictionary?key=ddr_playlist')).text();
+    expect(playlist).toMatch(/<ddr2 custom_short_name="B"[^>]*><playlist [^>]*current_clip="0">/);
+    expect(playlist).toContain('alias="TSTV Ident 2022 News"');
+    const timecode = await (await api('/v1/dictionary?key=ddr_timecode')).text();
+    expect(timecode).toMatch(/<ddr2 clip_seconds_elapsed="0" clip_seconds_remaining="4.963"/);
+    expect(await (await api('/v1/dictionary?key=record_configuration')).text()).toBe('<state is_recording="false" />');
   });
 
   it('asks for the LivePanel password when that practice problem is on', async () => {
@@ -86,9 +100,9 @@ describe('simulator state port (5951)', () => {
 
   it('accepts XML commands', async () => {
     const { socket } = await connectStatePort();
-    socket.write('<shortcut name="main_a_row" value="input2" />\n');
-    await waitFor(() => sim.switcher.program === 'input2');
-    expect(sim.externalCommands()[0]).toMatchObject({ source: 'tcp', name: 'main_a_row' });
+    socket.write('<shortcut name="v1_a_row" value="INPUT2" />\n');
+    await waitFor(() => sim.switcher.mes.v1.a === 'input2');
+    expect(sim.externalCommands()[0]).toMatchObject({ source: 'tcp', name: 'v1_a_row' });
     socket.destroy();
   });
 
@@ -107,9 +121,10 @@ describe('simulator change notifications', () => {
     const messages: string[] = [];
     ws.on('message', (data) => messages.push(String(data)));
     await new Promise((r) => ws.once('open', r));
-    sim.switcher.command('panel', 'main_a_row', 'input3');
-    await waitFor(() => messages.includes('switcher'));
-    expect(messages).toEqual(expect.arrayContaining(['tally', 'switcher', 'shortcut_states']));
+    sim.switcher.command('panel', 'main_a_row', 'V2');
+    await waitFor(() => messages.includes('switcher\0'));
+    // The real TC1 ends each notification with a null character.
+    expect(messages).toEqual(expect.arrayContaining(['tally\0', 'switcher\0', 'shortcut_states\0']));
     ws.close();
   });
 });

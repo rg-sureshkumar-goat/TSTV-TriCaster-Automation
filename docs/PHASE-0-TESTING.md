@@ -45,8 +45,8 @@ Try the page. These clicks act like the TD pressing panel buttons:
 
 1. Next to **Cameras**, click **Camera 2**. The red Program monitor shows Camera 2.
 2. Next to **DSK 2**, click **Off: take on**. A blue bar appears at the bottom of the Program monitor, and **On air now** lists the DSK 2 clip.
-3. In the **DDR 2** list, click item 1 (`A1_L3_Anchors`), then **Play**. The time counts up, and the clip stops by itself after 8 seconds.
-4. Next to **Green screen**, click **Take to air**. The monitor shows Camera 3 on the green screen.
+3. In the **DDR 2** list, click item 2 (`A1_L3_Anchors`), then **Play**. Like the real TC1 (AutoPlay), DSK 2 comes on by itself, the time counts up, and the clip stops after 20 seconds. Take DSK 2 off, and the next clip is cued.
+4. Next to **Green screen**, click **Take to air**. The monitor shows Camera 2 on the green screen. Use the small **keyed camera** buttons to switch it to Camera 1 or 3.
 5. Scroll down to **What the show app sent**. It says "Nothing yet". Your clicks stand in for the TD at the panel, so they don't appear there.
 
 Leave the simulator running.
@@ -140,7 +140,7 @@ The probe:
 2. If needed, waits up to a minute for an automatic address.
 3. Lists any devices it sees.
 
-If nothing answers right away, it searches every automatic address, which takes up to 2 minutes and shows progress in percent.
+If nothing answers right away, it waits up to 90 seconds for the TC1 to announce itself. Windows does that about a minute after the cable goes in. TSTV's TC1 was at **169.254.193.52** on Oct 28, 2026. If the probe doesn't find it, run `npm run probe -- --host 169.254.193.52`.
 
 If it asks for the **LivePanel password**, type it, or just press Enter to skip. The password isn't saved.
 

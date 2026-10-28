@@ -327,3 +327,14 @@ input {
   background: var(--card);
   color: var(--text);
 }
+
+button.small.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+#green-screen,
+#dsk2 {
+  align-items: center;
+}

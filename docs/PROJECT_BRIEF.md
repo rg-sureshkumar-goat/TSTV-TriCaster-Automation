@@ -24,14 +24,15 @@ These are the facts the build has to fit, confirmed on site on Oct 28, 2026.
 | --- | --- |
 | Switcher | NewTek TriCaster TC1, software Version 7-7 (build 7-7-210722C), running on Windows 10 build 17763 |
 | Control panel | TC1SP button panel. It connects over USB through a USB-over-Cat-cable extender (labeled "USB Extender"), not over the network. Leave it alone. |
-| Network | Until now the TC1 was on no network: both Ethernet ports showed "Media disconnected" and `ping 8.8.8.8` returned "General failure." One port now has a cable for the show laptop. Label that port. |
-| Cameras | 3 studio cameras on TriCaster inputs. Angles and zoom use other hardware and are out of scope. |
-| Graphics and clips | L3s, OTS, FSGs, VOs, SOTs and packages all play from DDR2 and are put on air with the DSK 2 Take button. They're loaded from a USB drive in rundown order. |
-| Green screen | The background lives in GFX 1, keyed with LiveMatte and layered in an M/E (M/E 2). |
+| Network | Until now the TC1 was on no network: both Ethernet ports showed "Media disconnected" and `ping 8.8.8.8` returned "General failure." One port now has a cable for the show laptop. Label that port. Confirmed Oct 28: a laptop on that cable and the TC1 both give themselves automatic addresses and can talk with no settings changed (the TC1 was at 169.254.193.52). |
+| Cameras | 3 studio cameras on TriCaster inputs 1, 2 and 3. Cameras 1 and 2 have prompter monitors and are used interchangeably for the anchors; camera 3 is the wide shot. All three face the green screen. Angles and zoom use other hardware and are out of scope. |
+| Program path | Program runs through M/E 1: the main program row shows M/E 1, and cameras are switched on M/E 1's row. |
+| Graphics and clips | L3s, OTS, FSGs, VOs, SOTs and packages all play from DDR2 and are put on air with the DSK 2 Take button. They're loaded from a USB drive in rundown order. DDR2 has AutoPlay on: taking DSK 2 on plays the cued clip, and taking it off stops DDR2 and cues the next clip. Each block in DDR2 starts with a break clip (today "TSTV Ident 2022 News") that's held during the commercial break. DDR1 is not used. |
+| Green screen | The background lives in GFX 1, keyed with LiveMatte and layered in an M/E (M/E 2): a camera on M/E 2's A row over GFX 1. Taking it to air switches the program row from M/E 1 to M/E 2. |
 | Audio | Separate sound board, out of scope. SOTs and packages carry their own audio from DDR2. |
 | Streaming | YouTube, not through the TriCaster. Out of scope. |
 | Recording | The TC1 records. Shows are often aired or published later. |
-| Prompter | A dedicated computer in the studio. A prompter runner sets the speed with the arrow keys. Its screen feeds monitors on two cameras, and a physical mirror flips the image, so no software mirroring is needed. |
+| Prompter | A dedicated Mac in the studio, using Safari. A prompter runner sets the speed with the arrow keys. Its screen feeds monitors on two cameras (cameras 1 and 2), and a physical mirror flips the image, so no software mirroring is needed. |
 | Rundown | Rundown Creator, with no connection to the TriCaster |
 | Show format | Many shows, each with its own rundown format. About 30 minutes each, blocks lettered A, B, C and on, usually 2 anchors plus a varying number of correspondents. Always live, often recorded. |
 | Laptops | Most students' laptops have no Ethernet port. |
@@ -205,6 +206,15 @@ The automation depends on what the TC1 accepts from another computer, and that i
 | Can recording start and stop remotely, and can its save location be set? | Record button | Copy the file over the cable after the show |
 | Can the app read what's on program, DSK 2 and the M/Es? | Showing the producer what's really on air | The app tracks state itself |
 
+**Probe results, Oct 28, 2026** (details in `docs/TC1-FINDINGS.md`):
+
+1. **Reach:** yes, with no settings changed.
+2. **Interface:** yes. The web control on port 80 needs no password, and the port-5951 state stream and change notifications both work.
+3. **DDR2:** partly confirmed. It reports the selected item, play and stop, the playlist, and seconds remaining. Jumping and playing get confirmed in live mode in Phase 5.
+4. **Files:** file sharing is on but needs a Windows login on the TC1, which needs the owner's approval. Otherwise the fallback applies.
+5. **Recording:** on and off is reported. The save location isn't exposed, so the TD sets it once.
+6. **What's on air:** yes.
+
 ## Build plan
 
 There's no deadline, so the plan aims for the fastest path to a first live test. Each phase ends with a short test RG can run, and the next phase waits for his OK. Phases 1–3 replace Rundown Creator on their own, even before any automation works.
@@ -220,12 +230,15 @@ There's no deadline, so the plan aims for the fastest path to a first live test.
 ## Open questions
 
 - [ ] Do SOTs and packages play to the end and then go back to the anchors, as assumed?
-- [ ] Which TriCaster inputs are the three cameras, and which camera faces the green screen?
-- [ ] Is DDR1 free for green-screen video backgrounds?
-- [ ] Who must approve changing TC1 settings (a fixed network address, a shared folder)?
+- [x] Which TriCaster inputs are the three cameras, and which camera faces the green screen? *Inputs 1–3. Cameras 1 and 2 have prompter monitors; camera 3 is the wide shot. All three face the green screen.*
+- [x] Is DDR1 free for green-screen video backgrounds? *Yes. It isn't used.*
+- [ ] Who must approve changing TC1 settings (a fixed network address, a shared folder)? *No network change is needed. Copying files over the cable needs a Windows login on the TC1.*
+- [ ] For a green-screen section, which camera is keyed? All three face the green screen. The likely answer is the section's own camera.
+- [ ] How do the file types TEASE, NAMES, RDR and LITES (seen on the real DDR2 playlist) map to cues? Should the importer also accept spellings like `OTS_L` and names ending in `(1)` or `copy`?
+- [ ] When the app builds the DDR2 playlist, should it put the break clip ("TSTV Ident 2022 News") at the start of each block, as TDs do today?
 - [ ] Who may sign in to the website: invited people only, or anyone with a UT email?
 - [ ] Should old Rundown Creator rundowns be imported, or does TSTV start fresh?
-- [ ] Which TC1 network port has the new cable? Label it "Show laptop."
+- [ ] Which TC1 network port has the new cable? Label it "Show laptop." *The cable works. The label still needs to go on.*
 
 ## Starter prompt for Claude Code
 
