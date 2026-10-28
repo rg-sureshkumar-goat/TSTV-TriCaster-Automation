@@ -1,0 +1,32 @@
+# Dependencies and build output
+node_modules/
+dist/
+out/
+build/
+.wrangler/
+.turbo/
+*.tsbuildinfo
+
+# Local secrets and settings (never commit these)
+.env
+.env.*
+!.env.example
+.dev.vars
+
+# Probe results contain the TC1's network details; share them with Claude, don't commit them
+tools/probe/results/
+tsv-probe-results-*.json
+
+# Media files never go to the cloud, and never into git either
+*.mov
+*.mp4
+*.mxf
+
+# OS and editor clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log
