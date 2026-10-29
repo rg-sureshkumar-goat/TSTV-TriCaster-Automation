@@ -1,4 +1,4 @@
-// Sign-in: "Sign in with Google", limited to people the TD has invited, plus a pretend sign-in for local
+// Sign-in: "Sign in with Google", limited to people an admin has invited, plus a pretend sign-in for local
 // development only. Sessions are random tokens in an HttpOnly cookie; the database stores only their hash.
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
@@ -11,11 +11,15 @@ const DAY = 24 * 60 * 60 * 1000;
 
 type AppContext = Context<{ Bindings: Env; Variables: { user: User } }>;
 
-/** Pretend users for local development. RG is the admin. */
+/**
+ * Pretend users for local development. RG is the admin. Casey is brand new, so is asked for a first and
+ * last name; the others already gave theirs.
+ */
 export const DEV_USERS = [
   { email: 'rg@dev.local', name: 'RG (TD)' },
   { email: 'alex@dev.local', name: 'Alex Producer' },
   { email: 'sam@dev.local', name: 'Sam Writer' },
+  { email: 'casey@dev.local', name: 'casey.new123', isNew: true },
 ];
 
 function adminEmails(env: Env): Set<string> {
@@ -52,7 +56,14 @@ function cookieOptions(url: URL, maxAgeSeconds: number) {
 }
 
 function rowToUser(row: Record<string, unknown>): User {
-  return { id: String(row.id), email: String(row.email), name: String(row.name), picture: (row.picture as string) ?? null, isAdmin: row.is_admin === 1 };
+  return {
+    id: String(row.id),
+    email: String(row.email),
+    name: String(row.name),
+    picture: (row.picture as string) ?? null,
+    isAdmin: row.is_admin === 1,
+    needsName: !row.first_name || !row.last_name,
+  };
 }
 
 /** The signed-in user for a request, or null. Extends the session when it's past halfway. */
@@ -98,18 +109,21 @@ async function admitPerson(env: Env, email: string, name: string, picture: strin
   const isAdminEmail = adminEmails(env).has(email.toLowerCase());
   const existing = await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first<Record<string, unknown>>();
   if (existing) {
+    // The name they typed in wins over Google's.
+    const current = existing.first_name && existing.last_name ? String(existing.name) : name;
     await db
       .prepare('UPDATE users SET name = ?, picture = ?, is_admin = CASE WHEN ? THEN 1 ELSE is_admin END WHERE id = ?')
-      .bind(name, picture, isAdminEmail ? 1 : 0, existing.id)
+      .bind(current, picture, isAdminEmail ? 1 : 0, existing.id)
       .run();
-    return rowToUser({ ...existing, name, picture, is_admin: isAdminEmail ? 1 : existing.is_admin });
+    return rowToUser({ ...existing, name: current, picture, is_admin: isAdminEmail ? 1 : existing.is_admin });
   }
-  const invite = await db.prepare('SELECT email FROM invites WHERE email = ?').bind(email).first();
+  const invite = await db.prepare('SELECT email, as_admin FROM invites WHERE email = ?').bind(email).first<{ as_admin: number }>();
   if (!invite && !isAdminEmail) return null;
-  const user: User = { id: crypto.randomUUID(), email, name, picture, isAdmin: isAdminEmail };
+  const isAdmin = isAdminEmail || invite?.as_admin === 1;
+  const user: User = { id: crypto.randomUUID(), email, name, picture, isAdmin, needsName: true };
   await db
     .prepare('INSERT INTO users (id, email, name, picture, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(user.id, email, name, picture, isAdminEmail ? 1 : 0, Date.now())
+    .bind(user.id, email, name, picture, isAdmin ? 1 : 0, Date.now())
     .run();
   await db.prepare('DELETE FROM invites WHERE email = ?').bind(email).run();
   return user;
@@ -229,6 +243,10 @@ authRoutes.post('/dev-login', async (c) => {
   }
   const user = await admitPerson(c.env, dev.email, dev.name, null);
   if (!user) return c.text('Could not sign in', 500);
+  if (!('isNew' in dev)) {
+    const [first, ...rest] = dev.name.split(' ');
+    await db.prepare('UPDATE users SET first_name = ?, last_name = ? WHERE id = ? AND first_name IS NULL').bind(first, rest.join(' ') || first, user.id).run();
+  }
   await startSession(c, user.id);
   return c.json({ ok: true });
 });

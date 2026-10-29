@@ -54,10 +54,18 @@ export function isElementType(value: unknown): value is ElementType {
   return typeof value === 'string' && (ELEMENT_TYPES as readonly string[]).includes(value);
 }
 
+/**
+ * An admin's change to the commercial break just before a row (decided Oct 29, 2026). Without one, a
+ * break of the show's length airs before every block except one that opens the show, and none before
+ * a section. off removes the break; seconds adds one, with its own length (null: the show's length).
+ */
+export type BreakSetting = { off: true } | { seconds: number | null };
+
 export interface BlockRow {
   id: string;
   kind: 'block';
   title: string;
+  commercialBreak?: BreakSetting;
   createdBy?: Person;
   updatedBy?: Person;
   updatedAt?: number;
@@ -91,6 +99,7 @@ export interface SectionRow {
   estSeconds: number | null;
   /** What plays during the section, in order (a Reader might have an L3, then a VO over the anchor). */
   elements: Element[];
+  commercialBreak?: BreakSetting;
   createdBy?: Person;
   createdAt?: number;
   updatedBy?: Person;
@@ -99,7 +108,7 @@ export interface SectionRow {
 
 export type Row = BlockRow | SectionRow;
 /** Fields set with updateRow. Elements have their own functions, so concurrent edits never collide. */
-export type SectionFields = Omit<SectionRow, 'id' | 'kind' | 'elements' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>;
+export type SectionFields = Omit<SectionRow, 'id' | 'kind' | 'elements' | 'commercialBreak' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>;
 
 export const EMPTY_SECTION: SectionFields = {
   slug: '',
@@ -125,8 +134,17 @@ export function newId(): string {
 
 export function readRow(map: Y.Map<unknown>): Row {
   const data = map.toJSON() as Partial<Row> & { kind?: string };
+  const commercialBreak = readBreakSetting(data.commercialBreak);
   if (data.kind === 'block') {
-    return { id: String(data.id), kind: 'block', title: String((data as BlockRow).title ?? ''), createdBy: data.createdBy, updatedBy: data.updatedBy, updatedAt: data.updatedAt };
+    return {
+      id: String(data.id),
+      kind: 'block',
+      title: String((data as BlockRow).title ?? ''),
+      ...(commercialBreak && { commercialBreak }),
+      createdBy: data.createdBy,
+      updatedBy: data.updatedBy,
+      updatedAt: data.updatedAt,
+    };
   }
   const s = data as Partial<SectionRow>;
   const text = (value: unknown) => (typeof value === 'string' ? value : '');
@@ -153,7 +171,16 @@ export function readRow(map: Y.Map<unknown>): Row {
           .filter((e) => e && isElementType(e.type))
           .map((e) => ({ id: String(e.id), type: e.type, name: String(e.name ?? '') }))
       : [],
+    ...(commercialBreak && { commercialBreak }),
   };
+}
+
+function readBreakSetting(value: unknown): BreakSetting | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  if ((value as { off?: unknown }).off === true) return { off: true };
+  const seconds = (value as { seconds?: unknown }).seconds;
+  if (seconds === null || (typeof seconds === 'number' && seconds >= 0)) return { seconds };
+  return undefined;
 }
 
 /** A section's talent list. Sections saved before several people could be picked hold one name as text. */
@@ -253,6 +280,17 @@ export function updateRow(doc: Y.Doc, id: string, patch: Partial<SectionFields> 
     }
     map.set('updatedBy', by);
     map.set('updatedAt', Date.now());
+  });
+}
+
+/** Sets (or, with null, clears) an admin's change to the commercial break before a row. */
+export function setCommercialBreak(doc: Y.Doc, id: string, setting: BreakSetting | null, by: Person): void {
+  const map = findMap(doc, id);
+  if (!map) return;
+  doc.transact(() => {
+    if (setting) map.set('commercialBreak', setting);
+    else map.delete('commercialBreak');
+    stamp(map, by);
   });
 }
 
@@ -370,23 +408,29 @@ export interface ComputedRow {
   startOffset: number | null;
   /** Seconds from the start of the show when this row must start to finish exactly on time. Null when floated. */
   backTimeOffset: number | null;
-  /** On a block: the commercial break that airs just before it. Every block except one that opens the show has one. */
+  /** The commercial break that airs just before this row, if there is one. */
   breakBefore?: CommercialBreak;
 }
 
-/** A commercial break, added automatically between blocks. */
+/** A commercial break: added automatically between blocks, or by an admin anywhere. */
 export interface CommercialBreak {
   seconds: number;
   startOffset: number;
   backTimeOffset: number;
+  /** True for the break added automatically before a block; false for one an admin added. */
+  automatic: boolean;
+  /** True when an admin typed in its length, instead of using the show's break length. */
+  customLength: boolean;
 }
 
 export interface RundownTiming {
   rows: ComputedRow[];
   /** Total estimated length of everything that will air, commercial breaks included (floated sections don't count). */
   totalSeconds: number;
-  /** How many commercial breaks there are (one between each pair of blocks). */
+  /** How many commercial breaks there are. */
   breakCount: number;
+  /** How many of them use the show's break length (rather than one an admin typed in). */
+  defaultBreakCount: number;
   targetSeconds: number;
   /** Positive = over the target, negative = under. */
   overUnderSeconds: number;
@@ -409,7 +453,8 @@ export function blockLetter(index: number): string {
  * Numbers every row and works out timing. Sections are numbered within their block (A1, A2, B1…),
  * floated ones included, so floating a section doesn't renumber the graphics named after it.
  * Sections above the first block belong to block A. A commercial break of breakSeconds airs before every
- * block except one that opens the show.
+ * block except one that opens the show, unless an admin removed it; admins can also add breaks before
+ * any row and give a break its own length (see BreakSetting).
  */
 export function computeRundown(
   rows: Row[],
@@ -423,19 +468,29 @@ export function computeRundown(
   let sectionInBlock = 0;
   let elapsed = 0;
   let breakCount = 0;
+  let defaultBreakCount = 0;
+  // The break before a row, if one airs there.
+  const breakFor = (row: Row): CommercialBreak | undefined => {
+    if (computed.length === 0) return undefined;
+    const automatic = row.kind === 'block';
+    const setting = row.commercialBreak;
+    if (setting ? 'off' in setting : !automatic) return undefined;
+    const customLength = Boolean(setting && 'seconds' in setting && setting.seconds !== null);
+    const seconds = customLength ? (setting as { seconds: number }).seconds : breakSeconds;
+    breakCount++;
+    if (!customLength) defaultBreakCount++;
+    const commercialBreak = { seconds, startOffset: elapsed, backTimeOffset: 0, automatic, customLength };
+    elapsed += seconds;
+    return commercialBreak;
+  };
 
   for (const row of rows) {
+    const breakBefore = breakFor(row);
     if (row.kind === 'block') {
       blockIndex++;
       sectionInBlock = 0;
       const letter = blockLetter(blockIndex);
       blockSeconds[letter] ??= 0;
-      let breakBefore: CommercialBreak | undefined;
-      if (computed.length > 0) {
-        breakBefore = { seconds: breakSeconds, startOffset: elapsed, backTimeOffset: 0 };
-        elapsed += breakSeconds;
-        breakCount++;
-      }
       computed.push({ row, label: letter, blockLetter: letter, seconds: 0, startOffset: elapsed, backTimeOffset: null, ...(breakBefore && { breakBefore }) });
       continue;
     }
@@ -443,7 +498,7 @@ export function computeRundown(
     const letter = blockLetter(Math.max(0, blockIndex));
     const seconds = Math.max(0, sectionSeconds(row));
     const airs = !row.floated;
-    computed.push({ row, label: `${letter}${sectionInBlock}`, blockLetter: letter, seconds, startOffset: airs ? elapsed : null, backTimeOffset: null });
+    computed.push({ row, label: `${letter}${sectionInBlock}`, blockLetter: letter, seconds, startOffset: airs ? elapsed : null, backTimeOffset: null, ...(breakBefore && { breakBefore }) });
     if (airs) {
       elapsed += seconds;
       blockSeconds[letter] = (blockSeconds[letter] ?? 0) + seconds;
@@ -454,18 +509,18 @@ export function computeRundown(
   let remaining = 0;
   for (let i = computed.length - 1; i >= 0; i--) {
     const c = computed[i];
-    if (c.row.kind === 'section') {
-      if (c.row.floated) continue;
+    const floated = c.row.kind === 'section' && c.row.floated;
+    if (!floated) {
       remaining += c.seconds;
+      c.backTimeOffset = targetSeconds - remaining;
     }
-    c.backTimeOffset = targetSeconds - remaining;
     if (c.breakBefore) {
       remaining += c.breakBefore.seconds;
       c.breakBefore.backTimeOffset = targetSeconds - remaining;
     }
   }
 
-  return { rows: computed, totalSeconds: elapsed, breakCount, targetSeconds, overUnderSeconds: elapsed - targetSeconds, blockSeconds };
+  return { rows: computed, totalSeconds: elapsed, breakCount, defaultBreakCount, targetSeconds, overUnderSeconds: elapsed - targetSeconds, blockSeconds };
 }
 
 // ---- Formatting ----

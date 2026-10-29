@@ -302,3 +302,98 @@ test('only signed-in people get in, and only the admin manages people', async ({
   await expect(rg.getByText('new.writer@gmail.com', { exact: true })).toBeVisible();
   await expect(rg.getByRole('cell', { name: 'Sam Writer', exact: true })).toBeVisible();
 });
+
+// A 2×2 red square, as a PNG, for the show logo.
+const LOGO_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGP4z8DwH4QZYAwAR8oH+WdZbrcAAAAASUVORK5CYII=', 'base64');
+
+test('admins manage people, shows, episodes and commercial breaks', async ({ browser }) => {
+  // A brand-new person types their first and last name before anything else, and sees they're a contributor.
+  const caseyContext = await browser.newContext();
+  const casey = await caseyContext.newPage();
+  await casey.goto('/');
+  await casey.getByRole('button', { name: 'casey.new123' }).click();
+  await expect(casey.getByRole('heading', { name: 'Welcome' })).toBeVisible();
+  await casey.getByLabel('First name').fill('Casey');
+  await casey.getByLabel('Last name').fill('Nguyen');
+  await casey.getByRole('button', { name: 'Continue' }).click();
+  await expect(casey.locator('.me')).toContainText('Casey Nguyen (Contributor)');
+  // Contributors don't get People or Usage.
+  await expect(casey.getByRole('link', { name: 'People' })).toHaveCount(0);
+  await expect(casey.getByRole('link', { name: 'Usage' })).toHaveCount(0);
+
+  const rg = await signIn(browser, 'RG (TD)');
+  await expect(rg.locator('.me')).toContainText('RG (TD) (Admin)');
+  // The menu runs Shows, People, Search; Usage is the ⓘ at the top left.
+  await expect(rg.locator('.topbar nav a')).toHaveText(['Shows', 'People', 'Search']);
+  await rg.getByRole('link', { name: 'Usage' }).click();
+  await expect(rg.getByRole('heading', { name: 'Usage' })).toBeVisible();
+
+  // Dark mode is remembered.
+  await rg.getByRole('switch', { name: 'Dark mode' }).click();
+  await expect(rg.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await rg.reload();
+  await expect(rg.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(rg.getByRole('switch', { name: 'Dark mode' })).toHaveAttribute('aria-checked', 'true');
+
+  // Inviting with Give Admin Access, and giving an existing contributor admin access.
+  await rg.getByRole('link', { name: 'People' }).click();
+  await rg.getByPlaceholder('name@gmail.com').fill('new.admin@gmail.com');
+  await rg.getByLabel('Give Admin Access').check();
+  await rg.getByRole('button', { name: 'Invite', exact: true }).click();
+  await expect(rg.getByRole('row', { name: /new\.admin@gmail\.com/ })).toContainText('Admin');
+  await rg.getByRole('button', { name: 'Casey Nguyen' }).click();
+  await rg.getByRole('button', { name: 'Give Admin Access' }).click();
+  await expect(rg.getByRole('row', { name: /Casey Nguyen/ }).first()).toContainText('Admin');
+  await casey.reload();
+  await expect(casey.locator('.me')).toContainText('Casey Nguyen (Admin)');
+
+  // Shows: Add is at the top, with a logo; the list can switch to cards.
+  await rg.getByRole('navigation').getByRole('link', { name: 'Shows' }).click();
+  await rg.getByPlaceholder('Show name').fill('Logo Show');
+  await rg.getByLabel('Logo picture').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: LOGO_PNG });
+  await expect(rg.locator('.logo-picker img.show-logo')).toBeVisible();
+  await rg.getByRole('button', { name: 'Add show' }).click();
+  await expect(rg.getByRole('heading', { name: 'Logo Show' }).locator('img.show-logo')).toBeVisible();
+  await rg.getByRole('navigation').getByRole('link', { name: 'Shows' }).click();
+  await rg.getByRole('button', { name: /Cards/ }).click();
+  await expect(rg.locator('.show-card', { hasText: 'Logo Show' }).locator('img.show-logo')).toBeVisible();
+  await rg.reload();
+  await expect(rg.locator('.show-card', { hasText: 'Logo Show' })).toBeVisible();
+  await rg.locator('.show-card', { hasText: 'Logo Show' }).click();
+
+  // Commercial breaks: admins change a break's length, remove it, and add one before a section.
+  await rg.getByPlaceholder('Title, e.g.').fill('Break Episode');
+  await rg.getByRole('button', { name: 'Create episode' }).click();
+  await rg.getByRole('button', { name: '+ Block' }).click();
+  await rg.getByRole('button', { name: '+ Section' }).click();
+  await expect(rg.locator('.break-row')).toHaveCount(1);
+  await rg.getByLabel('Commercial break before Block B length').fill('2:30');
+  await rg.getByLabel('Commercial break before Block B length').press('Enter');
+  await expect(rg.locator('.timing-bar')).toContainText('Total 2:30');
+  await rg.getByRole('button', { name: 'Remove the commercial break before Block B' }).click();
+  await expect(rg.locator('.break-row')).toHaveCount(0);
+  await rg.getByRole('button', { name: 'Actions for B1' }).click();
+  await rg.getByRole('menuitem', { name: 'Add a commercial break above' }).click();
+  await expect(rg.locator('.break-row')).toHaveCount(1);
+  await expect(rg.locator('.break-row')).toContainText('Added by an admin.');
+  await rg.getByRole('button', { name: 'Actions for Block B' }).click();
+  await rg.getByRole('menuitem', { name: 'Add a commercial break above' }).click();
+  await expect(rg.locator('.break-row')).toHaveCount(2);
+  // A contributor sees the breaks but can't change them.
+  const episodeUrl = rg.url();
+  const sam = await signIn(browser, 'Sam Writer');
+  rg.once('dialog', (dialog) => dialog.accept());
+  await rg.getByRole('button', { name: 'Publish rundown' }).click();
+  await expect(rg.getByText('Published', { exact: true })).toBeVisible();
+  await sam.goto(episodeUrl);
+  await expect(sam.locator('.break-row')).toHaveCount(2);
+  await expect(sam.getByRole('button', { name: /Remove the commercial break/ })).toHaveCount(0);
+  await expect(sam.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
+
+  // Deleting an episode, for admins only, erases it for good.
+  rg.once('dialog', (dialog) => dialog.accept());
+  await rg.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(rg.getByRole('heading', { name: 'Logo Show' })).toBeVisible();
+  await expect(rg.getByText('Break Episode')).toHaveCount(0);
+  await expect(sam.getByText('Episode not found.')).toBeVisible();
+});

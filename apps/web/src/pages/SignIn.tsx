@@ -7,10 +7,10 @@ interface Options {
 }
 
 const ERRORS: Record<string, string> = {
-  'not-invited': 'That Google account isn’t on the invite list yet. Ask the TD to invite you, then try again.',
+  'not-invited': 'That Google account isn’t on the invite list yet. Ask an admin to invite you, then try again.',
   expired: 'Sign-in took too long. Please try again.',
   google: 'Google sign-in didn’t work. Please try again.',
-  'not-configured': 'Google sign-in isn’t set up yet. Ask the TD.',
+  'not-configured': 'Google sign-in isn’t set up yet. Ask an admin.',
 };
 
 export function SignInPage() {
@@ -51,7 +51,7 @@ export function SignInPage() {
             ))}
           </div>
         )}
-        <p className="muted small">Only people the TD has invited can sign in.</p>
+        <p className="muted small">Only people the Admin has invited can sign in.</p>
         <p className="muted small">
           <a href="/privacy">Privacy</a>
         </p>

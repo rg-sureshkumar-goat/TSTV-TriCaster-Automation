@@ -58,11 +58,36 @@ const isTime = (v: string) => v === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
 app.get('/me', (c) => c.json({ user: c.get('user') }));
 
+// Everyone types their first and last name the first time they sign in, so they're easy to recognize
+// even when their Gmail account's name isn't their real one.
+app.post('/me/name', async (c) => {
+  const body = await c.req.json<{ firstName?: string; lastName?: string }>();
+  const firstName = clean(body.firstName, 60);
+  const lastName = clean(body.lastName, 60);
+  if (!firstName || !lastName) return c.json({ error: 'Type your first and last name.' }, 400);
+  await c.env.DB.prepare('UPDATE users SET first_name = ?, last_name = ?, name = ? WHERE id = ?')
+    .bind(firstName, lastName, `${firstName} ${lastName}`, c.get('user').id)
+    .run();
+  return c.json({ ok: true });
+});
+
+/**
+ * A show's logo: a small image the browser already shrank to 128 pixels at most, as a data: URL.
+ * Returns undefined to leave it as it is, null to remove it, or an error message.
+ */
+function readLogo(value: unknown): string | null | undefined | { error: string } {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  if (typeof value !== 'string' || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)) return { error: 'That logo isn’t a PNG, JPEG or WebP picture.' };
+  if (value.length > 150_000) return { error: 'That logo is too big. Try a smaller picture.' };
+  return value;
+}
+
 // ---- Shows ----
 
 app.get('/shows', async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT s.id, s.name, s.settings,
+    `SELECT s.id, s.name, s.settings, s.logo,
             (SELECT COUNT(*) FROM episodes e WHERE e.show_id = s.id AND e.status = 'active' AND ${VISIBLE}) AS active_episodes,
             (SELECT MAX(e.air_date) FROM episodes e WHERE e.show_id = s.id) AS latest_air_date
      FROM shows s ORDER BY s.name COLLATE NOCASE`,
@@ -73,6 +98,7 @@ app.get('/shows', async (c) => {
     shows: results.map((r) => ({
       id: r.id,
       name: r.name,
+      logo: r.logo ?? null,
       settings: normalizeShowSettings(JSON.parse(String(r.settings))),
       activeEpisodes: r.active_episodes,
       latestAirDate: r.latest_air_date,
@@ -81,18 +107,20 @@ app.get('/shows', async (c) => {
 });
 
 app.post('/shows', async (c) => {
-  const body = await c.req.json<{ name?: string }>();
+  const body = await c.req.json<{ name?: string; logo?: string | null }>();
   const name = clean(body.name, 100);
   if (!name) return c.json({ error: 'Give the show a name.' }, 400);
+  const logo = readLogo(body.logo);
+  if (logo && typeof logo === 'object') return c.json(logo, 400);
   const id = crypto.randomUUID();
-  await c.env.DB.prepare('INSERT INTO shows (id, name, settings, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(id, name, JSON.stringify(DEFAULT_SHOW_SETTINGS), c.get('user').id, now(), now())
+  await c.env.DB.prepare('INSERT INTO shows (id, name, settings, logo, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(id, name, JSON.stringify(DEFAULT_SHOW_SETTINGS), logo ?? null, c.get('user').id, now(), now())
     .run();
   return c.json({ id }, 201);
 });
 
 app.get('/shows/:id', async (c) => {
-  const show = await c.env.DB.prepare('SELECT id, name, settings FROM shows WHERE id = ?').bind(c.req.param('id')).first<Record<string, unknown>>();
+  const show = await c.env.DB.prepare('SELECT id, name, settings, logo FROM shows WHERE id = ?').bind(c.req.param('id')).first<Record<string, unknown>>();
   if (!show) return c.json({ error: 'Show not found.' }, 404);
   const { results } = await c.env.DB.prepare(
     `SELECT e.id, e.title, e.air_date, e.air_time, e.status, e.summary, e.updated_at, e.published_at, e.created_by, u.name AS created_by_name
@@ -102,19 +130,23 @@ app.get('/shows/:id', async (c) => {
     .bind(show.id, ...visibleTo(c.get('user')))
     .all<Record<string, unknown>>();
   return c.json({
-    show: { id: show.id, name: show.name, settings: normalizeShowSettings(JSON.parse(String(show.settings))) },
+    show: { id: show.id, name: show.name, logo: show.logo ?? null, settings: normalizeShowSettings(JSON.parse(String(show.settings))) },
     episodes: results.map(episodeJson),
   });
 });
 
 app.patch('/shows/:id', async (c) => {
-  const body = await c.req.json<{ name?: string; settings?: unknown }>();
-  const show = await c.env.DB.prepare('SELECT id, name, settings FROM shows WHERE id = ?').bind(c.req.param('id')).first<Record<string, unknown>>();
+  const body = await c.req.json<{ name?: string; settings?: unknown; logo?: string | null }>();
+  const show = await c.env.DB.prepare('SELECT id, name, settings, logo FROM shows WHERE id = ?').bind(c.req.param('id')).first<Record<string, unknown>>();
   if (!show) return c.json({ error: 'Show not found.' }, 404);
   const name = body.name === undefined ? String(show.name) : clean(body.name, 100);
   if (!name) return c.json({ error: 'Give the show a name.' }, 400);
   const settings = body.settings === undefined ? JSON.parse(String(show.settings)) : normalizeShowSettings(body.settings);
-  await c.env.DB.prepare('UPDATE shows SET name = ?, settings = ?, updated_at = ? WHERE id = ?').bind(name, JSON.stringify(settings), now(), show.id).run();
+  const logo = readLogo(body.logo);
+  if (logo && typeof logo === 'object') return c.json(logo, 400);
+  await c.env.DB.prepare('UPDATE shows SET name = ?, settings = ?, logo = ?, updated_at = ? WHERE id = ?')
+    .bind(name, JSON.stringify(settings), logo === undefined ? (show.logo ?? null) : logo, now(), show.id)
+    .run();
   return c.json({ ok: true, settings });
 });
 
@@ -227,6 +259,16 @@ app.post('/episodes/:id/unarchive', adminOnly, async (c) => {
   return c.json({ ok: true });
 });
 
+// Deleting an episode erases its rundown and scripts for good, to save space. Admins only.
+app.delete('/episodes/:id', adminOnly, async (c) => {
+  const id = c.req.param('id');
+  if (!(await c.env.DB.prepare('SELECT 1 FROM episodes WHERE id = ?').bind(id).first())) return c.json({ error: 'Episode not found.' }, 404);
+  await c.env.DB.prepare('DELETE FROM episodes WHERE id = ?').bind(id).run();
+  const room = await getServerByName(c.env.EpisodeRoom, id);
+  await room.fetch(new Request(`https://room/parties/episode-room/${id}/delete`, { method: 'POST' }));
+  return c.json({ ok: true });
+});
+
 app.get('/search', async (c) => {
   const q = clean(c.req.query('q'), 100);
   if (q.length < 2) return c.json({ episodes: [] });
@@ -245,10 +287,10 @@ app.get('/search', async (c) => {
 
 app.get('/admin/people', adminOnly, async (c) => {
   const users = await c.env.DB.prepare('SELECT id, email, name, is_admin, created_at, last_seen_at FROM users ORDER BY name COLLATE NOCASE').all<Record<string, unknown>>();
-  const invites = await c.env.DB.prepare('SELECT email, created_at FROM invites ORDER BY email').all<Record<string, unknown>>();
+  const invites = await c.env.DB.prepare('SELECT email, as_admin, created_at FROM invites ORDER BY email').all<Record<string, unknown>>();
   return c.json({
     users: users.results.map((u) => ({ id: u.id, email: u.email, name: u.name, isAdmin: u.is_admin === 1, lastSeenAt: u.last_seen_at })),
-    invites: invites.results.map((i) => ({ email: i.email, createdAt: i.created_at })),
+    invites: invites.results.map((i) => ({ email: i.email, asAdmin: i.as_admin === 1, createdAt: i.created_at })),
   });
 });
 
@@ -260,11 +302,14 @@ app.get('/admin/usage', adminOnly, async (c) => {
 });
 
 app.post('/admin/invites', adminOnly, async (c) => {
-  const { email } = await c.req.json<{ email?: string }>();
+  // asAdmin: "Give Admin Access" was ticked. Otherwise they get a contributor account.
+  const { email, asAdmin } = await c.req.json<{ email?: string; asAdmin?: boolean }>();
   const address = clean(email, 200).toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return c.json({ error: 'That doesn’t look like an email address.' }, 400);
   if (await c.env.DB.prepare('SELECT 1 FROM users WHERE email = ?').bind(address).first()) return c.json({ error: 'That person can already sign in.' }, 409);
-  await c.env.DB.prepare('INSERT OR IGNORE INTO invites (email, invited_by, created_at) VALUES (?, ?, ?)').bind(address, c.get('user').id, now()).run();
+  await c.env.DB.prepare('INSERT OR REPLACE INTO invites (email, invited_by, created_at, as_admin) VALUES (?, ?, ?, ?)')
+    .bind(address, c.get('user').id, now(), asAdmin ? 1 : 0)
+    .run();
   return c.json({ ok: true }, 201);
 });
 

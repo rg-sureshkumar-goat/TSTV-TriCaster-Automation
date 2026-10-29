@@ -65,10 +65,13 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 **Shows and episodes**
 
 - Anyone can **Add a Show** and name it anything. Each show holds **episodes**, and each episode has its own rundown, scripts, graphics and prompter text.
+- **Shows page (decided Oct 29, 2026):** **Add a show** is at the top of the page, so it's easy to reach however many shows there are. Shows can be listed as a **list** or as **cards**, with a switch at the top; each browser remembers the choice.
+- **Show logos (decided Oct 29, 2026):** each show can have a small logo, picked when the show is added or later in its settings, so shows are easy to tell apart. The browser shrinks it to 128 pixels at most before saving it on the website. A logo is part of the website, not show media: graphics and clips still never upload to the cloud. A show without a logo shows its initials.
 - Every show uses the same interface. Shows differ only in their content: number of blocks, sections and talent.
 - Each show has settings for its default camera (for example "Anchor Camera"), its usual talent, and its target length (default 30:00).
 - **On-air talent per episode (decided Oct 28, 2026):** every episode has its own anchors and correspondents, so each episode has a section where the producer enters their names. Each person gets a color, used for their sections in the rundown and on the prompter.
 - After air, an episode can be **archived** (read-only, still searchable) and **exported** as PDF and CSV.
+- **Deleting episodes (decided Oct 29, 2026):** admins can delete any episode to save space, from the show's episode list or the episode itself. Its rundown and scripts are erased for good, after a warning.
 
 **Rundown grid**
 
@@ -82,7 +85,8 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
   - Elements are planned in the rundown first.
   - In Phase 2 each element is linked to its cue chip in the script. In Phase 4 it's linked to its file, with Ready or Missing.
   - The TriCaster cueing is built from them.
-- **Commercial breaks (decided Oct 29, 2026):** a commercial break is added automatically between every two blocks. It shows the show's break permanent graphic (Commercial Break), can't be edited or moved, and goes wherever the blocks go. Each show sets its break length in its settings (0:00 by default, which leaves breaks out of the timing); breaks count toward the episode total and back-times.
+- **Commercial breaks (decided Oct 29, 2026):** a commercial break is added automatically between every two blocks. It shows the show's break permanent graphic (Commercial Break) and its length, and goes wherever the row below it goes. Each show sets its default break length in its settings (0:00 by default, which leaves breaks out of the timing); breaks count toward the episode total and back-times.
+  - **Admins can change breaks in the rundown (decided Oct 29, 2026):** remove any break, add a break above any section or block (from its ⋯ menu), and type a different length for one break right on its line. Clearing that length goes back to the show's. Contributors see the breaks but can't change them. (The website hides these controls from contributors; it doesn't block them on the server, which is fine for a team tool.)
 - Drag rows to reorder, add or delete sections, and **float** a section (keep it but skip it on air). Section numbers update when rows move.
 - **Publish rundown (decided Oct 28, 2026):** a new episode is a draft. Only the producer who created it and admins can see it. When the rundown is built, the producer clicks **Publish rundown** and everyone who can sign in sees it. The producer or an admin can unpublish it.
 
@@ -118,8 +122,12 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 
 **Sign-in**
 
-- Sign-in is required so outsiders can't edit scripts. Version 1 has one role for everyone, plus an admin (the TD) who invites people.
-- **Decided Oct 28, 2026:** the website uses **Sign in with Google**, limited to people the TD invites.
+- Sign-in is required so outsiders can't edit scripts.
+- **Decided Oct 28, 2026:** the website uses **Sign in with Google**, limited to people an admin invites. The sign-in page says "Only people the Admin has invited can sign in."
+- **Two kinds of account (decided Oct 29, 2026):** **Admin** and **Contributor**. Contributors build rundowns and write scripts. Admins also manage people (the **People** page), see the **Usage** page, delete episodes and change commercial breaks. The top right shows each person's name with "(Admin)" or "(Contributor)".
+  - When inviting someone, ticking **Give Admin Access** makes them an admin; otherwise they're a contributor. On the People page, clicking a person shows **Give Admin Access** for a contributor (and **Remove Admin Access** for another admin). The emails in the `ADMIN_EMAILS` setting (the TD) are always admins.
+- **Names (decided Oct 29, 2026):** the first time someone signs in, they type their first and last name, so everyone can tell who they are even when their Gmail account's name isn't their real one. The website uses that name from then on.
+- **Top bar (decided Oct 29, 2026):** at the top left, a switch between **light and dark mode** for the whole website (each browser remembers it; until it's used, the website follows the computer's setting) and, for admins, an **ⓘ** icon for the Usage page. The menu reads **Shows, People, Search**; People is for admins only.
 - **Authorship:** the site records who wrote and who edited each section's script and rundown row, so the producer knows exactly who wrote and edited each reader.
 
 **Not in version 1:** team chat, per-person permissions, rundown templates, printing scripts.
@@ -144,6 +152,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 - The producer plugs the USB-C-to-Ethernet adapter and the TC1 cable into her laptop and opens the app. The app finds the TC1 on the cable by itself. Producers never change network settings.
 - **No sign-in in the show app (decided Oct 28, 2026).** Only one laptop is connected at a time, and running the TC1 means being in the studio on the cable.
 - **Proposed, to confirm in Phase 4:** the app still reads the rundown and cues from the website. To keep scripts and the cue feed private, the admin links each show laptop to the website once.
+- **Episode key (RG, Oct 29, 2026; for Phase 4):** every episode gets its own unique key, which is copied from the website and pasted into the show app, so the app knows exactly which rundown to take cues and information from. To design in Phase 4 together with linking the laptop.
 - Status lights show whether the website, the prompter and the TriCaster are connected.
 
 **Producer screen**

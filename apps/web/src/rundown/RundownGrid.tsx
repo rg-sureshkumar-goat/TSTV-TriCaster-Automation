@@ -22,6 +22,7 @@ import {
   moveRow,
   parseDuration,
   removeElement,
+  setCommercialBreak,
   toggleTalent,
   updateElement,
   updateRow,
@@ -54,11 +55,13 @@ interface GridProps {
   airTime: string;
   me: Person;
   readOnly: boolean;
+  /** Admins can add and remove commercial breaks and change their lengths. */
+  isAdmin: boolean;
   others: Presence[];
   setFocus: (focus: string | null) => void;
 }
 
-export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, airTime, me, readOnly, others, setFocus }: GridProps) {
+export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, airTime, me, readOnly, isAdmin, others, setFocus }: GridProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const ids = timing.rows.map((c) => c.row.id);
 
@@ -69,6 +72,26 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, ai
 
   const focusedBy = (rowId: string, field: string) => others.filter((o) => o.focus === `${rowId}:${field}`);
   const backTime = (offset: number | null) => (offset === null ? '' : airTime ? formatClock(airTime, offset) : `+${formatDuration(offset)}`);
+  const canEditBreaks = isAdmin && !readOnly;
+  // Admins can add a commercial break above any row but the first. Above a block, that brings back the
+  // automatic one.
+  const breakItems = (c: ComputedRow, index: number): MenuItem[] =>
+    canEditBreaks && index > 0 && !c.breakBefore
+      ? [{ label: 'Add a commercial break above', run: () => setCommercialBreak(doc, c.row.id, c.row.kind === 'block' ? null : { seconds: null }, me) }]
+      : [];
+  const breakLine = (c: ComputedRow) =>
+    c.breakBefore && (
+      <BreakLine
+        computed={c}
+        commercialBreak={c.breakBefore}
+        graphic={breakGraphic(settings)}
+        showSeconds={settings.breakSeconds}
+        backTime={backTime(c.breakBefore.backTimeOffset)}
+        editable={canEditBreaks}
+        doc={doc}
+        me={me}
+      />
+    );
 
   return (
     <div className="grid-wrap">
@@ -100,26 +123,29 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, ai
               {timing.rows.map((c, index) =>
                 c.row.kind === 'block' ? (
                   <Fragment key={c.row.id}>
-                    {c.breakBefore && <BreakLine commercialBreak={c.breakBefore} graphic={breakGraphic(settings)} backTime={backTime(c.breakBefore.backTimeOffset)} />}
-                    <BlockLine computed={c} doc={doc} me={me} readOnly={readOnly} blockSeconds={timing.blockSeconds[c.blockLetter] ?? 0} backTime={backTime(c.backTimeOffset)} sectionsAfter={sectionsUntilNextBlock(timing.rows, index)} />
+                    {breakLine(c)}
+                    <BlockLine computed={c} doc={doc} me={me} readOnly={readOnly} blockSeconds={timing.blockSeconds[c.blockLetter] ?? 0} backTime={backTime(c.backTimeOffset)} sectionsAfter={sectionsUntilNextBlock(timing.rows, index)} extraItems={breakItems(c, index)} />
                   </Fragment>
                 ) : (
-                  <SectionLine
-                    key={c.row.id}
-                    episodeId={episodeId}
-                    computed={c as ComputedRow & { row: SectionRow }}
-                    index={index}
-                    count={timing.rows.length}
-                    doc={doc}
-                    me={me}
-                    settings={settings}
-                    talent={talent}
-                    cued={cued}
-                    readOnly={readOnly}
-                    backTime={backTime(c.backTimeOffset)}
-                    focusedBy={focusedBy}
-                    setFocus={setFocus}
-                  />
+                  <Fragment key={c.row.id}>
+                    {breakLine(c)}
+                    <SectionLine
+                      episodeId={episodeId}
+                      computed={c as ComputedRow & { row: SectionRow }}
+                      index={index}
+                      count={timing.rows.length}
+                      doc={doc}
+                      me={me}
+                      settings={settings}
+                      talent={talent}
+                      cued={cued}
+                      readOnly={readOnly}
+                      backTime={backTime(c.backTimeOffset)}
+                      focusedBy={focusedBy}
+                      setFocus={setFocus}
+                      extraItems={breakItems(c, index)}
+                    />
+                  </Fragment>
                 ),
               )}
             </tbody>
@@ -158,8 +184,15 @@ function SortableRow({ id, className, disabled, children }: { id: string; classN
   );
 }
 
-/** A commercial break, added automatically before every block except the first. It can't be edited or moved. */
-function BreakLine({ commercialBreak, graphic, backTime }: { commercialBreak: CommercialBreak; graphic: string | undefined; backTime: string }) {
+/**
+ * A commercial break: added automatically before every block except the first, or by an admin. It goes
+ * wherever the row below it goes. Admins can change its length or remove it.
+ */
+function BreakLine({ computed, commercialBreak, graphic, showSeconds, backTime, editable, doc, me }: { computed: ComputedRow; commercialBreak: CommercialBreak; graphic: string | undefined; showSeconds: number; backTime: string; editable: boolean; doc: Y.Doc; me: Person }) {
+  const where = computed.row.kind === 'block' ? `Block ${computed.label}` : computed.label;
+  const setLength = (seconds: number | null) =>
+    setCommercialBreak(doc, computed.row.id, seconds === null && commercialBreak.automatic ? null : { seconds }, me);
+  const remove = () => setCommercialBreak(doc, computed.row.id, commercialBreak.automatic ? { off: true } : null, me);
   return (
     <tr className="break-row">
       <td className="handle-col" />
@@ -168,18 +201,42 @@ function BreakLine({ commercialBreak, graphic, backTime }: { commercialBreak: Co
         <div className="break-title">
           <strong>Commercial break</strong>
           {graphic && <span className="element-chip permanent">★ {graphic}</span>}
-          <span className="muted small">Added automatically between blocks. Set its length in the show’s settings.</span>
+          <span className="muted small">
+            {commercialBreak.automatic ? 'Added automatically between blocks.' : 'Added by an admin.'}{' '}
+            {commercialBreak.customLength ? 'Its length was typed in.' : `The show’s break length: ${formatDuration(showSeconds)}.`}
+          </span>
         </div>
       </td>
-      <td className="time-col">{commercialBreak.seconds > 0 ? formatDuration(commercialBreak.seconds) : ''}</td>
+      <td className="time-col">
+        {editable ? (
+          <DurationCell
+            value={commercialBreak.customLength ? commercialBreak.seconds : null}
+            autoSeconds={showSeconds}
+            readOnly={false}
+            onCommit={setLength}
+            ariaLabel={`Commercial break before ${where} length`}
+            hints={{ auto: 'The show’s break length. Type a length for just this break.', typed: 'Typed in for this break. Clear it to use the show’s break length.' }}
+          />
+        ) : commercialBreak.seconds > 0 ? (
+          formatDuration(commercialBreak.seconds)
+        ) : (
+          ''
+        )}
+      </td>
       <td className="time-col">{commercialBreak.seconds > 0 ? backTime : ''}</td>
       <td />
-      <td className="menu-col" />
+      <td className="menu-col">
+        {editable && (
+          <button className="link-button danger" aria-label={`Remove the commercial break before ${where}`} title="Remove this commercial break" onClick={remove}>
+            ×
+          </button>
+        )}
+      </td>
     </tr>
   );
 }
 
-function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectionsAfter }: { computed: ComputedRow; doc: Y.Doc; me: Person; readOnly: boolean; blockSeconds: number; backTime: string; sectionsAfter: number }) {
+function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectionsAfter, extraItems }: { computed: ComputedRow; doc: Y.Doc; me: Person; readOnly: boolean; blockSeconds: number; backTime: string; sectionsAfter: number; extraItems: MenuItem[] }) {
   const row = computed.row;
   if (row.kind !== 'block') return null;
   const ids = () => {
@@ -209,6 +266,7 @@ function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectio
                 label={`Block ${computed.label}`}
                 items={[
                   { label: 'Add a section to this block', run: () => insertSection(doc, me, {}, ids() + sectionsAfter + 1) },
+                  ...extraItems,
                   {
                     label: 'Delete block header',
                     danger: true,
@@ -238,9 +296,11 @@ interface SectionLineProps {
   backTime: string;
   focusedBy: (rowId: string, field: string) => Presence[];
   setFocus: (focus: string | null) => void;
+  /** More menu choices, like adding a commercial break above. */
+  extraItems: MenuItem[];
 }
 
-function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, cued, readOnly, backTime, focusedBy, setFocus }: SectionLineProps) {
+function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, cued, readOnly, backTime, focusedBy, setFocus, extraItems }: SectionLineProps) {
   const row = computed.row;
   const set = (patch: Partial<SectionRow>) => updateRow(doc, row.id, patch, me);
   const cell = (field: string, children: ReactNode, className = '') => {
@@ -295,6 +355,7 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
                   { label: 'Insert a section below', run: () => insertSection(doc, me, {}, index + 1) },
                   { label: 'Move up', disabled: index === 0, run: () => moveRow(doc, index, index - 1) },
                   { label: 'Move down', disabled: index === count - 1, run: () => moveRow(doc, index, index + 1) },
+                  ...extraItems,
                   { label: 'Delete section', danger: true, run: () => confirm(`Delete ${computed.label}${row.slug ? ` (${row.slug})` : ''}?`) && deleteRow(doc, row.id) },
                 ]}
               />
@@ -479,7 +540,12 @@ function SelectCell({ value, options, emptyLabel = '—', readOnly, onChange, ar
  * Est.: left empty, it shows the length worked out from the script (in grey). Typing a length overrides
  * it; clearing the box goes back to the script's length.
  */
-function DurationCell({ value, autoSeconds, readOnly, onCommit, ariaLabel }: { value: number | null; autoSeconds: number; readOnly: boolean; onCommit: (value: number | null) => void; ariaLabel: string }) {
+const SCRIPT_HINTS = {
+  auto: 'From the script’s read time (143–154 words a minute). Type a length to override it.',
+  typed: 'Typed in by hand. Clear it to use the script’s read time.',
+};
+
+function DurationCell({ value, autoSeconds, readOnly, onCommit, ariaLabel, hints = SCRIPT_HINTS }: { value: number | null; autoSeconds: number; readOnly: boolean; onCommit: (value: number | null) => void; ariaLabel: string; hints?: { auto: string; typed: string } }) {
   const shown = value === null ? '' : formatDuration(value);
   const [draft, setDraft] = useState(shown);
   const [invalid, setInvalid] = useState(false);
@@ -506,8 +572,8 @@ function DurationCell({ value, autoSeconds, readOnly, onCommit, ariaLabel }: { v
         invalid
           ? 'Type a length like 1:30'
           : value === null
-            ? 'From the script’s read time (143–154 words a minute). Type a length to override it.'
-            : 'Typed in by hand. Clear it to use the script’s read time.'
+            ? hints.auto
+            : hints.typed
       }
       disabled={readOnly}
       onFocus={() => (editing.current = true)}

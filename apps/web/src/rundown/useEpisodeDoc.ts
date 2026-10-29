@@ -77,7 +77,9 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
     };
     const onCustom = (message: string) => {
       try {
-        if ((JSON.parse(message) as { type?: string }).type === 'archived') archivedRef.current?.();
+        // Archived or deleted by someone else: reload the page's details (a deleted one then says so).
+        const type = (JSON.parse(message) as { type?: string }).type;
+        if (type === 'archived' || type === 'deleted') archivedRef.current?.();
       } catch {
         // Not a message for us.
       }

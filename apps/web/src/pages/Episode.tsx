@@ -72,6 +72,15 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
       setMessage((e as Error).message);
     }
   };
+  const remove = async () => {
+    if (!confirm(`Delete “${episode.title}” for good? Its rundown and scripts are erased and can’t be brought back.`)) return;
+    try {
+      await api(`/episodes/${episode.id}`, { method: 'DELETE' });
+      navigate(`/shows/${show.id}`);
+    } catch (e) {
+      setMessage((e as Error).message);
+    }
+  };
   const unarchive = async () => {
     try {
       await api(`/episodes/${episode.id}/unarchive`, { method: 'POST' });
@@ -129,6 +138,11 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
           <button onClick={() => exportPdf(timing, exportInfo)}>Export PDF</button>
           {!readOnly && <button onClick={archive}>Archive</button>}
           {readOnly && user.isAdmin && <button onClick={unarchive}>Un-archive</button>}
+          {user.isAdmin && (
+            <button className="danger" onClick={remove}>
+              Delete
+            </button>
+          )}
         </div>
       </div>
       {message && <p className="error">{message}</p>}
@@ -155,7 +169,7 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
       {!room.synced || !room.doc ? (
         <p className="muted">Loading the rundown…</p>
       ) : (
-        <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} talent={room.talent} cued={room.cued} airTime={episode.airTime} me={me} readOnly={readOnly} others={room.others} setFocus={room.setFocus} />
+        <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} talent={room.talent} cued={room.cued} airTime={episode.airTime} me={me} readOnly={readOnly} isAdmin={user.isAdmin} others={room.others} setFocus={room.setFocus} />
       )}
 
       {sectionId && (

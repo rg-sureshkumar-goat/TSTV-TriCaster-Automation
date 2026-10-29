@@ -54,4 +54,6 @@ export interface User {
   name: string;
   picture: string | null;
   isAdmin: boolean;
+  /** True until they've typed their first and last name, which they do the first time they sign in. */
+  needsName: boolean;
 }

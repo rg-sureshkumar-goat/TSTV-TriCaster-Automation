@@ -26,6 +26,24 @@ Phase 2 turns each section's script box into a real script editor: several peopl
 
 **Not yet:** the prompter (Phase 3), and firing the cues on the TriCaster (Phases 4 and 5).
 
+## Also in this update: accounts, shows and breaks
+
+- **Admin and Contributor accounts.** Your name at the top right says which you are. On **People**, tick **Give Admin Access** when inviting someone to make them an admin. Click a person's name to give an existing contributor admin access.
+- **Names.** The first time anyone signs in, including you after this update, they type their first and last name.
+- **Top bar.** At the top left: a light/dark switch for the whole website and, for admins, an **ⓘ** that opens the Usage page. The menu reads Shows, People, Search.
+- **Shows page.** **Add a show** is at the top, with an optional logo. A **List / Cards** switch changes the layout. A show's logo can be changed in its settings.
+- **Deleting episodes.** Admins see **Delete** next to each episode in a show's list, and on the episode itself. It erases the rundown and scripts for good, after a warning.
+- **Commercial breaks.** Admins can type a different length on a break's line, remove a break with its **×**, and add one with **Add a commercial break above** in any row's ⋯ menu.
+
+**Test it:**
+
+1. Sign in: you're asked for your first and last name once. Check the top right then shows your name and "(Admin)".
+2. Flip the light/dark switch, reload, and check it stays. Click the **ⓘ** for Usage.
+3. On **People**, invite a test email with **Give Admin Access** ticked and check it's listed as Admin. Click a contributor's name and check **Give Admin Access** works. Sign in as a contributor and check there's no People, ⓘ, Delete or break controls.
+4. On **Shows**, add a show with a logo, then switch between List and Cards.
+5. In a test episode, change a break's length, remove it, and add one above a section. Check the total and back-times follow.
+6. Delete that test episode and check it's gone.
+
 ## Set up the Usage page (one time, about 5 minutes)
 
 The Usage page reads your Cloudflare account's usage numbers, which needs a **read-only** API token. You create it; I never see it.
@@ -53,7 +71,7 @@ The Usage page reads your Cloudflare account's usage numbers, which needs a **re
    ```
 
    Paste your account ID (on the right side of the Cloudflare dashboard's **Workers & Pages** page), then press Enter.
-8. Open **Usage** in the website's top bar. Any number Cloudflare can't report shows **Not available**; hover over it to see why, and tell me.
+8. Click the **ⓘ** at the top left of the website to open Usage. Any number Cloudflare can't report shows **Not available**; hover over it to see why, and tell me.
 
 ## The Phase 2 test: two people write the same scripts
 
@@ -79,7 +97,7 @@ You need a second person signed in (invite them on the **People** page).
 6. **Rename and remove:** rename a graphic in the rundown and check the chip's name follows. Remove one and check its chip turns into a red **Removed graphic**.
 7. **Speaker tags:** in a two-reader section, use the **Speakers** buttons to start each part. Type a wrong name, like `{JORDN}`, and check it gets a dotted red underline.
 8. **Rundown:** close the window and check that cued graphics are solid and the rest are dashed, and that the **Story Type** column has its new name.
-9. **Usage:** after the setup above, open **Usage** and check the numbers look sensible: small numbers and bars near zero.
+9. **Usage:** after the setup above, click the **ⓘ** and check the numbers look sensible: small numbers and bars near zero.
 10. **Tell me** what's missing or awkward, and whether Phase 2 is approved.
 
 ## Behind the scenes

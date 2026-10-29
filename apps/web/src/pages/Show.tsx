@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { formatDuration, parseDuration, TALENT_COLORS, type ShowSettings, type Talent } from '@tstv/shared';
-import { api, useLoad } from '../lib/api.ts';
+import { api, useLoad, type User } from '../lib/api.ts';
 import { Link, navigate } from '../lib/router.tsx';
 import { formatDate, formatTime, timeAgo } from '../lib/format.ts';
+import { LogoPicker, ShowLogo } from '../components/ShowLogo.tsx';
 
 export interface EpisodeListItem {
   id: string;
@@ -19,24 +20,39 @@ export interface EpisodeListItem {
 }
 
 interface ShowData {
-  show: { id: string; name: string; settings: ShowSettings };
+  show: { id: string; name: string; logo: string | null; settings: ShowSettings };
   episodes: EpisodeListItem[];
 }
 
-export function ShowPage({ showId }: { showId: string }) {
+export function ShowPage({ showId, user }: { showId: string; user: User }) {
   const { data, error, reload } = useLoad<ShowData>(`/shows/${showId}`);
   const [tab, setTab] = useState<'episodes' | 'settings'>('episodes');
   if (error) return <div className="page"><p className="error">{error}</p></div>;
   if (!data) return <div className="page muted">Loading…</div>;
   const active = data.episodes.filter((e) => e.status === 'active');
   const archived = data.episodes.filter((e) => e.status === 'archived');
+  // Admins can delete an episode for good, to save space.
+  const onDelete = user.isAdmin
+    ? async (episode: EpisodeListItem) => {
+        if (!confirm(`Delete “${episode.title}” for good? Its rundown and scripts are erased and can’t be brought back.`)) return;
+        try {
+          await api(`/episodes/${episode.id}`, { method: 'DELETE' });
+        } catch (e) {
+          alert((e as Error).message);
+        }
+        reload();
+      }
+    : undefined;
 
   return (
     <div className="page">
       <p className="crumbs">
         <Link to="/">Shows</Link> ›
       </p>
-      <h1>{data.show.name}</h1>
+      <h1 className="with-logo">
+        <ShowLogo name={data.show.name} logo={data.show.logo} size={40} />
+        {data.show.name}
+      </h1>
       <div className="tabs">
         <button className={tab === 'episodes' ? 'active' : ''} onClick={() => setTab('episodes')}>
           Episodes
@@ -48,28 +64,28 @@ export function ShowPage({ showId }: { showId: string }) {
       {tab === 'episodes' ? (
         <>
           <NewEpisodeForm showId={showId} />
-          <EpisodeList episodes={active} settings={data.show.settings} empty="No episodes yet. Add one above." />
+          <EpisodeList episodes={active} settings={data.show.settings} empty="No episodes yet. Add one above." onDelete={onDelete} />
           {archived.length > 0 && (
             <>
               <h2>Archived</h2>
-              <EpisodeList episodes={archived} settings={data.show.settings} empty="" />
+              <EpisodeList episodes={archived} settings={data.show.settings} empty="" onDelete={onDelete} />
             </>
           )}
         </>
       ) : (
-        <ShowSettingsForm showId={showId} name={data.show.name} settings={data.show.settings} onSaved={reload} />
+        <ShowSettingsForm showId={showId} name={data.show.name} logo={data.show.logo} settings={data.show.settings} onSaved={reload} />
       )}
     </div>
   );
 }
 
-function EpisodeList({ episodes, settings, empty }: { episodes: EpisodeListItem[]; settings: ShowSettings; empty: string }) {
+function EpisodeList({ episodes, settings, empty, onDelete }: { episodes: EpisodeListItem[]; settings: ShowSettings; empty: string; onDelete?: (episode: EpisodeListItem) => void }) {
   const length = (s: NonNullable<EpisodeListItem['summary']>) => s.estSeconds + (s.breaks ?? 0) * settings.breakSeconds;
   if (episodes.length === 0) return empty ? <p className="muted">{empty}</p> : null;
   return (
     <ul className="cards">
       {episodes.map((e) => (
-        <li key={e.id}>
+        <li key={e.id} className={onDelete ? 'with-action' : ''}>
           <Link to={`/episodes/${e.id}`} className="card-link">
             <strong>
               {e.title} {e.status === 'archived' && <span className="badge">Archived</span>}
@@ -81,6 +97,11 @@ function EpisodeList({ episodes, settings, empty }: { episodes: EpisodeListItem[
               {e.updatedAt ? ` · edited ${timeAgo(e.updatedAt)}` : ''}
             </span>
           </Link>
+          {onDelete && (
+            <button className="link-button danger" aria-label={`Delete ${e.title}`} onClick={() => onDelete(e)}>
+              Delete
+            </button>
+          )}
         </li>
       ))}
     </ul>
@@ -125,8 +146,9 @@ function NewEpisodeForm({ showId }: { showId: string }) {
   );
 }
 
-function ShowSettingsForm({ showId, name, settings, onSaved }: { showId: string; name: string; settings: ShowSettings; onSaved: () => void }) {
+function ShowSettingsForm({ showId, name, logo, settings, onSaved }: { showId: string; name: string; logo: string | null; settings: ShowSettings; onSaved: () => void }) {
   const [draftName, setDraftName] = useState(name);
+  const [draftLogo, setDraftLogo] = useState(logo);
   const [draft, setDraft] = useState(settings);
   const [target, setTarget] = useState(formatDuration(settings.targetSeconds));
   const [breakLength, setBreakLength] = useState(formatDuration(settings.breakSeconds));
@@ -151,7 +173,7 @@ function ShowSettingsForm({ showId, name, settings, onSaved }: { showId: string;
       return;
     }
     try {
-      await api(`/shows/${showId}`, { method: 'PATCH', body: { name: draftName, settings: { ...draft, targetSeconds, breakSeconds: breakSeconds ?? 0 } } });
+      await api(`/shows/${showId}`, { method: 'PATCH', body: { name: draftName, logo: draftLogo, settings: { ...draft, targetSeconds, breakSeconds: breakSeconds ?? 0 } } });
       setMessage({ text: 'Saved.' });
       onSaved();
     } catch (e) {
@@ -165,6 +187,11 @@ function ShowSettingsForm({ showId, name, settings, onSaved }: { showId: string;
         Show name
         <input value={draftName} onChange={(e) => setDraftName(e.target.value)} required maxLength={100} />
       </label>
+      <fieldset>
+        <legend>Logo</legend>
+        <p className="muted small">A small picture that tells this show apart in the list of shows.</p>
+        <LogoPicker name={draftName} value={draftLogo} onChange={setDraftLogo} />
+      </fieldset>
       <div className="row">
         <label>
           Target length

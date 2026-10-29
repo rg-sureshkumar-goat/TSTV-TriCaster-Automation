@@ -18,6 +18,7 @@ import {
   readRows,
   removeElement,
   rowsOf,
+  setCommercialBreak,
   toggleTalent,
   updateElement,
   updateRow,
@@ -97,12 +98,44 @@ describe('timing', () => {
     // A (2:30), break (2:00), B (5:00), break (2:00), C (0:30) = 12:00.
     expect(t.totalSeconds).toBe(720);
     expect(t.blockSeconds).toEqual({ A: 150, B: 300, C: 30 });
-    expect(byLabel.B.breakBefore).toEqual({ seconds: 120, startOffset: 150, backTimeOffset: 330 });
+    expect(byLabel.B.breakBefore).toEqual({ seconds: 120, startOffset: 150, backTimeOffset: 330, automatic: true, customLength: false });
     expect(byLabel.B.startOffset).toBe(270);
     expect(byLabel.B.backTimeOffset).toBe(450);
-    expect(byLabel.C.breakBefore).toEqual({ seconds: 120, startOffset: 570, backTimeOffset: 750 });
+    expect(byLabel.C.breakBefore).toEqual({ seconds: 120, startOffset: 570, backTimeOffset: 750, automatic: true, customLength: false });
     expect(byLabel.C1.backTimeOffset).toBe(870);
     expect(byLabel.A1.backTimeOffset).toBe(180);
+  });
+
+  it('lets admins remove a break, add one before a section, and give a break its own length', () => {
+    const b = { ...block('b'), commercialBreak: { off: true as const } };
+    const c = { ...block('c'), commercialBreak: { seconds: 90 } };
+    const extra = section('s5', 30, { commercialBreak: { seconds: null } });
+    const t = computeRundown([...rows.map((r) => (r.id === 'b' ? b : r)), c, extra], 900, undefined, 120);
+    const byLabel = Object.fromEntries(t.rows.map((r) => [r.label, r]));
+    expect(byLabel.B.breakBefore).toBeUndefined();
+    expect(byLabel.C.breakBefore).toMatchObject({ seconds: 90, automatic: true, customLength: true });
+    expect(byLabel.C1.breakBefore).toMatchObject({ seconds: 120, automatic: false, customLength: false });
+    expect(t.breakCount).toBe(2);
+    expect(t.defaultBreakCount).toBe(1);
+    // A (2:30), B (5:00), break (1:30), break (2:00), C1 (0:30) = 11:30.
+    expect(t.totalSeconds).toBe(690);
+    expect(byLabel.C1.backTimeOffset).toBe(870);
+    expect(byLabel.C1.breakBefore?.backTimeOffset).toBe(750);
+    expect(byLabel.C.breakBefore?.backTimeOffset).toBe(660);
+  });
+
+  it('saves an admin’s break changes in the rundown, so they move with the row', () => {
+    const doc = new Y.Doc();
+    initEpisode(doc, alex);
+    const blockId = insertBlock(doc, alex);
+    const sectionId = insertSection(doc, alex);
+    setCommercialBreak(doc, blockId, { off: true }, alex);
+    setCommercialBreak(doc, sectionId, { seconds: 45 }, alex);
+    const t = computeRundown(readRows(doc), 600, undefined, 60);
+    expect(t.rows.find((r) => r.row.id === blockId)?.breakBefore).toBeUndefined();
+    expect(t.rows.find((r) => r.row.id === sectionId)?.breakBefore?.seconds).toBe(45);
+    setCommercialBreak(doc, blockId, null, alex);
+    expect(computeRundown(readRows(doc), 600, undefined, 60).rows.find((r) => r.row.id === blockId)?.breakBefore?.seconds).toBe(60);
   });
 
   it('opens with block A even when there are sections above it, so a break goes before the first block header after them', () => {

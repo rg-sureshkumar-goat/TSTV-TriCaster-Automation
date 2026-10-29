@@ -19,16 +19,18 @@ const HEADERS = ['#', 'Slug', 'Story Type', 'Writer', 'Talent', 'Camera', 'Headl
 function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
   const backTime = (offset: number | null) => (offset === null ? '' : info.airTime ? formatClock(info.airTime, offset) : `+${formatDuration(offset)}`);
   return timing.rows.flatMap((c) => {
-    if (c.row.kind === 'block') {
-      const block = [c.label, `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, '', '', '', '', '', '', '', '', '', formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime(c.backTimeOffset), '', ''];
-      if (!c.breakBefore) return [block];
+    const lines: string[][] = [];
+    if (c.breakBefore) {
       const b = c.breakBefore;
       const seconds = b.seconds > 0 ? formatDuration(b.seconds) : '';
-      const breakLine = ['', 'COMMERCIAL BREAK', '', '', '', '', '', info.breakGraphic ?? '', '', '', '', seconds, b.seconds > 0 ? backTime(b.backTimeOffset) : '', '', ''];
-      return [breakLine, block];
+      lines.push(['', 'COMMERCIAL BREAK', '', '', '', '', '', info.breakGraphic ?? '', '', '', '', seconds, b.seconds > 0 ? backTime(b.backTimeOffset) : '', '', '']);
+    }
+    if (c.row.kind === 'block') {
+      lines.push([c.label, `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, '', '', '', '', '', '', '', '', '', formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime(c.backTimeOffset), '', '']);
+      return lines;
     }
     const s = c.row as SectionRow;
-    return [[
+    lines.push([
       c.label,
       s.slug,
       s.type,
@@ -44,7 +46,8 @@ function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
       backTime(c.backTimeOffset),
       s.createdBy?.name ?? '',
       s.updatedBy?.name ?? '',
-    ]];
+    ]);
+    return lines;
   });
 }
 

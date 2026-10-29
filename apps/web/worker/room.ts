@@ -20,6 +20,8 @@ export class EpisodeRoom extends YServer<Env> {
   static callbackOptions = { debounceWait: 2000, debounceMaxWait: 10000, timeout: 5000 };
 
   private archived = false;
+  /** Set when an admin deletes the episode, so nothing saves it again. */
+  private deleted = false;
 
   private get episodeId(): string {
     return this.name;
@@ -79,6 +81,7 @@ export class EpisodeRoom extends YServer<Env> {
   }
 
   async onSave(): Promise<void> {
+    if (this.deleted) return;
     const update = Y.encodeStateAsUpdate(this.document);
     this.ctx.storage.transactionSync(() => {
       const sql = this.ctx.storage.sql;
@@ -94,6 +97,8 @@ export class EpisodeRoom extends YServer<Env> {
   /** Keeps the episode list's summary and the archive search text up to date. */
   private async saveSummary(): Promise<void> {
     const rows = readRows(this.document);
+    // Breaks of the show's length count as 0 here (the room doesn't know the length): the episode list
+    // adds them from `breaks`. Breaks an admin gave their own length are already in estSeconds.
     const timing = computeRundown(rows, 0, sectionSecondsFrom(scriptWordCounts(this.document)));
     const sections = rows.filter((r) => r.kind === 'section');
     const searchText = rows
@@ -102,7 +107,7 @@ export class EpisodeRoom extends YServer<Env> {
       .concat(allScriptText(this.document))
       .replace(/\s+/g, ' ')
       .trim();
-    const summary = JSON.stringify({ sections: sections.length, estSeconds: timing.totalSeconds, breaks: timing.breakCount });
+    const summary = JSON.stringify({ sections: sections.length, estSeconds: timing.totalSeconds, breaks: timing.defaultBreakCount });
     await this.env.DB.prepare('UPDATE episodes SET summary = ?, search_text = ?, updated_at = ? WHERE id = ?')
       .bind(summary, searchText, Date.now(), this.episodeId)
       .run();
@@ -130,6 +135,14 @@ export class EpisodeRoom extends YServer<Env> {
       this.ctx.storage.sql.exec("INSERT OR REPLACE INTO room_settings (key, value) VALUES ('archived', ?)", archived ? '1' : '0');
       // Tell every open page, so nobody keeps typing into an episode that just became read-only.
       this.broadcastCustomMessage(JSON.stringify({ type: 'archived', archived }));
+      return Response.json({ ok: true });
+    }
+    if (request.method === 'POST' && url.pathname.endsWith('/delete')) {
+      // The episode was deleted: erase everything this room saved, and send everyone back.
+      this.deleted = true;
+      this.broadcastCustomMessage(JSON.stringify({ type: 'deleted' }));
+      for (const connection of this.getConnections()) connection.close(1000, 'Episode deleted');
+      await this.ctx.storage.deleteAll();
       return Response.json({ ok: true });
     }
     return new Response('Not found', { status: 404 });
