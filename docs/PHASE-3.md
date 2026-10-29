@@ -1,5 +1,7 @@
 # Phase 3: prompter
 
+**Approved by RG on Oct 29, 2026.**
+
 Phase 3 adds the prompter: a full-screen page of the website for the prompter computer, run from the keyboard by the prompter operator. It shows every section that airs, in rundown order, straight from the live episode, so script changes show up within about a second.
 
 ## What's new
