@@ -30,6 +30,11 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await rg.getByLabel('A3 slug').fill('Floated story');
   await rg.getByRole('button', { name: 'Actions for A3' }).click();
   await rg.getByRole('menuitem', { name: /^Float/ }).click();
+  await rg.getByRole('button', { name: '+ Section' }).click();
+  await rg.getByLabel('A4 slug').fill('Weather chat');
+  await rg.getByRole('button', { name: 'A4 talent' }).click();
+  await rg.getByRole('checkbox', { name: 'Everyone (cross talk)' }).check();
+  await rg.getByRole('button', { name: 'Done' }).click();
   const episodeUrl = rg.url();
 
   // A1's script: Jordan's name is already there; two lines, then a new FSG cue on its own line.
@@ -53,7 +58,8 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   // The prompter, in its own window.
   const prompter = await rg.context().newPage();
   await prompter.goto(episodeUrl.replace('/episodes/', '/prompter/'));
-  await expect(prompter.locator('.p-section')).toHaveCount(2);
+  await expect(prompter.locator('.p-section')).toHaveCount(3);
+  await expect(prompter.locator('.p-cross-talk')).toHaveText('**CROSS TALK**');
   await expect(prompter.locator('.p-section').first()).toContainText('A1');
   await expect(prompter.locator('.p-section').first()).toContainText('CAMERA 1');
   // Just the number and the camera: the speaker marker below says who reads.
@@ -102,7 +108,7 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   // H goes back to the top, stopped; the Go to section list jumps to any section and starts it.
   await prompter.keyboard.press('h');
   await expect(prompter.locator('.prompter-hud')).toContainText('Stopped');
-  await expect(prompter.getByLabel('Go to section').locator('option')).toHaveText(['Go to section…', 'A1 · Open', 'A2 · Second story']);
+  await expect(prompter.getByLabel('Go to section').locator('option')).toHaveText(['Go to section…', 'A1 · Open', 'A2 · Second story', 'A4 · Weather chat']);
   await prompter.getByLabel('Go to section').selectOption({ label: 'A2 · Second story' });
   await expect(bar).toContainText('A2 started');
   await expect(bar).toContainText('on A2');

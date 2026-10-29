@@ -7,7 +7,7 @@ Phase 3 adds the prompter: a full-screen page of the website for the prompter co
 - **Open prompter.** Each episode has an **Open prompter** button at the top. It opens the prompter in a new window. Its address, `/prompter/<episode>`, can be bookmarked on the prompter computer.
 - **What it shows:**
   - each section starts with its number, in green on a red box, and the camera to look at, like **A2 CAMERA 2**
-  - a cross-talk section just says **CROSS TALK**
+  - a cross-talk section just says `**CROSS TALK**`, asterisks included
   - speaker tags like `{JORDAN}` become a marker in that person's color
   - cues are bold colored markers, like **TAKE L3 SCORE**, in the rundown's colors
   - block headers, commercial breaks (with their length) and **END OF SHOW**

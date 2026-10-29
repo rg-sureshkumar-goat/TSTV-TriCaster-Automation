@@ -493,8 +493,9 @@ function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof 
       );
     case 'crossTalk':
       return (
+        // With the asterisks showing, as TSTV marks it (RG, Oct 29, 2026).
         <div className="p-cross-talk" data-key={line.key}>
-          CROSS TALK
+          **CROSS TALK**
         </div>
       );
     case 'speaker':
