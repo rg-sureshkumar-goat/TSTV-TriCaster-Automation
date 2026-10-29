@@ -36,6 +36,20 @@ export function isClipType(type: ElementType): boolean {
   return type === 'VO' || type === 'SOT' || type === 'PKG' || type === 'LITES';
 }
 
+/** The color an element is shown in: graphics blue, video red, music purple, permanent graphics green. */
+export function elementKind(type: ElementType): 'graphic' | 'clip' | 'music' | 'permanent' {
+  if (type === 'PERM') return 'permanent';
+  if (type === 'MUSIC') return 'music';
+  return isClipType(type) ? 'clip' : 'graphic';
+}
+
+/** How a cue chip reads in a script: "Take L3 Score", "★ Station ID" or "♪ PrimeTime Main". */
+export function cueLabel(e: Pick<Element, 'type' | 'name'>): string {
+  if (e.type === 'PERM') return `★ ${e.name || 'Permanent graphic'}`;
+  if (e.type === 'MUSIC') return `♪ ${e.name || 'Music'}`;
+  return `Take ${e.type}${e.name ? ` ${e.name}` : ''}`;
+}
+
 export function isElementType(value: unknown): value is ElementType {
   return typeof value === 'string' && (ELEMENT_TYPES as readonly string[]).includes(value);
 }

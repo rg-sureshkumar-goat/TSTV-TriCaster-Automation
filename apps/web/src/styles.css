@@ -937,6 +937,11 @@ tr.dragging td {
   }
 }
 
+/* A graphic with no cue chip in its script yet. */
+.element-chip.uncued {
+  border: 1px dashed currentColor;
+}
+
 .element-chip:disabled {
   opacity: 1;
   cursor: default;
@@ -1083,12 +1088,54 @@ tr.dragging td {
   font-variant-numeric: tabular-nums;
 }
 
-textarea.script {
-  display: block;
-  width: 100%;
+.script-toolbar {
+  display: grid;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-label {
+  min-width: 64px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.script-toolbar .element-chip {
+  cursor: pointer;
+}
+
+.script-toolbar .element-chip.placed {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.speaker-button {
+  padding: 2px 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.toolbar-warning {
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.script-editor {
   min-height: 55vh;
-  resize: vertical;
-  font: inherit;
   font-size: 18px;
   line-height: 1.6;
   padding: 16px;
@@ -1096,11 +1143,81 @@ textarea.script {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0 0 8px 8px;
+  white-space: pre-wrap;
+  outline: none;
 }
 
-textarea.script:focus {
-  outline: none;
+.script-editor:focus {
   border-color: var(--accent);
+}
+
+.script-editor p {
+  margin: 0;
+  min-height: 1.6em;
+}
+
+.script-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* Cue chips sit in the text like words, but can only be moved or deleted. */
+.cue-chip {
+  display: inline-block;
+  margin: 0 2px;
+  padding: 0 7px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
+  vertical-align: baseline;
+  cursor: grab;
+  user-select: none;
+}
+
+.cue-chip.missing {
+  background: transparent;
+  color: var(--danger);
+  border: 1px dashed var(--danger);
+}
+
+.script-editor .ProseMirror-selectednode,
+.cue-chip.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+}
+
+.speaker-tag {
+  color: var(--speaker, var(--text));
+  font-weight: 700;
+}
+
+.speaker-tag.unknown {
+  text-decoration: underline dotted var(--danger);
+}
+
+/* Other people's cursors in the script. */
+.collaboration-carets__caret {
+  position: relative;
+  margin: 0 -1px;
+  border-left: 2px solid;
+  pointer-events: none;
+  word-break: normal;
+}
+
+.collaboration-carets__label {
+  position: absolute;
+  top: -1.5em;
+  left: -2px;
+  padding: 1px 5px;
+  border-radius: 3px 3px 3px 0;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: normal;
+  white-space: nowrap;
+  user-select: none;
 }
 
 .script-foot {

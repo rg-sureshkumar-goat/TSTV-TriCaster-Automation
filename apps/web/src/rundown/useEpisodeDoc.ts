@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import YProvider from 'y-partyserver/provider';
-import { readEpisodeTalent, readRows, rowsOf, scriptsOf, scriptWordCounts, type EpisodeTalent, type Row } from '@tstv/shared';
+import { cuedElementIds, readEpisodeTalent, readRows, rowsOf, scriptBodiesOf, scriptWordCounts, type EpisodeTalent, type Row } from '@tstv/shared';
 import type { User } from '../lib/api.ts';
 
 export interface Presence {
@@ -18,7 +18,8 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
 const PRESENCE_COLORS = ['#e11d48', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#4d7c0f'];
 
-function colorFor(id: string): string {
+/** Each person's color for their initials, cell outlines and cursor. */
+export function colorFor(id: string): string {
   let hash = 0;
   for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   return PRESENCE_COLORS[hash % PRESENCE_COLORS.length];
@@ -28,6 +29,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
   const [room, setRoom] = useState<{ doc: Y.Doc; provider: YProvider } | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [scriptWords, setScriptWords] = useState<Record<string, number>>({});
+  const [cued, setCued] = useState<Set<string>>(() => new Set());
   const [talent, setTalent] = useState<EpisodeTalent[]>([]);
   const [synced, setSynced] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -48,9 +50,12 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
     const updateRows = () => setRows(readRows(doc));
     rowsOf(doc).observeDeep(updateRows);
-    // Script word counts drive the rundown's estimated lengths.
-    const updateWords = () => setScriptWords(scriptWordCounts(doc));
-    scriptsOf(doc).observeDeep(updateWords);
+    // Script word counts drive the rundown's estimated lengths; cue chips show which graphics are in a script.
+    const updateWords = () => {
+      setScriptWords(scriptWordCounts(doc));
+      setCued(cuedElementIds(doc));
+    };
+    scriptBodiesOf(doc).observeDeep(updateWords);
     const updateTalent = () => setTalent(readEpisodeTalent(doc));
     doc.getArray('talent').observe(updateTalent);
     const onSync = (isSynced: boolean) => {
@@ -84,7 +89,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
     return () => {
       rowsOf(doc).unobserveDeep(updateRows);
-      scriptsOf(doc).unobserveDeep(updateWords);
+      scriptBodiesOf(doc).unobserveDeep(updateWords);
       doc.getArray('talent').unobserve(updateTalent);
       provider.off('sync', onSync);
       provider.off('status', onStatus);
@@ -97,5 +102,5 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
   const setFocus = (focus: string | null) => room?.provider.awareness.setLocalStateField('focus', focus);
 
-  return { doc: room?.doc ?? null, rows, scriptWords, talent, synced: synced && room !== null, status, others, setFocus };
+  return { doc: room?.doc ?? null, provider: room?.provider ?? null, rows, scriptWords, cued, talent, synced: synced && room !== null, status, others, setFocus };
 }

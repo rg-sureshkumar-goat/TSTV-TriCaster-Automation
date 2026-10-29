@@ -1,4 +1,5 @@
-// One section's script: a shared text box, a word counter and how long a typical anchor takes to read it.
+// One section's script: a shared script editor with cue chips and speaker tags, a word counter and how
+// long a typical anchor takes to read it.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -12,17 +13,20 @@ import {
   READING_SPEED,
   readScriptInfo,
   readTimeRange,
-  scriptsOf,
-  scriptText,
+  scriptBodiesOf,
+  scriptBody,
+  scriptCueCounts,
+  scriptPlainText,
   talentColors,
+  type Element,
   type SectionRow,
   type ShowSettings,
 } from '@tstv/shared';
 import { useLoad, type User } from '../lib/api.ts';
 import { Link } from '../lib/router.tsx';
 import { timeAgo } from '../lib/format.ts';
-import { useEpisodeDoc } from '../rundown/useEpisodeDoc.ts';
-import { useSharedTextarea } from '../rundown/useSharedTextarea.ts';
+import { colorFor, useEpisodeDoc } from '../rundown/useEpisodeDoc.ts';
+import { ScriptWriter } from '../script/ScriptWriter.tsx';
 import { ConnectionBadge, PresenceList } from '../components/RoomStatus.tsx';
 import type { EpisodeListItem } from './Show.tsx';
 
@@ -47,23 +51,23 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
   const position = sections.findIndex((c) => c.row.id === sectionId);
   const current = sections[position];
   const section = current?.row as SectionRow | undefined;
-  const text = useScriptText(room.doc, sectionId);
   const me = { id: user.id, name: user.name };
-
-  // Record who edited, at most every few seconds rather than on every keystroke.
+  const body = useScriptBody(room.doc, sectionId);
   const lastNoted = useRef(0);
-  const onLocalEdit = () => {
+  const { text, cueCounts } = useScriptContent(body, () => {
+    // Record who edited, at most every few seconds rather than on every keystroke.
     if (!room.doc || Date.now() - lastNoted.current < 5000) return;
     lastNoted.current = Date.now();
     noteScriptEdit(room.doc, sectionId, me);
-  };
-  const box = useSharedTextarea(text, onLocalEdit);
+  });
   const info = useScriptInfo(room.doc, sectionId);
+  const elements = useMemo(() => new Map<string, Element>(room.rows.flatMap((r) => (r.kind === 'section' ? r.elements.map((e) => [e.id, e] as const) : []))), [room.rows]);
 
-  const words = countWords(box.value);
+  const words = countWords(text);
   const { fastestSeconds, slowestSeconds } = readTimeRange(words);
   const readTime = fastestSeconds === slowestSeconds ? formatDuration(fastestSeconds) : `${formatDuration(fastestSeconds)}–${formatDuration(slowestSeconds)}`;
-  const colors = talentColors(room.talent, show.settings.talent);
+  const colors = useMemo(() => talentColors(room.talent, show.settings.talent), [room.talent, show.settings.talent]);
+  const speakers = useMemo(() => new Map(colors.map((t) => [t.name.toLowerCase(), t.color] as const)), [colors]);
   const camera = section ? section.camera || show.settings.defaultCamera : '';
   const here = room.others.filter((o) => o.focus === `${sectionId}:script`);
   const link = (i: number) => `/episodes/${episode.id}/sections/${sections[i].row.id}`;
@@ -141,16 +145,20 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
               </span>
             </span>
           </div>
-          {text ? (
-            <textarea
-              ref={box.ref}
-              className="script"
-              aria-label={`Script for ${current.label}`}
-              placeholder="Type the script for this section…"
+          {body && room.doc ? (
+            <ScriptWriter
+              body={body}
+              provider={room.provider}
+              doc={room.doc}
+              section={section}
+              label={current.label}
+              me={{ ...me, color: colorFor(user.id) }}
               readOnly={readOnly}
-              spellCheck
-              onFocus={() => room.setFocus(`${sectionId}:script`)}
-              onBlur={() => room.setFocus(null)}
+              elements={elements}
+              speakers={speakers}
+              cueCounts={cueCounts}
+              permanent={show.settings.permanentGraphics}
+              onFocusChange={(focused) => room.setFocus(focused ? `${sectionId}:script` : null)}
             />
           ) : (
             <p className="muted">Setting up this script…</p>
@@ -175,16 +183,41 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
 }
 
 /** The section's shared script, once the episode room has created it. */
-function useScriptText(doc: Y.Doc | null, sectionId: string): Y.Text | undefined {
-  const [text, setText] = useState<Y.Text | undefined>(undefined);
+function useScriptBody(doc: Y.Doc | null, sectionId: string): Y.XmlFragment | undefined {
+  const [body, setBody] = useState<Y.XmlFragment | undefined>(undefined);
   useEffect(() => {
     if (!doc) return;
-    const update = () => setText(scriptText(doc, sectionId));
+    const update = () => setBody(scriptBody(doc, sectionId));
     update();
-    scriptsOf(doc).observe(update);
-    return () => scriptsOf(doc).unobserve(update);
+    scriptBodiesOf(doc).observe(update);
+    return () => scriptBodiesOf(doc).unobserve(update);
   }, [doc, sectionId]);
-  return text;
+  return body;
+}
+
+/**
+ * The script's words and cue chips, kept up to date as anyone types. onLocalEdit runs when your own typing
+ * changes them (not when the editor merely connects).
+ */
+function useScriptContent(body: Y.XmlFragment | undefined, onLocalEdit: () => void) {
+  const [content, setContent] = useState({ text: '', cueCounts: new Map<string, number>() });
+  const editRef = useRef(onLocalEdit);
+  editRef.current = onLocalEdit;
+  useEffect(() => {
+    if (!body) return;
+    let last = '';
+    const update = (_events?: unknown, transaction?: Y.Transaction) => {
+      const next = { text: scriptPlainText(body), cueCounts: scriptCueCounts(body) };
+      const signature = `${next.text}\u0000${[...next.cueCounts].join()}`;
+      if (transaction?.local && signature !== last) editRef.current();
+      last = signature;
+      setContent(next);
+    };
+    update();
+    body.observeDeep(update);
+    return () => body.unobserveDeep(update);
+  }, [body]);
+  return content;
 }
 
 function useScriptInfo(doc: Y.Doc | null, sectionId: string) {

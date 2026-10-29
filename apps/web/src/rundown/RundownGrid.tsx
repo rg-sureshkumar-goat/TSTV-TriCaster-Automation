@@ -7,6 +7,7 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities';
 import {
   addElement,
+  elementKind,
   breakGraphic,
   colorForTalent,
   CROSS_TALK,
@@ -16,7 +17,6 @@ import {
   formatDuration,
   insertBlock,
   insertSection,
-  isClipType,
   isCrossTalk,
   moveElement,
   moveRow,
@@ -40,6 +40,7 @@ import type { Presence } from './useEpisodeDoc.ts';
 import { timeAgo } from '../lib/format.ts';
 import { Popover } from '../components/Popover.tsx';
 import { Link } from '../lib/router.tsx';
+import { ELEMENT_HELP, GraphicMenu } from './GraphicMenu.tsx';
 
 interface GridProps {
   episodeId: string;
@@ -48,6 +49,8 @@ interface GridProps {
   settings: ShowSettings;
   /** This episode's anchors and correspondents, the choices in the Talent column. */
   talent: EpisodeTalent[];
+  /** Graphics that have a cue chip in a script. */
+  cued: Set<string>;
   airTime: string;
   me: Person;
   readOnly: boolean;
@@ -55,7 +58,7 @@ interface GridProps {
   setFocus: (focus: string | null) => void;
 }
 
-export function RundownGrid({ episodeId, doc, timing, settings, talent, airTime, me, readOnly, others, setFocus }: GridProps) {
+export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, airTime, me, readOnly, others, setFocus }: GridProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const ids = timing.rows.map((c) => c.row.id);
 
@@ -111,6 +114,7 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, airTime,
                     me={me}
                     settings={settings}
                     talent={talent}
+                    cued={cued}
                     readOnly={readOnly}
                     backTime={backTime(c.backTimeOffset)}
                     focusedBy={focusedBy}
@@ -229,13 +233,14 @@ interface SectionLineProps {
   me: Person;
   settings: ShowSettings;
   talent: EpisodeTalent[];
+  cued: Set<string>;
   readOnly: boolean;
   backTime: string;
   focusedBy: (rowId: string, field: string) => Presence[];
   setFocus: (focus: string | null) => void;
 }
 
-function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, readOnly, backTime, focusedBy, setFocus }: SectionLineProps) {
+function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, cued, readOnly, backTime, focusedBy, setFocus }: SectionLineProps) {
   const row = computed.row;
   const set = (patch: Partial<SectionRow>) => updateRow(doc, row.id, patch, me);
   const cell = (field: string, children: ReactNode, className = '') => {
@@ -267,7 +272,7 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
           {cell('talent', <TalentPicker value={row.talent} talent={talent} colors={settings.talent} label={computed.label} readOnly={readOnly} onChange={(names) => set({ talent: names })} />, 'person-col')}
           {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
           {cell('headline', <TextCell value={row.headline} placeholder="Headline" readOnly={readOnly} onCommit={(headline) => set({ headline })} ariaLabel={`${computed.label} headline`} />, 'headline-col')}
-          {cell('elements', <ElementsCell section={row} label={computed.label} permanent={settings.permanentGraphics} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
+          {cell('elements', <ElementsCell section={row} label={computed.label} permanent={settings.permanentGraphics} cued={cued} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
           {cell('notes', <TextCell value={row.notes} placeholder="Notes" readOnly={readOnly} onCommit={(notes) => set({ notes })} ariaLabel={`${computed.label} notes`} />, 'notes-col')}
           {cell('assignGraphics', <TextCell value={row.assignGraphics} placeholder="Who makes them" readOnly={readOnly} onCommit={(assignGraphics) => set({ assignGraphics })} ariaLabel={`${computed.label} assign graphics`} />, 'person-col')}
           {cell('est', <DurationCell value={row.estSeconds} autoSeconds={computed.seconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
@@ -556,26 +561,10 @@ function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
 
 // ---- Graphics (the section's elements: graphics and clips, shown in the Graphics column) ----
 
-const ELEMENT_HELP: Record<ElementType, string> = {
-  L3: 'lower third',
-  OTSL: 'over the shoulder, left',
-  OTSR: 'over the shoulder, right',
-  FSG: 'full-screen graphic',
-  VO: 'video the anchor reads over',
-  SOT: 'sound bite with its own audio',
-  PKG: 'package',
-  TEASE: 'tease graphic',
-  LITES: 'LITES video',
-  MUSIC: 'music from the TriCaster’s Sound player',
-  PERM: 'one of the show’s permanent graphics',
-};
-
-const chipClass = (type: ElementType) => (type === 'PERM' ? 'permanent' : type === 'MUSIC' ? 'music' : isClipType(type) ? 'clip' : 'graphic');
-/** The types picked from the + menu's first list; permanent graphics are listed by name below them. */
-const PICKABLE_TYPES = ELEMENT_TYPES.filter((t) => t !== 'PERM');
+const chipClass = elementKind;
 
 /** The section's elements as chips, in the order they're expected to fire, plus a + to add one. */
-function ElementsCell({ section, label, permanent, doc, me, readOnly }: { section: SectionRow; label: string; permanent: string[]; doc: Y.Doc; me: Person; readOnly: boolean }) {
+function ElementsCell({ section, label, permanent, cued, doc, me, readOnly }: { section: SectionRow; label: string; permanent: string[]; cued: Set<string>; doc: Y.Doc; me: Person; readOnly: boolean }) {
   const [open, setOpen] = useState<{ id: string; anchor: HTMLElement } | null>(null);
   const close = () => setOpen(null);
   const toggle = (id: string, anchor: HTMLElement) => setOpen(open?.id === id ? null : { id, anchor });
@@ -586,9 +575,9 @@ function ElementsCell({ section, label, permanent, doc, me, readOnly }: { sectio
       {section.elements.map((e, i) => (
         <button
           key={e.id}
-          className={`element-chip ${chipClass(e.type)}`}
+          className={`element-chip ${chipClass(e.type)}${cued.has(e.id) ? '' : ' uncued'}`}
           disabled={readOnly}
-          title={e.type === 'PERM' ? `Permanent graphic: ${e.name}` : `${e.type}: ${ELEMENT_HELP[e.type]}`}
+          title={`${e.type === 'PERM' ? `Permanent graphic: ${e.name}` : `${e.type}: ${ELEMENT_HELP[e.type]}`}${cued.has(e.id) ? '' : ' · no cue in the script yet'}`}
           aria-label={`${label} graphic ${i + 1}: ${e.type}${e.name ? ` ${e.name}` : ''}`}
           onClick={(ev) => toggle(e.id, ev.currentTarget)}
         >
@@ -609,33 +598,14 @@ function ElementsCell({ section, label, permanent, doc, me, readOnly }: { sectio
       )}
       {open?.id === 'add' && (
         <Popover anchor={open.anchor} onClose={close}>
-          <div className="menu" role="menu" aria-label={`Add a graphic to ${label}`}>
-            {PICKABLE_TYPES.map((type) => (
-              <button
-                key={type}
-                role="menuitem"
-                onClick={() => {
-                  addElement(doc, section.id, type, me);
-                  close();
-                }}
-              >
-                <strong>{type}</strong> <span className="muted small">{ELEMENT_HELP[type]}</span>
-              </button>
-            ))}
-            {permanent.length > 0 && <div className="menu-heading">Permanent graphics</div>}
-            {permanent.map((name) => (
-              <button
-                key={`perm-${name}`}
-                role="menuitem"
-                onClick={() => {
-                  addElement(doc, section.id, 'PERM', me, name);
-                  close();
-                }}
-              >
-                <strong>★ {name}</strong>
-              </button>
-            ))}
-          </div>
+          <GraphicMenu
+            label={`Add a graphic to ${label}`}
+            permanent={permanent}
+            onPick={(type, name) => {
+              addElement(doc, section.id, type, me, name);
+              close();
+            }}
+          />
         </Popover>
       )}
       {editing && open && (
