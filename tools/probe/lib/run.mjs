@@ -7,12 +7,13 @@ import { fileURLToPath } from 'node:url';
 import { describeAdapters, parseHardwarePorts, runCommand } from './network.mjs';
 import { discover, explicitCandidate } from './discover.mjs';
 import { checkPorts, TRICASTER_PORTS } from './ports.mjs';
+import { ndiSources, queryMdns } from './mdns.mjs';
 import { buildAuthorization, readOnlyGet } from './http.mjs';
 import { listenStatePort } from './statePort.mjs';
 import { listenWebSocket } from './websocket.mjs';
 import { buildAnswers, buildSummary } from './report.mjs';
 
-export const PROBE_VERSION = '1.0.0';
+export const PROBE_VERSION = '1.1.0';
 
 /**
  * Data the probe asks for by name. Bitfocus Companion uses the first six; the rest are guesses that are
@@ -111,6 +112,8 @@ export async function runProbe(options = {}) {
     notifications: {},
     guidedSteps: [],
     fileSharing: {},
+    /** @type {{ sources: { name: string, from: string, port: number | null }[], packets: number } | undefined} */
+    ndi: undefined,
     errors,
   };
 
@@ -183,6 +186,14 @@ export async function runProbe(options = {}) {
   const target = { host: chosen.host, localAddress: chosen.localAddress };
   results.ports = await checkPorts(target, TRICASTER_PORTS.map((p) => p.port));
   results.portNotes = Object.fromEntries(TRICASTER_PORTS.map((p) => [String(p.port), p.why]));
+
+  // 3b. Video feeds (NDI) on the cable, so the show app can show the cameras (Phase 4). This runs even
+  // when the address is typed in. It only asks which feeds exist; it never opens one.
+  if (chosen.localAddress && chosen.adapter) {
+    const packets = await queryMdns({ localAddress: chosen.localAddress, adapterName: chosen.adapter, durationMs: 5000, questions: ['_ndi._tcp.local'] });
+    results.ndi = { sources: ndiSources(packets), packets: packets.length };
+    log(`Video feeds (NDI): ${results.ndi.sources.length ? results.ndi.sources.map((/** @type {{ name: string }} */ s) => s.name).join(', ') : 'none announced'}.`);
+  }
 
   // 4. Web reads, asking once for the LivePanel password if needed
   const web = { ...target, port: httpPort };

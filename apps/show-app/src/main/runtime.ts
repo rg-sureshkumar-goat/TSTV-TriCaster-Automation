@@ -82,7 +82,8 @@ export class Runtime extends EventEmitter {
   /** Starts up with what was remembered: the simulator, and the last episode's key. */
   async start(): Promise<void> {
     this.settings = await this.deps.store.settings();
-    await this.connectSwitcher(this.settings.simulatorAddress);
+    // Tests can run a second simulator, with its state stream on another port (TSTV_SIM_STATE_PORT).
+    await this.connectSwitcher(this.settings.simulatorAddress, Number(process.env.TSTV_SIM_STATE_PORT) || undefined);
     if (this.settings.key) await this.connect(this.settings.siteUrl, this.settings.key);
     this.changed();
   }
@@ -374,7 +375,12 @@ export class Runtime extends EventEmitter {
         }) ?? [],
       greenScreen: this.greenScreen ? { file: path.basename(this.greenScreen.path), seconds: this.greenScreen.seconds, thumbnail: this.greenScreen.thumbnail } : null,
       episode: this.website.episode ? { id: this.website.episode.id, title: this.website.episode.title, showName: show?.name ?? '', airDate: this.website.episode.airDate, airTime: this.website.episode.airTime } : null,
-      cameras: show ? show.settings.cameras.map((name) => ({ name, input: show.settings.cameraInputs[name] ?? 1 })) : [],
+      cameras: show
+        ? show.settings.cameras.map((name) => {
+            const input = show.settings.cameraInputs[name] ?? 1;
+            return { name, input, video: this.switcher.cameraVideo(input) };
+          })
+        : [],
       switcher: { ...this.switcher.snapshot },
       prompter: { connected: p !== null, label: p?.label ?? '', speed: p?.speed ?? 0, paused: p?.paused ?? false },
       automation: {

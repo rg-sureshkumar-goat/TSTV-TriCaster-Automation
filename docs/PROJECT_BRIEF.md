@@ -164,7 +164,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 - **Layout (decided Oct 29, 2026, from RG's sketch in `docs/show-app-sketch.pdf`):** across the top, the Program box (a placeholder for live video, with the ● LIVE dot) with the camera buttons under it, the Playlist (on air and up next, with Import graphics), and Pause Automation with Section, Elapsed and Time left on the current graphic. Across the bottom, the Up next preview, the Permanent graphics drop box, the Green screen drop box and Music. The episode key and the status lights are at the top right. Import graphics opens a window that shows which file is on which cue, with the files to place by hand.
 - **Start live broadcast (decided Oct 29, 2026):** a button on the episode's page, for the producer who created it and admins, pressed when the show goes on air. The app's automation follows the prompter only while the show is live; before that it does only what the producer does by hand. The same button ends it (**End live broadcast**). It doesn't start recording.
 
-- **Camera buttons:** one per camera, with names the producer sets (Anchor Camera, Weather Camera, Guest Camera). One click takes that camera to air. Input numbers are mapped once in settings.
+- **Camera buttons:** each shows that camera's live picture (decided Oct 29, 2026; how the TC1 sends it is an open question below), one per camera, with names the producer sets (Anchor Camera, Weather Camera, Guest Camera). One click takes that camera to air. Input numbers are mapped once in settings.
 - **On air / Up next:** what's on air now, and the queue of upcoming cues. The producer can skip an element, pick a different one to play next, or fire the next cue by hand, all without touching the TriCaster.
 - **Preview:** a still image of the next element with the name of the camera it will play over. A live video preview from the TriCaster is a possible later upgrade.
 - **Pause Automation:** a large button plus a keyboard shortcut (see below).
@@ -281,6 +281,7 @@ There's no deadline, so the plan aims for the fastest path to a first live test.
 
 ## Open questions
 
+- [ ] **How do the cameras' pictures reach the show app?** RG wants each camera's video playing in its button (Oct 29, 2026). The TC1 sends video over the network with NDI on 4 mix outputs, and its NDI ports (5960, 5961) were open on Oct 28, but one output already goes to TSTV's YouTube stream. The probe now lists the NDI feeds the TC1 announces on the cable; run it at the station to find out. Showing cameras this way may mean setting spare mix outputs to cameras 1–3 (a TC1 setting, which needs the owner's OK) and installing NDI's free software on the laptop. Until then, the simulator gives each camera a moving test picture.
 - [x] Do SOTs and packages play to the end and then go back to the anchors, as assumed? *Yes (RG, Oct 29, 2026).*
 - [x] Which TriCaster inputs are the three cameras, and which camera faces the green screen? *Inputs 1–3. Cameras 1 and 2 have prompter monitors; camera 3 is the wide shot. All three face the green screen.*
 - [x] Is DDR1 free for green-screen video backgrounds? *Yes. It isn't used.*

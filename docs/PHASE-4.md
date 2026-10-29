@@ -33,7 +33,7 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 
 - **Header:** the show and episode at the left, a green **SIMULATOR** badge (Phase 4 can't drive the real TC1), and at the right the **Website / Prompter / Simulator** lights and the **Episode key** button. Click Episode key, paste the key from the website, and Connect. Click the Simulator light to change the simulator's address.
 - **Program:** a placeholder for live video from the TriCaster (a later upgrade). For now it names the camera on air and the graphic over it. The **● LIVE** dot is red once the producer presses Start live broadcast.
-- **Cameras:** one button per camera from the show's settings. The one on air is red.
+- **Cameras:** one box per camera from the show's settings, playing that camera's picture. Click one to take it; the one on air has a red frame. On the simulator each camera plays a moving test picture. Getting the real cameras' video from the TC1 is still to be worked out at the station (see below).
 - **Playlist:** what's on DSK 2 now, and the cues coming up. Each upcoming cue has **Skip** (it won't fire; skipped cues can be put back) and **Play next** (it fires next, out of order). **Fire next** (or the **Space** bar) fires the next cue by hand.
 - **Pause automation** (or **P**): the app sends nothing at all, and the TD runs the switcher by hand. Resume picks up from the prompter's place, without firing the cues passed while paused.
 - **Section, Elapsed** (since Start live broadcast) and **Time left on current GFX** (the clip playing on DSK 2). Under them, the last cue and how long it took from the reading line to the switcher: green under 0.3 s, amber up to 0.5 s.
@@ -123,11 +123,20 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
 
 ## Not yet
 
+- **The real cameras' video.** The TC1 sends video over the network (NDI), and its NDI ports were open on Oct 28, but we don't yet know which feeds it offers; one already goes to the YouTube stream. The probe now lists the NDI feeds the TC1 announces. Next time you're at the station with the cable plugged in, run it once:
+
+  ```bash
+  cd "/Users/rg_sureshkumar/AI Apps/TSTV Automated Technical Director" && npm run probe
+  ```
+
+  It still only reads, and the summary now has a line about video feeds. Then tell me, and I'll work out the rest with you.
+
 - **The real TC1** (Phase 5): live mode with its three safety locks, Send to TriCaster, sending the green screen to the TC1, and the Record button.
 - Installers for Mac and Windows (Phase 6). For now the app runs from Terminal with `npm run show-app`.
 
 ## Behind the scenes
 
+- **Colors:** the app colors cues the way the rundown and the prompter do: graphics blue, video red, music purple, permanent graphics green.
 - **Episode key.** The app reads the episode with its key (Bearer token) and joins the episode room read-only, so it can't change the rundown. It reports files and lengths with a message the room writes into the episode.
 - **The cue engine** (`packages/shared/src/engine.ts`) is pure logic with automatic tests for every rule. The switcher driver (`apps/show-app/src/main/switcher.ts`) is the only code that talks to a switcher. It refuses anything that doesn't call itself the TSTV Simulator, and Pause stops it sending entirely.
 - **TC1 commands** used: `v1_a_row` (cameras on M/E 1), `ddr2_select_clips` (cue a clip), `main_dsk2_value` (DSK 2 on and off; DDR 2's AutoPlay plays and stops the clip), and `sound_select_clips` / `sound_play` / `sound_stop` (music). A clip's end is DDR 2 stopping by itself, with the seconds remaining at zero. The DDR and Sound player command names get confirmed on the real TC1 in Phase 5.

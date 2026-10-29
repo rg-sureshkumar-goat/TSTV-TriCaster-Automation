@@ -9,7 +9,7 @@ import {
   parseIpv6Neighbors,
 } from '../lib/network.mjs';
 import { parseChunk } from '../lib/statePort.mjs';
-import { buildQuery, parsePacket } from '../lib/mdns.mjs';
+import { buildQuery, ndiSources, parsePacket } from '../lib/mdns.mjs';
 import { buildAuthorization } from '../lib/http.mjs';
 
 const MAC_HARDWARE_PORTS = `
@@ -187,5 +187,29 @@ describe('LivePanel password', () => {
     expect(digest?.scheme).toBe('Digest');
     expect(digest?.header).toMatch(/username="admin", realm="TC", nonce="abc", uri="\/v1\/version", response="[0-9a-f]{32}"/);
     expect(buildAuthorization('Negotiate', creds, '/')).toBeUndefined();
+  });
+});
+
+describe('NDI video feeds', () => {
+  it('lists the feeds announced on the cable, with their ports', () => {
+    const packets = [
+      {
+        from: '169.254.193.52',
+        port: 5353,
+        via: 'en8',
+        kind: /** @type {'answer'} */ ('answer'),
+        questions: [],
+        records: [
+          { name: '_ndi._tcp.local', type: 'PTR', ttl: 120, data: 'TC1 (Mix 1)._ndi._tcp.local' },
+          { name: '_ndi._tcp.local', type: 'PTR', ttl: 120, data: 'TC1 (Mix 2)._ndi._tcp.local' },
+          { name: 'TC1 (Mix 1)._ndi._tcp.local', type: 'SRV', ttl: 120, data: { priority: 0, port: 5960, target: 'TC1.local' } },
+          { name: '_services._dns-sd._udp.local', type: 'PTR', ttl: 120, data: '_ndi._tcp.local' },
+        ],
+      },
+    ];
+    expect(ndiSources(packets)).toEqual([
+      { name: 'TC1 (Mix 1)', from: '169.254.193.52', port: 5960 },
+      { name: 'TC1 (Mix 2)', from: '169.254.193.52', port: null },
+    ]);
   });
 });

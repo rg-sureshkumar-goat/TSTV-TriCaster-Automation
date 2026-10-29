@@ -138,13 +138,13 @@ function readName(packet, offset) {
 
 /**
  * Asks "what services are here?" on one adapter, and listens for anything else devices announce.
- * @param {{ localAddress: string, adapterName: string, durationMs?: number }} options
+ * @param {{ localAddress: string, adapterName: string, durationMs?: number, questions?: readonly string[] }} options
  * @returns {Promise<MdnsPacket[]>}
  */
-export async function queryMdns({ localAddress, adapterName, durationMs = 4000 }) {
+export async function queryMdns({ localAddress, adapterName, durationMs = 4000, questions = MDNS_SERVICE_QUESTIONS }) {
   /** @type {MdnsPacket[]} */
   const packets = [];
-  const query = buildQuery(MDNS_SERVICE_QUESTIONS);
+  const query = buildQuery(questions);
 
   const asker = dgram.createSocket({ type: 'udp4', reuseAddr: true });
   const listener = dgram.createSocket({ type: 'udp4', reuseAddr: true });
@@ -232,4 +232,27 @@ function bind(socket, options) {
 /** @param {number} ms */
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * The NDI video feeds devices on the cable announce, like "TC1 (Mix 1)" (Phase 4: to learn whether the
+ * show app can show the cameras' video). Asking is a question on the network only, like the rest of this
+ * file; it never opens a feed.
+ * @param {MdnsPacket[]} packets
+ * @returns {{ name: string, from: string, port: number | null }[]}
+ */
+export function ndiSources(packets) {
+  /** @type {Map<string, { name: string, from: string, port: number | null }>} */
+  const found = new Map();
+  for (const packet of packets) {
+    for (const r of packet.records) {
+      const instance = r.type === 'PTR' && /_ndi\._tcp\.local$/i.test(r.name) ? String(r.data) : r.type === 'SRV' && /_ndi\._tcp\.local$/i.test(r.name) ? r.name : null;
+      if (!instance || /^_ndi\._tcp\.local$/i.test(instance)) continue;
+      const name = instance.replace(/\._ndi\._tcp\.local$/i, '');
+      const entry = found.get(name) ?? { name, from: packet.from, port: null };
+      if (r.type === 'SRV' && typeof r.data === 'object' && r.data && 'port' in r.data) entry.port = Number(r.data.port);
+      found.set(name, entry);
+    }
+  }
+  return [...found.values()];
 }

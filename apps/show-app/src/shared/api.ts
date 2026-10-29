@@ -55,7 +55,8 @@ export interface AppState {
   /** The show's green-screen background. */
   greenScreen: { file: string; seconds: number | null; thumbnail: string | null } | null;
   episode: { id: string; title: string; showName: string; airDate: string; airTime: string } | null;
-  cameras: { name: string; input: number }[];
+  /** video: where to watch the camera's picture (the simulator's test pictures for now), or null. */
+  cameras: { name: string; input: number; video: string | null }[];
   switcher: {
     status: LinkStatus | 'refused';
     error: string | null;

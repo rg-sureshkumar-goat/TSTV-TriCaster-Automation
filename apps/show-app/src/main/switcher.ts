@@ -173,6 +173,15 @@ export class Switcher extends EventEmitter {
     }
   }
 
+  /**
+   * Where to watch a camera's video, or null. On the simulator, each camera has a moving test picture.
+   * How the real TC1's cameras reach the laptop is still to be found at the station: the probe now lists
+   * the TC1's NDI video feeds.
+   */
+  cameraVideo(input: number): string | null {
+    return this.snapshot.status === 'connected' && input >= 1 && input <= 3 ? `${this.base}/sim/video/input${input}` : null;
+  }
+
   /** Sends one TC1 command, like v1_a_row=INPUT2. Nothing goes out while paused or to anything but the simulator. */
   async send(name: string, value?: string): Promise<boolean> {
     if (this.paused || this.snapshot.status !== 'connected') return false;

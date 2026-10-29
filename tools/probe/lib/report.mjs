@@ -199,6 +199,23 @@ export function buildAnswers(results) {
     });
   }
 
+  // 7. Video feeds, for showing the cameras in the show app (added for Phase 4)
+  if (results.ndi) {
+    /** @type {{ name: string, from: string, port: number | null }[]} */
+    const sources = results.ndi.sources ?? [];
+    const fromTc1 = sources.filter((s) => s.from === host);
+    const open = ['5960', '5961', '5962', '5963'].filter((p) => ports[p] === 'open');
+    answers.push({
+      id: 'video',
+      question: 'Does the TC1 send video feeds (NDI) the show app could show?',
+      answer: fromTc1.length ? 'Yes' : open.length ? 'Partly' : sources.length ? 'Partly' : 'No',
+      detail: [
+        sources.length ? `Feeds announced on the cable: ${sources.map((s) => `${s.name}${s.port ? ` (port ${s.port})` : ''}`).join(', ')}.` : 'No feeds were announced on the cable.',
+        `NDI ports open on the TC1: ${open.length ? open.join(', ') : 'none'}.`,
+      ],
+    });
+  }
+
   return answers;
 }
 

@@ -238,17 +238,33 @@ function Program({ state }: { state: AppState }) {
   );
 }
 
+/** Each camera's picture, playing; click one to take it. The one on air has a red frame. */
 function Cameras({ state }: { state: AppState }) {
   return (
     <div className="cameras" aria-label="Cameras">
       {state.cameras.map((c) => (
-        <button key={c.name} className={`camera${state.switcher.programInput === c.input ? ' on-air' : ''}`} onClick={() => act({ kind: 'takeCamera', input: c.input })} disabled={state.automation.paused}>
-          <strong>{c.name}</strong>
-          <span>Input {c.input}</span>
+        <button
+          key={c.name}
+          className={`camera${state.switcher.programInput === c.input ? ' on-air' : ''}`}
+          onClick={() => act({ kind: 'takeCamera', input: c.input })}
+          disabled={state.automation.paused}
+          aria-label={`Take ${c.name}`}
+        >
+          <CameraPicture src={c.video} />
+          <span className="camera-label">
+            <strong>{c.name}</strong> <span>Input {c.input}</span>
+          </span>
         </button>
       ))}
     </div>
   );
+}
+
+function CameraPicture({ src }: { src: string | null }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [src]);
+  if (!src || broken) return <span className="camera-picture none">No picture</span>;
+  return <img className="camera-picture" src={src} alt="" onError={() => setBroken(true)} />;
 }
 
 function Panel({ title, actions, className = '', children }: { title: string; actions?: ReactNode; className?: string; children: ReactNode }) {

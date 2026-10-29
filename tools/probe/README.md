@@ -8,7 +8,7 @@ One read-only command the TD runs on a laptop cabled to the TC1. It finds the TC
 2. **Finds the TC1.** It checks the laptop's own list of devices it has seen, asks the cable "who's there?" (the same multicast questions Macs and NDI devices use), and looks for IPv6 neighbors. If nothing answers, it waits up to 90 seconds for the TC1 to announce itself on the cable. Windows does that about a minute after a cable is plugged in.
 
    An earlier version tried every automatic address instead. On campus that disrupted the laptop's Wi-Fi, so it was removed.
-3. **Reads what the TC1 offers.** It checks which ports answer, then reads `/v1/version` and about 20 named data sets from the TriCaster's web API. If the LivePanel password is on, the probe asks for it once. It doesn't save the password.
+3. **Reads what the TC1 offers.** It checks which ports answer, and asks the cable which NDI video feeds are announced there (added Oct 29, 2026, to work out how the show app can show the cameras). It only lists the feeds; it never opens one. Then it reads `/v1/version` and about 20 named data sets from the TriCaster's web API. If the LivePanel password is on, the probe asks for it once. It doesn't save the password.
 4. **Listens.** It connects to the state stream (port 5951) and the change notifications, then walks you through a few panel steps. You do each one yourself on the TC1SP or the TC1 screen, and the probe records which states change.
 5. **Checks file sharing.** If port 445 is open, it lists the TC1's shared folders.
 6. **Saves** a `.json` results file and a short `-summary.txt` in `tools/probe/results/`, and prints the summary.

@@ -5,7 +5,9 @@ import net from 'node:net';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 import { WebSocketServer, type WebSocket } from 'ws';
+import ffmpegStatic from 'ffmpeg-static';
 import { Switcher, type ChangeEvent, type CommandRecord } from './switcher.ts';
 import { MACROS, type ClipSpec } from './profile.ts';
 import {
@@ -126,6 +128,8 @@ export async function startSimulator(options: SimulatorOptions = {}): Promise<Ru
         await handleSimApi(req, res, url);
         return;
       }
+      const video = /^\/sim\/video\/input([1-3])$/.exec(url.pathname);
+      if (video) return cameraVideo(req, res, Number(video[1]));
       const file = UI_FILES[url.pathname];
       if (file) {
         const body = await fs.readFile(path.join(UI_DIR, file));
@@ -140,6 +144,35 @@ export async function startSimulator(options: SimulatorOptions = {}): Promise<Ru
       res.end(String(err));
     }
   });
+
+  /**
+   * A moving test picture for each camera (Phase 4), so the show app's camera boxes play video on the
+   * simulator. Each camera has its own tint. It's a stream of JPEG frames, which any web page can show,
+   * made by FFmpeg only while someone is watching. How the real TC1's cameras reach the laptop is still
+   * to be found at the station (the probe now lists the TC1's NDI video feeds).
+   */
+  function cameraVideo(req: http.IncomingMessage, res: http.ServerResponse, camera: number) {
+    const ffmpeg = ffmpegStatic as unknown as string | null;
+    if (faults.offline || !ffmpeg) {
+      res.writeHead(503, { 'Content-Type': 'text/plain' });
+      res.end(faults.offline ? 'The simulated TC1 is unplugged' : 'FFmpeg is missing');
+      return;
+    }
+    const hue = [0, 0, 120, 240][camera];
+    const maker = spawn(
+      ffmpeg,
+      ['-v', 'error', '-re', '-f', 'lavfi', '-i', `testsrc2=size=320x180:rate=12,hue=h=${hue}`, '-f', 'mpjpeg', '-q:v', '8', '-'],
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    res.writeHead(200, { 'Content-Type': 'multipart/x-mixed-replace;boundary=ffmpeg', 'Cache-Control': 'no-store', 'X-TSTV-Simulator': 'true' });
+    maker.stdout.pipe(res);
+    const stop = () => maker.kill('SIGKILL');
+    req.on('close', stop);
+    maker.on('exit', () => res.end());
+    videoMakers.add(maker);
+    maker.on('exit', () => videoMakers.delete(maker));
+  }
+  const videoMakers = new Set<ReturnType<typeof spawn>>();
 
   const xml = (res: http.ServerResponse, body: string, status = 200) => {
     res.writeHead(status, { 'Content-Type': 'text/xml; charset=utf-8', 'X-TSTV-Simulator': 'true' });
@@ -317,6 +350,7 @@ export async function startSimulator(options: SimulatorOptions = {}): Promise<Ru
     externalCommands: () => switcher.commandLog().filter((c) => c.source === 'http' || c.source === 'tcp'),
     close: async () => {
       clearTimeout(uiTimer);
+      for (const maker of videoMakers) maker.kill('SIGKILL');
       for (const ws of [...notifyClients, ...uiClients]) ws.terminate();
       for (const s of stateClients) s.destroy();
       for (const s of sockets) s.destroy();

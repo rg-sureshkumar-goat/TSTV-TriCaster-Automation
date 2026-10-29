@@ -128,3 +128,22 @@ describe('simulator change notifications', () => {
     ws.close();
   });
 });
+
+describe('camera video', () => {
+  it('streams a moving test picture for each camera, as JPEG frames', async () => {
+    const controller = new AbortController();
+    const response = await api('/sim/video/input2', { signal: controller.signal });
+    expect(response.headers.get('content-type')).toBe('multipart/x-mixed-replace;boundary=ffmpeg');
+    const reader = response.body!.getReader();
+    let text = '';
+    while (!/Content-type: image\/jpeg/i.test(text)) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += Buffer.from(value).toString('latin1');
+    }
+    expect(text).toMatch(/--ffmpeg/);
+    expect(text).toMatch(/Content-type: image\/jpeg/i);
+    controller.abort();
+    expect((await api('/sim/video/input7')).status).toBe(404);
+  }, 15_000);
+});

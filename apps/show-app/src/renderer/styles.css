@@ -666,3 +666,49 @@ h3 {
 .preview p {
   margin: 8px 0 0;
 }
+
+/* Each camera's picture, with its name over the bottom (Phase 4: the simulator's test pictures). */
+.cameras .camera {
+  position: relative;
+  display: block;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 3px solid var(--border);
+  background: #000;
+}
+
+.cameras .camera.on-air {
+  border-color: var(--red);
+  background: #000;
+}
+
+.camera-picture {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.camera-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 4px 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
+  text-align: left;
+  font-size: 14px;
+}
+
+.camera-label span {
+  font-size: 11px;
+  color: #ddd;
+}
+
+.camera.on-air .camera-label {
+  background: linear-gradient(transparent, rgba(185, 28, 28, 0.9));
+}
