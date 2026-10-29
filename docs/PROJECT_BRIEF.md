@@ -166,7 +166,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 - **Camera buttons:** each shows that camera's live picture (decided Oct 29, 2026; how the TC1 sends it is an open question below), one per camera, with names the producer sets (Anchor Camera, Weather Camera, Guest Camera). One click takes that camera to air. Input numbers are mapped once in settings.
 - **On air / Up next:** what's on air now, and the queue of upcoming cues. The producer can skip an element, pick a different one to play next, or fire the next cue by hand, all without touching the TriCaster.
-- **Preview:** a still image of the next element with the name of the camera it will play over. A live video preview from the TriCaster is a possible later upgrade.
+- **Preview:** what the next element will look like on air: the camera it plays over (its live picture), with the graphic laid on top, keeping the graphic's see-through parts (decided Oct 29, 2026). Until the TC1's camera video reaches the app (Phase 5), the simulator's test pictures stand in. A live video preview from the TriCaster is a possible later upgrade.
 - **Pause Automation:** a large button plus a keyboard shortcut (see below).
 - **Record:** starts and stops the TC1 recording, after the producer picks where the file should be saved.
 - **Show clock:** elapsed time, the current section, and over/under.

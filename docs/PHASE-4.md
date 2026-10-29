@@ -37,7 +37,7 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 - **Playlist:** what's on DSK 2 now, and the cues coming up. Each upcoming cue has **Skip** (it won't fire; skipped cues can be put back) and **Play next** (it fires next, out of order). **Fire next** (or the **Space** bar) fires the next cue by hand.
 - **Pause automation** (or **P**): the app sends nothing at all, and the TD runs the switcher by hand. Resume picks up from the prompter's place, without firing the cues passed while paused.
 - **Section, Elapsed** (since Start live broadcast) and **Time left on current GFX** (the clip playing on DSK 2). Under them, the last cue and how long it took from the reading line to the switcher: green under 0.3 s, amber up to 0.5 s.
-- **Up next preview:** a thumbnail of the next element, with the camera it plays over.
+- **Up next preview:** what the next cue will look like on air: the camera it plays over, playing, with the graphic on top (RG, Oct 29, 2026). Graphics keep their see-through parts, so an L3 or OTS sits over the camera, while a VO, SOT or package fills the screen. Thumbnails made before this change are remade by themselves when the app connects.
 - **Banners:** "Not live yet" before the broadcast starts, "Automation is paused" while paused, and "The prompter isn't connected" during a live show without a prompter.
 
 ### Graphics

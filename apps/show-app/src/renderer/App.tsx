@@ -328,7 +328,12 @@ function Item({ element }: { element: ElementView }) {
     <span className="item">
       <span className={`chip ${elementKind(element.type)}`}>{element.label}</span>
       <span className="muted">{element.sectionLabel}</span>
-      {element.ddrItem === null && element.behavior !== 'music' && <span className="missing">no file</span>}
+      {element.behavior !== 'music' && !element.file && <span className="missing">no file</span>}
+      {element.behavior !== 'music' && element.file && element.ddrItem === null && (
+        <span className="missing" title="Its file isn’t in DDR 2 yet: use Load into the simulator in the Graphics window">
+          not in DDR 2
+        </span>
+      )}
     </span>
   );
 }
@@ -380,12 +385,23 @@ function Status({ state }: { state: AppState }) {
   );
 }
 
+/**
+ * What the next cue will look like on air (RG, Oct 29, 2026): the camera it plays over, with the graphic
+ * on top. Graphics keep their see-through parts, so an L3 or OTS sits over the camera; a VO, SOT or
+ * package fills the screen, as it will on air.
+ */
 function Preview({ state }: { state: AppState }) {
   const next = state.automation.upNext[0];
   const section = state.sections.find((s) => s.id === next?.sectionId);
+  const camera = state.cameras.find((c) => c.name === section?.camera);
+  const note = !next ? 'Nothing up next' : next.behavior === 'music' ? `♪ ${next.label}` : !next.thumbnail ? (next.file ?? 'No file yet') : null;
   return (
     <Panel title="Up next preview" className="preview">
-      <div className="thumb">{next?.thumbnail ? <img src={next.thumbnail} alt="" /> : <span>{next ? (next.file ?? 'No file yet') : 'Nothing up next'}</span>}</div>
+      <div className="thumb composite" aria-label={next ? `${next.label} over ${section?.camera ?? 'the camera'}` : 'Nothing up next'}>
+        {next && <CameraPicture src={camera?.video ?? null} />}
+        {next?.thumbnail && next.behavior !== 'music' && <img className="graphic-layer" src={next.thumbnail} alt="" />}
+        {note && <span className="composite-note">{note}</span>}
+      </div>
       {next && (
         <p>
           <strong>{next.label}</strong> ({next.sectionLabel}) <span className="muted">over {section?.camera ?? 'the section’s camera'}</span>

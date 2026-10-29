@@ -20,7 +20,7 @@ import {
   type SwitcherCommand,
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
-import { collectFiles, readFile, type FileInfo } from './media.ts';
+import { collectFiles, readFile, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
 import { DEFAULT_SETTINGS, type Settings, type Store } from './store.ts';
 import { Switcher } from './switcher.ts';
 import { WebsiteLink, type CueEvent } from './website.ts';
@@ -428,6 +428,28 @@ export class Runtime extends EventEmitter {
     if (broadcast.live) this.clock = { startedAt: broadcast.startedAt, sectionLabel: null, overUnderSeconds: null };
     this.reportStatus();
     this.rebuild();
+    void this.refreshThumbnails();
+  }
+
+  /**
+   * Remakes thumbnails from before graphics kept their see-through parts, in the background, so the preview
+   * can lay each graphic over its camera. Files no longer on this laptop keep their old thumbnail.
+   */
+  private async refreshThumbnails(): Promise<void> {
+    const episodeId = this.website.episode?.id;
+    let changed = false;
+    for (const store of [this.files, this.permanent]) {
+      for (const [key, info] of Object.entries(store)) {
+        if ((info.thumbnailVersion ?? 1) >= THUMBNAIL_VERSION) continue;
+        const fresh = await readFile(info.path);
+        if (this.website.episode?.id !== episodeId) return;
+        if (fresh.thumbnail) {
+          store[key] = fresh;
+          changed = true;
+        }
+      }
+    }
+    if (changed) await this.saveFiles();
   }
 
   async connectSwitcher(address: string, statePort?: number): Promise<void> {
