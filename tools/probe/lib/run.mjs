@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describeAdapters, parseHardwarePorts, runCommand } from './network.mjs';
 import { discover, explicitCandidate } from './discover.mjs';
-import { checkPorts, TRICASTER_PORTS } from './ports.mjs';
+import { checkPorts, readNdiList, TRICASTER_PORTS } from './ports.mjs';
 import { ndiSources, queryMdns } from './mdns.mjs';
 import { buildAuthorization, readOnlyGet } from './http.mjs';
 import { listenStatePort } from './statePort.mjs';
@@ -112,7 +112,7 @@ export async function runProbe(options = {}) {
     notifications: {},
     guidedSteps: [],
     fileSharing: {},
-    /** @type {{ sources: { name: string, from: string, port: number | null }[], packets: number } | undefined} */
+    /** @type {{ sources: { name: string, from: string, port: number | null }[], packets: number, listedOn5960?: boolean } | undefined} */
     ndi: undefined,
     errors,
   };
@@ -191,7 +191,11 @@ export async function runProbe(options = {}) {
   // when the address is typed in. It only asks which feeds exist; it never opens one.
   if (chosen.localAddress && chosen.adapter) {
     const packets = await queryMdns({ localAddress: chosen.localAddress, adapterName: chosen.adapter, durationMs: 5000, questions: ['_ndi._tcp.local'] });
-    results.ndi = { sources: ndiSources(packets), packets: packets.length };
+    const sources = ndiSources(packets);
+    // The TC1 also lists its feeds on port 5960, which works even when it doesn't answer the question above.
+    const listed = results.ports['5960'] === 'open' ? await readNdiList(target) : null;
+    for (const feed of listed ?? []) if (!sources.some((s) => s.name === feed.name)) sources.push({ name: feed.name, from: chosen.host, port: feed.port });
+    results.ndi = { sources, packets: packets.length, listedOn5960: listed !== null };
     log(`Video feeds (NDI): ${results.ndi.sources.length ? results.ndi.sources.map((/** @type {{ name: string }} */ s) => s.name).join(', ') : 'none announced'}.`);
   }
 

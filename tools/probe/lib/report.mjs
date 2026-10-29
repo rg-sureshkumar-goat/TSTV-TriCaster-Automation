@@ -204,7 +204,7 @@ export function buildAnswers(results) {
     /** @type {{ name: string, from: string, port: number | null }[]} */
     const sources = results.ndi.sources ?? [];
     const fromTc1 = sources.filter((s) => s.from === host);
-    const open = ['5960', '5961', '5962', '5963'].filter((p) => ports[p] === 'open');
+    const open = Object.keys(ports).filter((p) => /^59(6\d)$/.test(p) && ports[p] === 'open');
     answers.push({
       id: 'video',
       question: 'Does the TC1 send video feeds (NDI) the show app could show?',

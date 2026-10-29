@@ -10,6 +10,7 @@ import {
 } from '../lib/network.mjs';
 import { parseChunk } from '../lib/statePort.mjs';
 import { buildQuery, ndiSources, parsePacket } from '../lib/mdns.mjs';
+import { parseNdiList } from '../lib/ports.mjs';
 import { buildAuthorization } from '../lib/http.mjs';
 
 const MAC_HARDWARE_PORTS = `
@@ -210,6 +211,20 @@ describe('NDI video feeds', () => {
     expect(ndiSources(packets)).toEqual([
       { name: 'TC1 (Mix 1)', from: '169.254.193.52', port: 5960 },
       { name: 'TC1 (Mix 2)', from: '169.254.193.52', port: null },
+    ]);
+  });
+});
+
+describe('the TC1’s own list of NDI feeds (port 5960)', () => {
+  it('reads each feed’s name and port, as the TC1 sent it on Oct 29, 2026', () => {
+    const xml =
+      '<ndi><addresses><address>169.254.193.52</address></addresses><services>' +
+      '<service name="TC1-1FD7311C (1)" port="5961" company="newtek"><groups><group>Public</group></groups></service>' +
+      '<service name="TC1-1FD7311C (MIX 1)" port="5965" company="newtek"><groups><group>Public</group></groups></service>' +
+      '</services></ndi>';
+    expect(parseNdiList(xml)).toEqual([
+      { name: 'TC1-1FD7311C (1)', port: 5961 },
+      { name: 'TC1-1FD7311C (MIX 1)', port: 5965 },
     ]);
   });
 });

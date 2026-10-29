@@ -90,6 +90,17 @@ TSTV already names files `[Block][Section]_[Type]_[Slug]`, but the real names di
   | Black | −1 |
 - **Commands are still unconfirmed.** The probe only reads. In Phase 5, live mode confirms the command names: `v1_a_row`, `main_a_row`, `main_dsk2_take`/`auto`, DDR 2 select and play, and `record_toggle`. If any are missing, the fallback is TriCaster macros the TD builds once.
 
+## Video feeds (NDI), checked Oct 29, 2026
+
+RG ran the probe at the studio (version 1.1), and I checked the cable from the laptop while he was there.
+
+- **The TC1 sends 8 NDI video feeds over the cable:** `TC1-1FD7311C (1)` to `(4)` on ports 5961–5964, and `TC1-1FD7311C (MIX 1)` to `(MIX 4)` on ports 5965–5968, all in the "Public" group.
+- **How they were found:** the probe's own "who's there?" question got no answer, but the Mac's system service (`dns-sd -B _ndi._tcp`) listed all eight. The TC1 also sends the full list to anyone who connects to **port 5960**, without being asked. The probe now reads that list (and still sends nothing).
+- **All four mix outputs show Program:** `mix1_output_source` to `mix4_output_source` are all `program`. They can presumably be set to other sources, which would be a TC1 setting change (owner's OK).
+- **Watching them:** in NDI Video Monitor on the laptop, feeds (1) to (4) each showed the same still picture (probably from Camera 1), and after reopening the app, only black. The laptop had no TCP connection to the TC1 while watching. NDI's newer UDP transport may be blocked by the TC1's Windows firewall on this cable, or the numbered feeds may not be live cameras. **Not yet known:** which feed, if any, is each camera, and whether the MIX feeds play live on the laptop.
+- **Inputs 1–3 are Cameras 1–3** (RG).
+- TSTV streams to YouTube straight from the TC1.
+
 ## Network notes
 
 - The laptop's USB Ethernet adapter linked at 1 gigabit, full duplex.

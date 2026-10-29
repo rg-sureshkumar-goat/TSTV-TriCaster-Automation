@@ -12,8 +12,15 @@ export const TRICASTER_PORTS = Object.freeze([
   { port: 443, why: 'Secure web control' },
   { port: 5951, why: 'State stream used by node-tricaster' },
   { port: 5952, why: 'Possible second control port' },
-  { port: 5960, why: 'NDI video (first source)' },
+  { port: 5960, why: 'NDI: the list of its video feeds' },
   { port: 5961, why: 'NDI video' },
+  { port: 5962, why: 'NDI video' },
+  { port: 5963, why: 'NDI video' },
+  { port: 5964, why: 'NDI video' },
+  { port: 5965, why: 'NDI video' },
+  { port: 5966, why: 'NDI video' },
+  { port: 5967, why: 'NDI video' },
+  { port: 5968, why: 'NDI video' },
   { port: 445, why: 'Windows file sharing (copying media to the TC1)' },
   { port: 139, why: 'Older Windows file sharing' },
   { port: 3389, why: 'Windows Remote Desktop' },
@@ -57,4 +64,39 @@ export async function checkPorts(target, ports, timeoutMs) {
   const result = {};
   ports.forEach((port, i) => (result[String(port)] = states[i]));
   return result;
+}
+
+/**
+ * The NDI video feeds a device lists on port 5960. An NDI device sends this list to anyone who connects,
+ * without being asked, so the probe connects, listens for two seconds and sends nothing. (Added Oct 29,
+ * 2026: the TC1 lists its feeds here even when it doesn't answer the network's "who's there?" question.)
+ * @param {PortTarget} target
+ * @param {number} [timeoutMs]
+ * @returns {Promise<{ name: string, port: number }[] | null>}
+ */
+export function readNdiList(target, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    let text = '';
+    const socket = net.connect({ host: target.host, port: 5960, localAddress: target.localAddress });
+    const finish = () => {
+      socket.destroy();
+      resolve(text ? parseNdiList(text) : null);
+    };
+    socket.setEncoding('utf8');
+    socket.setTimeout(timeoutMs, finish);
+    socket.on('data', (chunk) => {
+      text += chunk;
+      if (text.length > 64_000 || /<\/ndi>/.test(text)) finish();
+    });
+    socket.on('error', () => resolve(null));
+    socket.on('close', finish);
+  });
+}
+
+/**
+ * @param {string} xml
+ * @returns {{ name: string, port: number }[]}
+ */
+export function parseNdiList(xml) {
+  return [...xml.matchAll(/<service\b[^>]*\bname="([^"]*)"[^>]*\bport="(\d+)"/g)].map((m) => ({ name: m[1].replace(/&amp;/g, '&'), port: Number(m[2]) }));
 }

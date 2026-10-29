@@ -123,14 +123,7 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
 
 ## Not yet
 
-- **The real cameras' video.** The TC1 sends video over the network (NDI), and its NDI ports were open on Oct 28, but we don't yet know which feeds it offers; one already goes to the YouTube stream. The probe now lists the NDI feeds the TC1 announces. Next time you're at the station with the cable plugged in, run it once:
-
-  ```bash
-  cd "/Users/rg_sureshkumar/AI Apps/TSTV Automated Technical Director" && npm run probe
-  ```
-
-  It still only reads, and the summary now has a line about video feeds. Then tell me, and I'll work out the rest with you.
-
+- **The real cameras' video.** At the studio on Oct 29 we found the TC1 sends 8 NDI video feeds over the cable, but they didn't play live on the laptop yet (see `docs/TC1-FINDINGS.md`). Working out which feed is which camera, and getting them to play, is part of Phase 5. Until then, the simulator's test pictures stand in.
 - **The real TC1** (Phase 5): live mode with its three safety locks, Send to TriCaster, sending the green screen to the TC1, and the Record button.
 - Installers for Mac and Windows (Phase 6). For now the app runs from Terminal with `npm run show-app`.
 
