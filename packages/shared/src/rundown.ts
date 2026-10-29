@@ -53,7 +53,8 @@ export interface SectionRow {
   writer: string;
   /**
    * Who reads it on air: one or more of the episode's anchors and correspondents. When several people
-   * talk, the script marks each person's part with their name in curly brackets, like {Jordan}.
+   * talk, the script marks each person's part with their name in curly brackets, like {Jordan}. Or just
+   * CROSS_TALK, for unscripted cross talk.
    */
   talent: string[];
   /** Camera name from the show's camera list; empty means the show's default camera. */
@@ -140,6 +141,23 @@ function readTalent(value: unknown): string[] {
   const names = Array.isArray(value) ? value : [value];
   const clean = names.filter((n): n is string => typeof n === 'string').map((n) => n.trim()).filter(Boolean);
   return [...new Set(clean)];
+}
+
+/**
+ * The Talent choice for real cross talk: everyone talks and there's no formal script, so the prompter
+ * just says CROSS TALK. It's picked on its own, never alongside named people.
+ */
+export const CROSS_TALK = 'Everyone (cross talk)';
+
+export function isCrossTalk(talent: string[]): boolean {
+  return talent.includes(CROSS_TALK);
+}
+
+/** Ticks or unticks one name. Picking cross talk clears the names, and picking a name clears cross talk. */
+export function toggleTalent(talent: string[], name: string): string[] {
+  if (name === CROSS_TALK) return isCrossTalk(talent) ? [] : [CROSS_TALK];
+  const people = talent.filter((n) => n !== CROSS_TALK);
+  return people.includes(name) ? people.filter((n) => n !== name) : [...people, name];
 }
 
 /** "Jordan", or "Jordan, Riley Park" when several people read a section. */

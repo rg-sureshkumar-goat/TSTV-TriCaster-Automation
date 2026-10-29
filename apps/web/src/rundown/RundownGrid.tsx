@@ -8,16 +8,19 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   addElement,
   colorForTalent,
+  CROSS_TALK,
   deleteRow,
   ELEMENT_TYPES,
   formatClock,
   formatDuration,
   insertBlock,
   insertSection,
+  isCrossTalk,
   moveElement,
   moveRow,
   parseDuration,
   removeElement,
+  toggleTalent,
   updateElement,
   updateRow,
   type ComputedRow,
@@ -363,8 +366,8 @@ function TalentPicker({ value, talent, colors, label, readOnly, onChange }: { va
   const anchors = talent.filter((t) => t.role === 'anchor').map((t) => t.name);
   const correspondents = talent.filter((t) => t.role === 'correspondent').map((t) => t.name);
   // Keep showing names picked earlier even if they've since been removed from the list.
-  const unlisted = value.filter((n) => !anchors.includes(n) && !correspondents.includes(n));
-  const toggle = (name: string) => onChange(value.includes(name) ? value.filter((n) => n !== name) : [...value, name]);
+  const unlisted = value.filter((n) => n !== CROSS_TALK && !anchors.includes(n) && !correspondents.includes(n));
+  const toggle = (name: string) => onChange(toggleTalent(value, name));
   const dot = (name: string) => {
     const color = colorForTalent(name, colors);
     return color ? <span className="dot" style={{ background: color }} /> : null;
@@ -405,6 +408,11 @@ function TalentPicker({ value, talent, colors, label, readOnly, onChange }: { va
             ) : (
               <p className="muted small">Tick everyone who talks in this section.</p>
             )}
+            <label className="check">
+              <input type="checkbox" checked={isCrossTalk(value)} onChange={() => toggle(CROSS_TALK)} />
+              {CROSS_TALK}
+            </label>
+            <p className="muted small hint">No formal script: the prompter just says CROSS TALK.</p>
             {group('Anchors', anchors)}
             {group('Correspondents', correspondents)}
             {group('No longer listed', unlisted)}

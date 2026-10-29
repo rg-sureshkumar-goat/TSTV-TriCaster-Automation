@@ -7,6 +7,7 @@ import {
   countWords,
   elementLabel,
   formatDuration,
+  isCrossTalk,
   noteScriptEdit,
   READING_SPEED,
   readScriptInfo,
@@ -114,6 +115,12 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
               </div>
             )}
           </div>
+          {isCrossTalk(section.talent) && (
+            <p className="cross-talk-note" role="note">
+              <strong>Cross talk.</strong> Everyone talks and there’s no formal script, so the prompter will just say CROSS TALK. With no script to time,
+              type this section’s length in the rundown’s Est. column.
+            </p>
+          )}
           {section.talent.length > 1 && (
             <p className="muted small">Several people read this section. Start each person’s part with their name in curly brackets on its own line, like {'{'}{section.talent[0]}{'}'}.</p>
           )}

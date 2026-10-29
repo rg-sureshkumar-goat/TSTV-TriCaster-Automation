@@ -79,7 +79,7 @@ test('two people build one rundown together', async ({ browser }) => {
   // Writer is typed in; Talent is ticked from this episode's anchors and correspondents. Both sync.
   await rg.getByRole('textbox', { name: 'A2 writer' }).fill('Sam');
   await rg.getByRole('button', { name: 'A2 talent' }).click();
-  await expect(rg.getByRole('dialog', { name: 'Who reads A2' }).getByRole('checkbox')).toHaveCount(2);
+  await expect(rg.getByRole('dialog', { name: 'Who reads A2' }).getByRole('checkbox')).toHaveCount(3);
   await rg.getByRole('checkbox', { name: 'Jordan' }).check();
   await rg.getByRole('button', { name: 'Done' }).click();
   await expect(sam.getByLabel('A2 writer')).toHaveValue('Sam');
@@ -135,6 +135,14 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByRole('button', { name: 'Actions for B1' }).click();
   await rg.getByRole('menuitem', { name: 'Move up' }).click();
   await expect(slugLink(sam, 'A3', 'Weather')).toBeVisible();
+
+  // Weather is unscripted cross talk. Picking it clears any names ticked before.
+  await rg.getByRole('button', { name: 'A3 talent' }).click();
+  await rg.getByRole('checkbox', { name: 'Jordan' }).check();
+  await rg.getByRole('checkbox', { name: 'Everyone (cross talk)' }).check();
+  await expect(rg.getByRole('checkbox', { name: 'Jordan' })).not.toBeChecked();
+  await rg.getByRole('button', { name: 'Done' }).click();
+  await expect(sam.getByRole('button', { name: 'A3 talent' })).toHaveText('Everyone (cross talk)');
 
   // Clicking a slug opens its script page. RG and Sam type in the same script at once.
   await slugLink(rg, 'A1', 'Cold Open').click();

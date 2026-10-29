@@ -4,6 +4,7 @@ import {
   addElement,
   blockLetter,
   computeRundown,
+  CROSS_TALK,
   deleteRow,
   formatClock,
   formatDuration,
@@ -17,6 +18,7 @@ import {
   readRows,
   removeElement,
   rowsOf,
+  toggleTalent,
   updateElement,
   updateRow,
   type Row,
@@ -123,6 +125,15 @@ describe('shared document', () => {
     expect((readRows(doc)[0] as SectionRow).talent).toEqual(['Jordan']);
     rowsOf(doc).get(0).set('talent', '');
     expect((readRows(doc)[0] as SectionRow).talent).toEqual([]);
+  });
+
+  it('picks cross talk on its own, never alongside named people', () => {
+    expect(toggleTalent([], 'Jordan')).toEqual(['Jordan']);
+    expect(toggleTalent(['Jordan'], 'Riley')).toEqual(['Jordan', 'Riley']);
+    expect(toggleTalent(['Jordan', 'Riley'], 'Jordan')).toEqual(['Riley']);
+    expect(toggleTalent(['Jordan', 'Riley'], CROSS_TALK)).toEqual([CROSS_TALK]);
+    expect(toggleTalent([CROSS_TALK], 'Jordan')).toEqual(['Jordan']);
+    expect(toggleTalent([CROSS_TALK], CROSS_TALK)).toEqual([]);
   });
 
   it('moves a row and keeps its id and authorship', () => {

@@ -748,6 +748,10 @@ tr.dragging td {
   cursor: pointer;
 }
 
+.talent-picker .hint {
+  margin: -6px 0 0 22px;
+}
+
 .talent-picker .buttons {
   display: flex;
   justify-content: flex-end;
@@ -1011,6 +1015,14 @@ tr.dragging td {
 
 .read-cue > div {
   display: grid;
+}
+
+.cross-talk-note {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
 }
 
 .read-by {
