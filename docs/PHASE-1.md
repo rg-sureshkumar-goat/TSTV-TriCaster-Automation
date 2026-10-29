@@ -11,11 +11,11 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
   - camera names and the default camera
   - usual talent, each with a color
   - segment types (Intro, Tease, Reader, Cross Talk, Package, SOT)
-- **Episodes**, each with a title, air date and start time, and an **Anchors / Correspondents** section where the producer enters that episode's on-air talent. Each person gets a color, and a section whose Talent box names them shows that color. The PDF export lists them at the top.
+- **Episodes**, each with a title, air date and start time, and an **Anchors / Correspondents** section where the producer enters that episode's on-air talent. Each person gets a color, and a section whose Talent is set to them shows that color. The PDF export lists them at the top.
 - **The rundown grid**:
   - Blocks A, B, C, with sections numbered A1, A2, B1. Numbers update when rows move.
   - Columns: Slug, Type, Writer, Talent, Camera, Graphics, Notes, Est., Back-time, and Last edit. There's no green-screen column, because each show's background is set once in the show app (Phase 4).
-  - **Writer** and **Talent** are typed in. A talent name that matches the show's talent list gets that person's color.
+  - **Writer** is typed in. **Talent** is a dropdown of this episode's anchors and correspondents, so the producer just picks who reads each section.
   - **Graphics:** what plays during a section, in order, for example an L3 and then a VO over the anchor during a Reader. Click **+** to add one (L3, OTSL, OTSR, FSG, VO, SOT, PKG). Click a chip to name it, change its type, move it earlier or later, or remove it. Blue chips are graphics and orange chips are clips. Later phases connect each element to its cue in the script and its file, and that's what the TriCaster cueing runs on.
   - **Live editing:** everyone in the episode sees changes within about a second, plus colored initials for who else is there and a highlight on the cell they're editing.
   - **Authorship:** every row records who created it and who last edited it.

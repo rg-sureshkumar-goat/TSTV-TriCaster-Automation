@@ -22,6 +22,7 @@ import {
   type ComputedRow,
   type Element,
   type ElementType,
+  type EpisodeTalent,
   type Person,
   type RundownTiming,
   type SectionRow,
@@ -37,6 +38,8 @@ interface GridProps {
   doc: Y.Doc;
   timing: RundownTiming;
   settings: ShowSettings;
+  /** This episode's anchors and correspondents, the choices in the Talent column. */
+  talent: EpisodeTalent[];
   airTime: string;
   me: Person;
   readOnly: boolean;
@@ -44,7 +47,7 @@ interface GridProps {
   setFocus: (focus: string | null) => void;
 }
 
-export function RundownGrid({ episodeId, doc, timing, settings, airTime, me, readOnly, others, setFocus }: GridProps) {
+export function RundownGrid({ episodeId, doc, timing, settings, talent, airTime, me, readOnly, others, setFocus }: GridProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const ids = timing.rows.map((c) => c.row.id);
 
@@ -94,6 +97,7 @@ export function RundownGrid({ episodeId, doc, timing, settings, airTime, me, rea
                     doc={doc}
                     me={me}
                     settings={settings}
+                    talent={talent}
                     readOnly={readOnly}
                     backTime={backTime(c.backTimeOffset)}
                     focusedBy={focusedBy}
@@ -190,13 +194,14 @@ interface SectionLineProps {
   doc: Y.Doc;
   me: Person;
   settings: ShowSettings;
+  talent: EpisodeTalent[];
   readOnly: boolean;
   backTime: string;
   focusedBy: (rowId: string, field: string) => Presence[];
   setFocus: (focus: string | null) => void;
 }
 
-function SectionLine({ episodeId, computed, index, count, doc, me, settings, readOnly, backTime, focusedBy, setFocus }: SectionLineProps) {
+function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, readOnly, backTime, focusedBy, setFocus }: SectionLineProps) {
   const row = computed.row;
   const set = (patch: Partial<SectionRow>) => updateRow(doc, row.id, patch, me);
   // A typed talent name that matches the show's talent list gets that person's color.
@@ -231,7 +236,7 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, rea
             'talent',
             <span className="talent-cell">
               {talentColor && <span className="dot" style={{ background: talentColor }} />}
-              <TextCell value={row.talent} placeholder="Talent" readOnly={readOnly} onCommit={(talent) => set({ talent })} ariaLabel={`${computed.label} talent`} />
+              <TalentSelect value={row.talent} talent={talent} readOnly={readOnly} onChange={(name) => set({ talent: name })} ariaLabel={`${computed.label} talent`} />
             </span>,
             'person-col',
           )}
@@ -349,6 +354,38 @@ function TextCell({
         onCommit(e.target.value);
       }}
     />
+  );
+}
+
+/** Who reads the section: this episode's anchors and correspondents, entered above the rundown. */
+function TalentSelect({ value, talent, readOnly, onChange, ariaLabel }: { value: string; talent: EpisodeTalent[]; readOnly: boolean; onChange: (name: string) => void; ariaLabel: string }) {
+  const anchors = talent.filter((t) => t.role === 'anchor').map((t) => t.name);
+  const correspondents = talent.filter((t) => t.role === 'correspondent').map((t) => t.name);
+  // Keep showing a name that was picked earlier even if it's since been removed from the list.
+  const other = value && !anchors.includes(value) && !correspondents.includes(value) ? value : '';
+  return (
+    <select className="cell-input" value={value} disabled={readOnly} aria-label={ariaLabel} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{talent.length === 0 ? 'Add talent above' : '—'}</option>
+      {anchors.length > 0 && (
+        <optgroup label="Anchors">
+          {anchors.map((n) => (
+            <option key={`a-${n}`} value={n}>
+              {n}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {correspondents.length > 0 && (
+        <optgroup label="Correspondents">
+          {correspondents.map((n) => (
+            <option key={`c-${n}`} value={n}>
+              {n}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {other && <option value={other}>{other}</option>}
+    </select>
   );
 }
 

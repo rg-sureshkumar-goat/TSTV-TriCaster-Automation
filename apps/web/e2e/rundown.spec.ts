@@ -76,9 +76,10 @@ test('two people build one rundown together', async ({ browser }) => {
   await expect(sam.getByRole('region', { name: 'On-air talent' })).toContainText('Jordan');
   await expect(sam.getByRole('region', { name: 'On-air talent' })).toContainText('Riley Park');
 
-  // Writer and Talent are typed in, and sync too.
+  // Writer is typed in; Talent is picked from this episode's anchors and correspondents. Both sync.
   await rg.getByRole('textbox', { name: 'A2 writer' }).fill('Sam');
-  await rg.getByRole('textbox', { name: 'A2 talent' }).fill('Jordan');
+  await expect(rg.getByLabel('A2 talent').locator('option')).toHaveText(['—', 'Jordan', 'Riley Park']);
+  await rg.getByLabel('A2 talent').selectOption('Jordan');
   await expect(sam.getByLabel('A2 writer')).toHaveValue('Sam');
   await expect(sam.getByLabel('A2 talent')).toHaveValue('Jordan');
   await expect(row(sam, 'A2').locator('.talent-cell .dot')).toBeVisible();

@@ -150,7 +150,7 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
       {!room.synced || !room.doc ? (
         <p className="muted">Loading the rundown…</p>
       ) : (
-        <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} airTime={episode.airTime} me={me} readOnly={readOnly} others={room.others} setFocus={room.setFocus} />
+        <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} talent={room.talent} airTime={episode.airTime} me={me} readOnly={readOnly} others={room.others} setFocus={room.setFocus} />
       )}
     </div>
   );
