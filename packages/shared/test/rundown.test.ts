@@ -230,10 +230,11 @@ describe('formatting', () => {
 });
 
 describe('show settings', () => {
-  it('uses TSTV\'s section types, and moves shows off the first default list', () => {
-    expect(DEFAULT_SHOW_SETTINGS.segmentTypes).toEqual(['Intro', 'Tease', 'Reader', 'Cross Talk']);
-    const old = ['Reader', 'VO', 'VO/SOT', 'SOT', 'PKG', 'OTS', 'FSG', 'Weather', 'Tease', 'Lites'];
-    expect(normalizeShowSettings({ segmentTypes: old }).segmentTypes).toEqual(['Intro', 'Tease', 'Reader', 'Cross Talk']);
+  it('uses TSTV\'s section types, and moves shows off earlier default lists', () => {
+    const tstv = ['Intro', 'Tease', 'Reader', 'Cross Talk', 'Package', 'SOT'];
+    expect(DEFAULT_SHOW_SETTINGS.segmentTypes).toEqual(tstv);
+    expect(normalizeShowSettings({ segmentTypes: ['Reader', 'VO', 'VO/SOT', 'SOT', 'PKG', 'OTS', 'FSG', 'Weather', 'Tease', 'Lites'] }).segmentTypes).toEqual(tstv);
+    expect(normalizeShowSettings({ segmentTypes: ['Intro', 'Tease', 'Reader', 'Cross Talk'] }).segmentTypes).toEqual(tstv);
     // A list someone chose on purpose is kept.
     expect(normalizeShowSettings({ segmentTypes: ['Reader', 'Weather'] }).segmentTypes).toEqual(['Reader', 'Weather']);
   });

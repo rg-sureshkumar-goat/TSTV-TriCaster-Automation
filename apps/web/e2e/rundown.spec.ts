@@ -53,7 +53,7 @@ test('two people build one rundown together', async ({ browser }) => {
   await expect(row(rg, 'A1')).toContainText('7:27:45 PM');
 
   // Setting the type and talent works through the dropdowns, and syncs.
-  await expect(rg.getByLabel('A2 type').locator('option')).toHaveText(['—', 'Intro', 'Tease', 'Reader', 'Cross Talk']);
+  await expect(rg.getByLabel('A2 type').locator('option')).toHaveText(['—', 'Intro', 'Tease', 'Reader', 'Cross Talk', 'Package', 'SOT']);
   await rg.getByLabel('A2 type').selectOption('Reader');
   await expect(sam.getByLabel('A2 type')).toHaveValue('Reader');
 
