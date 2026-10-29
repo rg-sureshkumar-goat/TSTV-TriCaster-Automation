@@ -10,8 +10,8 @@ export interface Person {
 
 /**
  * Things that play during a section, each fired by its own cue. All of them play from DDR2 through DSK 2.
- * L3, OTSL, OTSR, FSG, TEASE and LITES are graphics; VO, SOT and PKG are clips. PERM is one of the show's
- * permanent graphics (Station ID, Show Intro…), named by the element's name.
+ * L3, OTSL, OTSR, FSG and TEASE are graphics; VO, SOT, PKG and LITES are clips (video). PERM is one of the
+ * show's permanent graphics (Station ID, Show Intro…), named by the element's name.
  */
 export const ELEMENT_TYPES = ['L3', 'OTSL', 'OTSR', 'FSG', 'TEASE', 'LITES', 'VO', 'SOT', 'PKG', 'PERM'] as const;
 export type ElementType = (typeof ELEMENT_TYPES)[number];
@@ -28,6 +28,11 @@ export interface Element {
 export function elementLabel(e: Pick<Element, 'type' | 'name'>): string {
   if (e.type === 'PERM') return e.name || 'Permanent graphic';
   return e.name ? `${e.type} ${e.name}` : e.type;
+}
+
+/** Clips are video; the rest are graphics. */
+export function isClipType(type: ElementType): boolean {
+  return type === 'VO' || type === 'SOT' || type === 'PKG' || type === 'LITES';
 }
 
 export function isElementType(value: unknown): value is ElementType {
@@ -350,12 +355,23 @@ export interface ComputedRow {
   startOffset: number | null;
   /** Seconds from the start of the show when this row must start to finish exactly on time. Null when floated. */
   backTimeOffset: number | null;
+  /** On a block: the commercial break that airs just before it. Every block except one that opens the show has one. */
+  breakBefore?: CommercialBreak;
+}
+
+/** A commercial break, added automatically between blocks. */
+export interface CommercialBreak {
+  seconds: number;
+  startOffset: number;
+  backTimeOffset: number;
 }
 
 export interface RundownTiming {
   rows: ComputedRow[];
-  /** Total estimated length of everything that will air (floated sections don't count). */
+  /** Total estimated length of everything that will air, commercial breaks included (floated sections don't count). */
   totalSeconds: number;
+  /** How many commercial breaks there are (one between each pair of blocks). */
+  breakCount: number;
   targetSeconds: number;
   /** Positive = over the target, negative = under. */
   overUnderSeconds: number;
@@ -377,14 +393,21 @@ export function blockLetter(index: number): string {
 /**
  * Numbers every row and works out timing. Sections are numbered within their block (A1, A2, B1…),
  * floated ones included, so floating a section doesn't renumber the graphics named after it.
- * Sections above the first block belong to block A.
+ * Sections above the first block belong to block A. A commercial break of breakSeconds airs before every
+ * block except one that opens the show.
  */
-export function computeRundown(rows: Row[], targetSeconds: number, sectionSeconds: (row: SectionRow) => number = (r) => r.estSeconds ?? 0): RundownTiming {
+export function computeRundown(
+  rows: Row[],
+  targetSeconds: number,
+  sectionSeconds: (row: SectionRow) => number = (r) => r.estSeconds ?? 0,
+  breakSeconds = 0,
+): RundownTiming {
   const computed: ComputedRow[] = [];
   const blockSeconds: Record<string, number> = {};
   let blockIndex = rows[0]?.kind === 'block' ? -1 : 0;
   let sectionInBlock = 0;
   let elapsed = 0;
+  let breakCount = 0;
 
   for (const row of rows) {
     if (row.kind === 'block') {
@@ -392,7 +415,13 @@ export function computeRundown(rows: Row[], targetSeconds: number, sectionSecond
       sectionInBlock = 0;
       const letter = blockLetter(blockIndex);
       blockSeconds[letter] ??= 0;
-      computed.push({ row, label: letter, blockLetter: letter, seconds: 0, startOffset: elapsed, backTimeOffset: null });
+      let breakBefore: CommercialBreak | undefined;
+      if (computed.length > 0) {
+        breakBefore = { seconds: breakSeconds, startOffset: elapsed, backTimeOffset: 0 };
+        elapsed += breakSeconds;
+        breakCount++;
+      }
+      computed.push({ row, label: letter, blockLetter: letter, seconds: 0, startOffset: elapsed, backTimeOffset: null, ...(breakBefore && { breakBefore }) });
       continue;
     }
     sectionInBlock++;
@@ -415,9 +444,13 @@ export function computeRundown(rows: Row[], targetSeconds: number, sectionSecond
       remaining += c.seconds;
     }
     c.backTimeOffset = targetSeconds - remaining;
+    if (c.breakBefore) {
+      remaining += c.breakBefore.seconds;
+      c.breakBefore.backTimeOffset = targetSeconds - remaining;
+    }
   }
 
-  return { rows: computed, totalSeconds: elapsed, targetSeconds, overUnderSeconds: elapsed - targetSeconds, blockSeconds };
+  return { rows: computed, totalSeconds: elapsed, breakCount, targetSeconds, overUnderSeconds: elapsed - targetSeconds, blockSeconds };
 }
 
 // ---- Formatting ----

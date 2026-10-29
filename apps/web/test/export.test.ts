@@ -29,4 +29,13 @@ describe('CSV export', () => {
   it('shows block lines with their total', () => {
     expect(lines[1]).toBe('A,BLOCK A: Top stories,,,,,,,,,,1:30,7:28:30 PM,,');
   });
+
+  it('adds a commercial break line before every block after the first', () => {
+    const withBreak: Row[] = [...rows, { id: 'b', kind: 'block', title: '' }];
+    const out = toCsv(computeRundown(withBreak, 1800, undefined, 120), { showName: 'News', episodeTitle: 'Ep', airDate: '', airTime: '19:00', defaultCamera: 'Camera 1', breakGraphic: 'Commercial Break' })
+      .trim()
+      .split('\r\n');
+    expect(out[4]).toBe(',COMMERCIAL BREAK,,,,,,Commercial Break,,,,2:00,7:28:00 PM,,');
+    expect(out[5]).toBe('B,BLOCK B,,,,,,,,,,0:00,7:30:00 PM,,');
+  });
 });

@@ -24,6 +24,8 @@ export interface ShowSettings {
    * every show, and the rundown's Graphics column picks them as PERM elements.
    */
   permanentGraphics: string[];
+  /** Length of each commercial break between blocks, in seconds. 0 leaves breaks out of the show's timing. */
+  breakSeconds: number;
 }
 
 export const TALENT_COLORS = ['#2563eb', '#d97706', '#059669', '#db2777', '#7c3aed', '#0891b2', '#dc2626', '#65a30d'];
@@ -38,7 +40,13 @@ export const DEFAULT_SHOW_SETTINGS: ShowSettings = {
   segmentTypes: ['Intro', 'Tease', 'Reader', 'Cross Talk', 'Q&A', 'Package', 'SOT', 'Permanent Graphic'],
   // TSTV's permanent graphics (RG, Oct 29, 2026). Each show can edit its own list.
   permanentGraphics: ['Station ID', 'Show Intro', 'Commercial Break', 'Social Media L3', 'Website L3', 'Station Outro'],
+  breakSeconds: 0,
 };
+
+/** The permanent graphic that plays during commercial breaks: the first whose name mentions a break. */
+export function breakGraphic(settings: ShowSettings): string | undefined {
+  return settings.permanentGraphics.find((g) => /break/i.test(g));
+}
 
 /** Earlier default lists. Shows still using one unchanged get TSTV's current list instead. */
 const EARLIER_DEFAULT_SEGMENT_TYPES = [
@@ -64,6 +72,7 @@ export function normalizeShowSettings(input: unknown): ShowSettings {
     : [];
   const target = Number(s.targetSeconds);
   const wpm = Number(s.wordsPerMinute);
+  const breakSeconds = Number(s.breakSeconds);
   return {
     targetSeconds: Number.isFinite(target) && target > 0 && target <= 6 * 3600 ? Math.round(target) : DEFAULT_SHOW_SETTINGS.targetSeconds,
     wordsPerMinute: Number.isFinite(wpm) && wpm >= 60 && wpm <= 400 ? Math.round(wpm) : DEFAULT_SHOW_SETTINGS.wordsPerMinute,
@@ -75,5 +84,6 @@ export function normalizeShowSettings(input: unknown): ShowSettings {
       return EARLIER_DEFAULT_SEGMENT_TYPES.includes(types.join('|')) ? [...DEFAULT_SHOW_SETTINGS.segmentTypes] : types;
     })(),
     permanentGraphics: strings(s.permanentGraphics, DEFAULT_SHOW_SETTINGS.permanentGraphics),
+    breakSeconds: Number.isFinite(breakSeconds) && breakSeconds >= 0 && breakSeconds <= 3600 ? Math.round(breakSeconds) : DEFAULT_SHOW_SETTINGS.breakSeconds,
   };
 }

@@ -119,6 +119,10 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByRole('menuitem', { name: '★ Station ID' }).click();
   await rg.getByRole('button', { name: 'Add a graphic to A1' }).click();
   await rg.getByRole('menuitem', { name: /^TEASE/ }).click();
+  // LITES is video, so it's red like the other clips.
+  await rg.getByRole('button', { name: 'Add a graphic to A1' }).click();
+  await rg.getByRole('menuitem', { name: /^LITES/ }).click();
+  await expect(rg.getByRole('button', { name: 'A1 graphic 3: LITES' })).toHaveClass(/clip/);
   await expect(sam.getByRole('button', { name: 'A1 graphic 1: PERM Station ID' })).toBeVisible();
   await expect(sam.getByRole('button', { name: 'A1 graphic 2: TEASE' })).toBeVisible();
 
@@ -135,6 +139,9 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByRole('button', { name: 'Actions for B1' }).click();
   await rg.getByRole('menuitem', { name: 'Move up' }).click();
   await expect(slugLink(sam, 'A3', 'Weather')).toBeVisible();
+  // A commercial break appears on its own between blocks A and B.
+  await expect(sam.locator('.break-row')).toHaveCount(1);
+  await expect(sam.locator('.break-row')).toContainText('★ Commercial Break');
 
   // Weather is unscripted cross talk. Picking it clears any names ticked before.
   await rg.getByRole('button', { name: 'A3 talent' }).click();
@@ -181,7 +188,7 @@ test('two people build one rundown together', async ({ browser }) => {
   expect(csv).toContain('"VO Highlights, L3"');
   expect(csv).toContain('A2,Basketball Wins,Reader,Sam,Jordan,Camera 1,Horns win big,');
   expect(csv).toContain('"Jordan, Riley Park"');
-  expect(csv).toContain('"Station ID, TEASE"');
+  expect(csv).toContain('"Station ID, TEASE, LITES"');
   expect(csv).toContain('Sam Writer');
 
   // Export PDF makes a real PDF file.

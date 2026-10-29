@@ -1,12 +1,13 @@
 // The rundown grid: blocks and sections, edited live by everyone in the episode. Drag the handle to
 // reorder; each section's menu floats, moves, inserts or deletes it. Every edit records who made it.
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import * as Y from 'yjs';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
   addElement,
+  breakGraphic,
   colorForTalent,
   CROSS_TALK,
   deleteRow,
@@ -15,6 +16,7 @@ import {
   formatDuration,
   insertBlock,
   insertSection,
+  isClipType,
   isCrossTalk,
   moveElement,
   moveRow,
@@ -23,6 +25,7 @@ import {
   toggleTalent,
   updateElement,
   updateRow,
+  type CommercialBreak,
   type ComputedRow,
   type Element,
   type ElementType,
@@ -77,7 +80,7 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, airTime,
             <th title="Who reads it on air">Talent</th>
             <th className="camera-col">Camera</th>
             <th className="headline-col" title="The on-screen headline for this section">Headline</th>
-            <th title="Graphics and clips that play during this section, in order (L3, OTS, FSG, TEASE, LITES, VO, SOT, PKG, and the show's permanent graphics)">Graphics</th>
+            <th title="Graphics and clips that play during this section, in order (graphics in blue, video in red, the show's permanent graphics in green)">Graphics</th>
             <th className="notes-col">Notes</th>
             <th className="person-col" title="Who makes this section's graphics">Assign Graphics</th>
             <th className="time-col" title="Estimated length">Est.</th>
@@ -93,7 +96,10 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, airTime,
             <tbody>
               {timing.rows.map((c, index) =>
                 c.row.kind === 'block' ? (
-                  <BlockLine key={c.row.id} computed={c} doc={doc} me={me} readOnly={readOnly} blockSeconds={timing.blockSeconds[c.blockLetter] ?? 0} backTime={backTime(c.backTimeOffset)} sectionsAfter={sectionsUntilNextBlock(timing.rows, index)} />
+                  <Fragment key={c.row.id}>
+                    {c.breakBefore && <BreakLine commercialBreak={c.breakBefore} graphic={breakGraphic(settings)} backTime={backTime(c.breakBefore.backTimeOffset)} />}
+                    <BlockLine computed={c} doc={doc} me={me} readOnly={readOnly} blockSeconds={timing.blockSeconds[c.blockLetter] ?? 0} backTime={backTime(c.backTimeOffset)} sectionsAfter={sectionsUntilNextBlock(timing.rows, index)} />
+                  </Fragment>
                 ) : (
                   <SectionLine
                     key={c.row.id}
@@ -144,6 +150,27 @@ function SortableRow({ id, className, disabled, children }: { id: string; classN
   return (
     <tr ref={setNodeRef} style={style} className={`${className}${isDragging ? ' dragging' : ''}`}>
       {children(handle)}
+    </tr>
+  );
+}
+
+/** A commercial break, added automatically before every block except the first. It can't be edited or moved. */
+function BreakLine({ commercialBreak, graphic, backTime }: { commercialBreak: CommercialBreak; graphic: string | undefined; backTime: string }) {
+  return (
+    <tr className="break-row">
+      <td className="handle-col" />
+      <td className="num-col" />
+      <td colSpan={9}>
+        <div className="break-title">
+          <strong>Commercial break</strong>
+          {graphic && <span className="element-chip permanent">★ {graphic}</span>}
+          <span className="muted small">Added automatically between blocks. Set its length in the show’s settings.</span>
+        </div>
+      </td>
+      <td className="time-col">{commercialBreak.seconds > 0 ? formatDuration(commercialBreak.seconds) : ''}</td>
+      <td className="time-col">{commercialBreak.seconds > 0 ? backTime : ''}</td>
+      <td />
+      <td className="menu-col" />
     </tr>
   );
 }
@@ -538,12 +565,11 @@ const ELEMENT_HELP: Record<ElementType, string> = {
   SOT: 'sound bite with its own audio',
   PKG: 'package',
   TEASE: 'tease graphic',
-  LITES: 'LITES graphic',
+  LITES: 'LITES video',
   PERM: 'one of the show’s permanent graphics',
 };
 
-const isClip = (type: ElementType) => type === 'VO' || type === 'SOT' || type === 'PKG';
-const chipClass = (type: ElementType) => (type === 'PERM' ? 'permanent' : isClip(type) ? 'clip' : 'graphic');
+const chipClass = (type: ElementType) => (type === 'PERM' ? 'permanent' : isClipType(type) ? 'clip' : 'graphic');
 /** The types picked from the + menu's first list; permanent graphics are listed by name below them. */
 const PICKABLE_TYPES = ELEMENT_TYPES.filter((t) => t !== 'PERM');
 

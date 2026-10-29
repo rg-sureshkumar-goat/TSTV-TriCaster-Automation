@@ -583,6 +583,23 @@ table.rundown td {
   padding: 6px 4px;
 }
 
+.break-row td {
+  background: var(--surface-2);
+  padding: 6px 4px;
+  font-style: italic;
+}
+
+.break-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.break-title .element-chip {
+  font-style: normal;
+}
+
 .block-title {
   display: flex;
   align-items: center;
@@ -874,8 +891,8 @@ tr.dragging td {
 }
 
 .element-chip.clip {
-  background: #ffedd5;
-  color: #7c2d12;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .element-chip.permanent {
@@ -900,8 +917,8 @@ tr.dragging td {
   }
 
   .element-chip.clip {
-    background: #7c2d12;
-    color: #ffedd5;
+    background: #991b1b;
+    color: #fee2e2;
   }
 
   .element-chip.permanent {

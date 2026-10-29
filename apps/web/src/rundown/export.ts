@@ -8,6 +8,8 @@ export interface ExportInfo {
   airDate: string;
   airTime: string;
   defaultCamera: string;
+  /** The permanent graphic that plays during commercial breaks. */
+  breakGraphic?: string;
   anchors?: string[];
   correspondents?: string[];
 }
@@ -16,12 +18,17 @@ const HEADERS = ['#', 'Slug', 'Type', 'Writer', 'Talent', 'Camera', 'Headline', 
 
 function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
   const backTime = (offset: number | null) => (offset === null ? '' : info.airTime ? formatClock(info.airTime, offset) : `+${formatDuration(offset)}`);
-  return timing.rows.map((c) => {
+  return timing.rows.flatMap((c) => {
     if (c.row.kind === 'block') {
-      return [c.label, `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, '', '', '', '', '', '', '', '', '', formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime(c.backTimeOffset), '', ''];
+      const block = [c.label, `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, '', '', '', '', '', '', '', '', '', formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime(c.backTimeOffset), '', ''];
+      if (!c.breakBefore) return [block];
+      const b = c.breakBefore;
+      const seconds = b.seconds > 0 ? formatDuration(b.seconds) : '';
+      const breakLine = ['', 'COMMERCIAL BREAK', '', '', '', '', '', info.breakGraphic ?? '', '', '', '', seconds, b.seconds > 0 ? backTime(b.backTimeOffset) : '', '', ''];
+      return [breakLine, block];
     }
     const s = c.row as SectionRow;
-    return [
+    return [[
       c.label,
       s.slug,
       s.type,
@@ -37,7 +44,7 @@ function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
       backTime(c.backTimeOffset),
       s.createdBy?.name ?? '',
       s.updatedBy?.name ?? '',
-    ];
+    ]];
   });
 }
 
@@ -95,6 +102,10 @@ export async function exportPdf(timing: RundownTiming, info: ExportInfo): Promis
       if (data.section === 'body' && label.startsWith('BLOCK ')) {
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fillColor = [238, 238, 238];
+      }
+      if (data.section === 'body' && label === 'COMMERCIAL BREAK') {
+        data.cell.styles.fontStyle = 'italic';
+        data.cell.styles.fillColor = [246, 246, 246];
       }
     },
   });

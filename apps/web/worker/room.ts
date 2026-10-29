@@ -84,7 +84,7 @@ export class EpisodeRoom extends YServer<Env> {
       .concat(allScriptText(this.document))
       .replace(/\s+/g, ' ')
       .trim();
-    const summary = JSON.stringify({ sections: sections.length, estSeconds: timing.totalSeconds });
+    const summary = JSON.stringify({ sections: sections.length, estSeconds: timing.totalSeconds, breaks: timing.breakCount });
     await this.env.DB.prepare('UPDATE episodes SET summary = ?, search_text = ?, updated_at = ? WHERE id = ?')
       .bind(summary, searchText, Date.now(), this.episodeId)
       .run();

@@ -89,6 +89,28 @@ describe('timing', () => {
     expect(byLabel.A2.backTimeOffset).toBeNull();
   });
 
+  it('puts a commercial break before every block except the first, and times it', () => {
+    const t = computeRundown([...rows, block('c'), section('s5', 30)], 900, undefined, 120);
+    const byLabel = Object.fromEntries(t.rows.map((r) => [r.label, r]));
+    expect(t.breakCount).toBe(2);
+    expect(byLabel.A.breakBefore).toBeUndefined();
+    // A (2:30), break (2:00), B (5:00), break (2:00), C (0:30) = 12:00.
+    expect(t.totalSeconds).toBe(720);
+    expect(t.blockSeconds).toEqual({ A: 150, B: 300, C: 30 });
+    expect(byLabel.B.breakBefore).toEqual({ seconds: 120, startOffset: 150, backTimeOffset: 330 });
+    expect(byLabel.B.startOffset).toBe(270);
+    expect(byLabel.B.backTimeOffset).toBe(450);
+    expect(byLabel.C.breakBefore).toEqual({ seconds: 120, startOffset: 570, backTimeOffset: 750 });
+    expect(byLabel.C1.backTimeOffset).toBe(870);
+    expect(byLabel.A1.backTimeOffset).toBe(180);
+  });
+
+  it('opens with block A even when there are sections above it, so a break goes before the first block header after them', () => {
+    const t = computeRundown([section('s1', 60), block('b'), section('s2', 60)], 600, undefined, 30);
+    expect(t.rows.find((r) => r.label === 'B')?.breakBefore?.startOffset).toBe(60);
+    expect(t.totalSeconds).toBe(150);
+  });
+
   it('can take section lengths from elsewhere, for script read time later', () => {
     const t = computeRundown([section('s1', null)], 60, () => 42);
     expect(t.totalSeconds).toBe(42);

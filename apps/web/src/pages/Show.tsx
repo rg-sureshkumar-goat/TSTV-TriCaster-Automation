@@ -10,7 +10,8 @@ export interface EpisodeListItem {
   airDate: string;
   airTime: string;
   status: 'active' | 'archived';
-  summary: { sections: number; estSeconds: number } | null;
+  /** Content length; breaks counts the commercial breaks between blocks, timed by the show's break length. */
+  summary: { sections: number; estSeconds: number; breaks?: number } | null;
   updatedAt: number;
   createdByName: string | null;
   createdById: string | null;
@@ -47,11 +48,11 @@ export function ShowPage({ showId }: { showId: string }) {
       {tab === 'episodes' ? (
         <>
           <NewEpisodeForm showId={showId} />
-          <EpisodeList episodes={active} target={data.show.settings.targetSeconds} empty="No episodes yet. Add one above." />
+          <EpisodeList episodes={active} settings={data.show.settings} empty="No episodes yet. Add one above." />
           {archived.length > 0 && (
             <>
               <h2>Archived</h2>
-              <EpisodeList episodes={archived} target={data.show.settings.targetSeconds} empty="" />
+              <EpisodeList episodes={archived} settings={data.show.settings} empty="" />
             </>
           )}
         </>
@@ -62,7 +63,8 @@ export function ShowPage({ showId }: { showId: string }) {
   );
 }
 
-function EpisodeList({ episodes, target, empty }: { episodes: EpisodeListItem[]; target: number; empty: string }) {
+function EpisodeList({ episodes, settings, empty }: { episodes: EpisodeListItem[]; settings: ShowSettings; empty: string }) {
+  const length = (s: NonNullable<EpisodeListItem['summary']>) => s.estSeconds + (s.breaks ?? 0) * settings.breakSeconds;
   if (episodes.length === 0) return empty ? <p className="muted">{empty}</p> : null;
   return (
     <ul className="cards">
@@ -75,7 +77,7 @@ function EpisodeList({ episodes, target, empty }: { episodes: EpisodeListItem[];
             </strong>
             <span className="muted">
               {[formatDate(e.airDate), formatTime(e.airTime)].filter(Boolean).join(' at ') || 'No air date'}
-              {e.summary ? ` · ${e.summary.sections} sections · ${formatDuration(e.summary.estSeconds)} of ${formatDuration(target)}` : ''}
+              {e.summary ? ` · ${e.summary.sections} sections · ${formatDuration(length(e.summary))} of ${formatDuration(settings.targetSeconds)}` : ''}
               {e.updatedAt ? ` · edited ${timeAgo(e.updatedAt)}` : ''}
             </span>
           </Link>
@@ -127,11 +129,13 @@ function ShowSettingsForm({ showId, name, settings, onSaved }: { showId: string;
   const [draftName, setDraftName] = useState(name);
   const [draft, setDraft] = useState(settings);
   const [target, setTarget] = useState(formatDuration(settings.targetSeconds));
+  const [breakLength, setBreakLength] = useState(formatDuration(settings.breakSeconds));
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
 
   useEffect(() => {
     setDraft(settings);
     setTarget(formatDuration(settings.targetSeconds));
+    setBreakLength(formatDuration(settings.breakSeconds));
   }, [settings]);
 
   const save = async (event: FormEvent) => {
@@ -141,8 +145,13 @@ function ShowSettingsForm({ showId, name, settings, onSaved }: { showId: string;
       setMessage({ text: 'Type the target length like 30:00.', error: true });
       return;
     }
+    const breakSeconds = parseDuration(breakLength);
+    if (breakSeconds === undefined) {
+      setMessage({ text: 'Type the commercial break length like 2:00, or 0:00.', error: true });
+      return;
+    }
     try {
-      await api(`/shows/${showId}`, { method: 'PATCH', body: { name: draftName, settings: { ...draft, targetSeconds } } });
+      await api(`/shows/${showId}`, { method: 'PATCH', body: { name: draftName, settings: { ...draft, targetSeconds, breakSeconds: breakSeconds ?? 0 } } });
       setMessage({ text: 'Saved.' });
       onSaved();
     } catch (e) {
@@ -160,6 +169,10 @@ function ShowSettingsForm({ showId, name, settings, onSaved }: { showId: string;
         <label>
           Target length
           <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="30:00" />
+        </label>
+        <label>
+          Commercial break length
+          <input value={breakLength} onChange={(e) => setBreakLength(e.target.value)} placeholder="2:00" title="Each break between blocks. 0:00 leaves breaks out of the show's timing." />
         </label>
         <label>
           Reading speed (words per minute)

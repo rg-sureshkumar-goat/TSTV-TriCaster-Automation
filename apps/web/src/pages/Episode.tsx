@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { computeRundown, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type ShowSettings } from '@tstv/shared';
+import { breakGraphic, computeRundown, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type ShowSettings } from '@tstv/shared';
 import { TalentPanel } from '../rundown/TalentPanel.tsx';
 import { api, useLoad, type User } from '../lib/api.ts';
 import { Link } from '../lib/router.tsx';
@@ -27,8 +27,8 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
   const readOnly = episode.status === 'archived';
   const room = useEpisodeDoc(episode.id, user, reload);
   const timing = useMemo(
-    () => computeRundown(room.rows, show.settings.targetSeconds, sectionSecondsFrom(room.scriptWords)),
-    [room.rows, room.scriptWords, show.settings.targetSeconds],
+    () => computeRundown(room.rows, show.settings.targetSeconds, sectionSecondsFrom(room.scriptWords), show.settings.breakSeconds),
+    [room.rows, room.scriptWords, show.settings.targetSeconds, show.settings.breakSeconds],
   );
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -42,6 +42,7 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
     airDate: formatDate(episode.airDate),
     airTime: episode.airTime,
     defaultCamera: show.settings.defaultCamera,
+    breakGraphic: breakGraphic(show.settings),
     anchors: names('anchor'),
     correspondents: names('correspondent'),
   };
