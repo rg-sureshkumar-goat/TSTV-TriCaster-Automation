@@ -53,8 +53,9 @@ test('two people build one rundown together', async ({ browser }) => {
   await expect(row(rg, 'A1')).toContainText('7:27:45 PM');
 
   // Setting the type and talent works through the dropdowns, and syncs.
-  await rg.getByLabel('A2 type').selectOption('VO');
-  await expect(sam.getByLabel('A2 type')).toHaveValue('VO');
+  await expect(rg.getByLabel('A2 type').locator('option')).toHaveText(['—', 'Intro', 'Tease', 'Reader', 'Cross Talk']);
+  await rg.getByLabel('A2 type').selectOption('Reader');
+  await expect(sam.getByLabel('A2 type')).toHaveValue('Reader');
 
   // Elements: A2 is a reader with an L3, and a VO playing over the anchor.
   await rg.getByRole('button', { name: 'Add an element to A2' }).click();

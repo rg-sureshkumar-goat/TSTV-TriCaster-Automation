@@ -230,6 +230,14 @@ describe('formatting', () => {
 });
 
 describe('show settings', () => {
+  it('uses TSTV\'s section types, and moves shows off the first default list', () => {
+    expect(DEFAULT_SHOW_SETTINGS.segmentTypes).toEqual(['Intro', 'Tease', 'Reader', 'Cross Talk']);
+    const old = ['Reader', 'VO', 'VO/SOT', 'SOT', 'PKG', 'OTS', 'FSG', 'Weather', 'Tease', 'Lites'];
+    expect(normalizeShowSettings({ segmentTypes: old }).segmentTypes).toEqual(['Intro', 'Tease', 'Reader', 'Cross Talk']);
+    // A list someone chose on purpose is kept.
+    expect(normalizeShowSettings({ segmentTypes: ['Reader', 'Weather'] }).segmentTypes).toEqual(['Reader', 'Weather']);
+  });
+
   it('fills in defaults and fixes bad values', () => {
     expect(normalizeShowSettings(undefined)).toEqual(DEFAULT_SHOW_SETTINGS);
     const s = normalizeShowSettings({ targetSeconds: -5, wordsPerMinute: 'fast', cameras: ['Anchor Camera', ' '], defaultCamera: 'Nope', talent: [{ name: 'Jordan' }] });

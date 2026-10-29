@@ -10,7 +10,7 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
   - reading speed
   - camera names and the default camera
   - usual talent, each with a color
-  - segment types
+  - segment types (Intro, Tease, Reader, Cross Talk)
 - **Episodes**, each with a title, air date and start time.
 - **The rundown grid**:
   - Blocks A, B, C, with sections numbered A1, A2, B1. Numbers update when rows move.

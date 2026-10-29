@@ -29,8 +29,12 @@ export const DEFAULT_SHOW_SETTINGS: ShowSettings = {
   cameras: ['Camera 1', 'Camera 2', 'Camera 3'],
   defaultCamera: 'Camera 1',
   talent: [],
-  segmentTypes: ['Reader', 'VO', 'VO/SOT', 'SOT', 'PKG', 'OTS', 'FSG', 'Weather', 'Tease', 'Lites'],
+  // TSTV's section types (RG, Oct 28, 2026). What plays during a section goes in its Elements instead.
+  segmentTypes: ['Intro', 'Tease', 'Reader', 'Cross Talk'],
 };
+
+/** The first default list. Shows still using it unchanged get TSTV's list instead. */
+const FIRST_DEFAULT_SEGMENT_TYPES = ['Reader', 'VO', 'VO/SOT', 'SOT', 'PKG', 'OTS', 'FSG', 'Weather', 'Tease', 'Lites'];
 
 /** Fills in anything missing or malformed, so old or hand-edited settings never break the site. */
 export function normalizeShowSettings(input: unknown): ShowSettings {
@@ -55,6 +59,9 @@ export function normalizeShowSettings(input: unknown): ShowSettings {
     cameras,
     defaultCamera: cameras.includes(String(s.defaultCamera)) ? String(s.defaultCamera) : cameras[0] ?? '',
     talent,
-    segmentTypes: strings(s.segmentTypes, DEFAULT_SHOW_SETTINGS.segmentTypes),
+    segmentTypes: (() => {
+      const types = strings(s.segmentTypes, DEFAULT_SHOW_SETTINGS.segmentTypes);
+      return types.join('|') === FIRST_DEFAULT_SEGMENT_TYPES.join('|') ? [...DEFAULT_SHOW_SETTINGS.segmentTypes] : types;
+    })(),
   };
 }
