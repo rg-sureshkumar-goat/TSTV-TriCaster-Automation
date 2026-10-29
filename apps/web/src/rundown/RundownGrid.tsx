@@ -80,7 +80,7 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, airTime,
             <th title="Who reads it on air">Talent</th>
             <th className="camera-col">Camera</th>
             <th className="headline-col" title="The on-screen headline for this section">Headline</th>
-            <th title="Graphics and clips that play during this section, in order (graphics in blue, video in red, the show's permanent graphics in green)">Graphics</th>
+            <th title="Graphics and clips that play during this section, in order (graphics in blue, video in red, music in purple, the show's permanent graphics in green)">Graphics</th>
             <th className="notes-col">Notes</th>
             <th className="person-col" title="Who makes this section's graphics">Assign Graphics</th>
             <th className="time-col" title="Estimated length">Est.</th>
@@ -566,10 +566,11 @@ const ELEMENT_HELP: Record<ElementType, string> = {
   PKG: 'package',
   TEASE: 'tease graphic',
   LITES: 'LITES video',
+  MUSIC: 'music from the TriCaster’s Sound player',
   PERM: 'one of the show’s permanent graphics',
 };
 
-const chipClass = (type: ElementType) => (type === 'PERM' ? 'permanent' : isClipType(type) ? 'clip' : 'graphic');
+const chipClass = (type: ElementType) => (type === 'PERM' ? 'permanent' : type === 'MUSIC' ? 'music' : isClipType(type) ? 'clip' : 'graphic');
 /** The types picked from the + menu's first list; permanent graphics are listed by name below them. */
 const PICKABLE_TYPES = ELEMENT_TYPES.filter((t) => t !== 'PERM');
 
@@ -679,7 +680,7 @@ function ElementEditor({ element, permanent, index, count, sectionId, label, doc
         <input
           value={name}
           maxLength={80}
-          placeholder="e.g. Highlights"
+          placeholder={element.type === 'MUSIC' ? 'e.g. PrimeTime Main' : 'e.g. Highlights'}
           autoFocus
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}

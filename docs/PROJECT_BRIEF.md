@@ -29,7 +29,7 @@ These are the facts the build has to fit, confirmed on site on Oct 28, 2026.
 | Program path | Program runs through M/E 1: the main program row shows M/E 1, and cameras are switched on M/E 1's row. |
 | Graphics and clips | L3s, OTS, FSGs, VOs, SOTs and packages all play from DDR2 and are put on air with the DSK 2 Take button. They're loaded from a USB drive in rundown order. DDR2 has AutoPlay on: taking DSK 2 on plays the cued clip, and taking it off stops DDR2 and cues the next clip. Each block in DDR2 starts with a break clip (today "TSTV Ident 2022 News") that's held during the commercial break. DDR1 is not used. |
 | Green screen | Each show has its own green-screen background, which doesn't change during the show. The background lives in GFX 1, keyed with LiveMatte and layered in an M/E. The probe saw M/E 2 set up as a camera on its A row over GFX 1, and GFX 1 on program through M/E 1. |
-| Audio | Separate sound board, out of scope. SOTs and packages carry their own audio from DDR2. |
+| Audio | Separate sound board, out of scope. SOTs and packages carry their own audio from DDR2. The TC1's **Sound** player holds the show's music: the probe (Oct 28, 2026) found "PrimeTime Main" (`News_Under (1).wav`, 0:56) and "PrimeTime Transition Music" (0:21). |
 | Streaming | YouTube, not through the TriCaster. Out of scope. |
 | Recording | The TC1 records. Shows are often aired or published later. |
 | Prompter | A dedicated Mac in the studio, using Safari. A prompter runner sets the speed with the arrow keys. Its screen feeds monitors on two cameras (cameras 1 and 2), and a physical mirror flips the image, so no software mirroring is needed. |
@@ -77,6 +77,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 - **Decided Oct 28, 2026:** a section can have several things happening in it, so the **Elements** column (titled **Graphics** in the rundown) lists each section's elements in the order they fire. For example, a Reader can have an L3 and then a VO playing over the anchor.
   - Element types: L3, OTSL, OTSR, FSG, **TEASE**, **LITES**, VO, SOT and PKG (TEASE and LITES added Oct 29, 2026). Each element can also have an optional name.
   - In the rundown, graphics are blue and video is red. **LITES is a video** (decided Oct 29, 2026), so it's red like VO, SOT and PKG.
+  - **MUSIC (decided Oct 29, 2026):** music is an element too, shown in purple and named by its track, such as the intro music that plays under the tease at the top of block A. The show app plays it from the TC1's Sound player when its cue is reached.
   - **Permanent graphics (decided Oct 29, 2026):** each show has a list of graphics used in every episode. TSTV's default list is Station ID, Show Intro, Commercial Break, Social Media L3, Website L3 and Station Outro, and each show can edit it in its settings. The Graphics column can pick any of them for a section. In Phase 4 the show app makes sure they're loaded on the TriCaster before every show.
   - Elements are planned in the rundown first.
   - In Phase 2 each element is linked to its cue chip in the script. In Phase 4 it's linked to its file, with Ready or Missing.
@@ -188,7 +189,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 ## Cue rules
 
-Every element plays from DDR2 through DSK 2. Only one element is on DSK 2 at a time, so a new cue replaces whatever is up. When a section starts, its first element is cued in DDR2 so it's ready to fire.
+Every element except MUSIC plays from DDR2 through DSK 2. Only one element is on DSK 2 at a time, so a new cue replaces whatever is up. When a section starts, its first element is cued in DDR2 so it's ready to fire.
 
 | Element | Goes up | Comes off |
 | --- | --- | --- |
@@ -198,6 +199,7 @@ Every element plays from DDR2 through DSK 2. Only one element is on DSK 2 at a t
 | VO | Its cue reaches the reading line, and DDR2 plays the clip while the anchor reads | **Clip ends first:** DSK 2 off, the anchors are back, and the section's L3 returns if it has one. **Section ends first:** DDR2 stops, DSK 2 off, back to the anchors. |
 | SOT | Its cue reaches the reading line, and it plays with its own audio | The clip ends, then back to the anchors (assumed; to confirm) |
 | PKG | Same as SOT | Same as SOT (assumed; to confirm) |
+| MUSIC | Its cue reaches the reading line, and the Sound player plays the named track. It plays alongside DDR2, so graphics can go up over it. | The track ends (assumed; to confirm) |
 
 A section "ends" when the next section's start crosses the prompter's reading line. Clip end comes from the TriCaster's own playback status when it's available. Otherwise it comes from the clip length measured at import.
 
@@ -257,6 +259,7 @@ There's no deadline, so the plan aims for the fastest path to a first live test.
 - [ ] Who must approve changing TC1 settings (a fixed network address, a shared folder)? *No network change is needed. Copying files over the cable needs a Windows login on the TC1.*
 - [ ] During a show, is the green-screen key on air the whole time behind the anchors, and through which M/E? The probe saw GFX 1 on program through M/E 1. *(There's no per-section green screen: decided Oct 28, 2026.)*
 - [ ] How do the file types TEASE, NAMES, RDR and LITES (seen on the real DDR2 playlist) map to cues? Should the importer also accept spellings like `OTS_L` and names ending in `(1)` or `copy`?
+- [ ] Intro music: which Sound player track is it ("PrimeTime Main"?), does it play to its end or stop when the tease ends, and does the sound board need to do anything for it?
 - [ ] When the app builds the DDR2 playlist, should it put the break clip ("TSTV Ident 2022 News") at the start of each block, as TDs do today?
 - [ ] Who may sign in to the website: invited people only, or anyone with a UT email?
 - [ ] Should old Rundown Creator rundowns be imported, or does TSTV start fresh?

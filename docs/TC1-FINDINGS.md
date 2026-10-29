@@ -38,6 +38,7 @@ Probe run at the studio on Oct 28, 2026, plus RG's answers the same day. The ful
   - A few **"Second Transition"** effect items sit between clips.
 - **DDR 1 ("A")** holds an unused commercial-break clip, so it's free for green-screen video backgrounds.
 - **GFX 1** holds the green-screen backgrounds, such as "PrimeTime Main BG".
+- **The Sound player ("SOUND")** holds the show's music: "PrimeTime Main" (`News_Under (1).wav`, 0:56) and "PrimeTime Transition Music" (0:21), both `.wav` files in the session's Stills\Import folder. AutoPlay is off. Its states include `sound_play`, `sound_stop`, `sound_select_clips` (cued track, counting from 0), `sound_volume` and `sound_mute`.
 - **DSK 3** shows the bug from buffer 11.
 - **Media lives on the TC1** in the session's Import folders, such as `D:\Sessions\TSTV News PrimeTime\Clips\Import\`.
 - **The prompter computer** is a Mac running Safari.

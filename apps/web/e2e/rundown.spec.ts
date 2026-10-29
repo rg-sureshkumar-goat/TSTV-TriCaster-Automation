@@ -123,6 +123,13 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByRole('button', { name: 'Add a graphic to A1' }).click();
   await rg.getByRole('menuitem', { name: /^LITES/ }).click();
   await expect(rg.getByRole('button', { name: 'A1 graphic 3: LITES' })).toHaveClass(/clip/);
+  // The intro music under the tease is an element too, named by its Sound player track.
+  await rg.getByRole('button', { name: 'Add a graphic to A1' }).click();
+  await rg.getByRole('menuitem', { name: /^MUSIC/ }).click();
+  await rg.getByRole('button', { name: 'A1 graphic 4: MUSIC' }).click();
+  await rg.getByLabel('Name (optional)').fill('PrimeTime Main');
+  await rg.getByRole('button', { name: 'Done' }).click();
+  await expect(sam.getByRole('button', { name: 'A1 graphic 4: MUSIC PrimeTime Main' })).toHaveClass(/music/);
   await expect(sam.getByRole('button', { name: 'A1 graphic 1: PERM Station ID' })).toBeVisible();
   await expect(sam.getByRole('button', { name: 'A1 graphic 2: TEASE' })).toBeVisible();
 
@@ -188,7 +195,7 @@ test('two people build one rundown together', async ({ browser }) => {
   expect(csv).toContain('"VO Highlights, L3"');
   expect(csv).toContain('A2,Basketball Wins,Reader,Sam,Jordan,Camera 1,Horns win big,');
   expect(csv).toContain('"Jordan, Riley Park"');
-  expect(csv).toContain('"Station ID, TEASE, LITES"');
+  expect(csv).toContain('"Station ID, TEASE, LITES, MUSIC PrimeTime Main"');
   expect(csv).toContain('Sam Writer');
 
   // Export PDF makes a real PDF file.

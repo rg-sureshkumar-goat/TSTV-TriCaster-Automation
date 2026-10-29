@@ -9,11 +9,12 @@ export interface Person {
 }
 
 /**
- * Things that play during a section, each fired by its own cue. All of them play from DDR2 through DSK 2.
- * L3, OTSL, OTSR, FSG and TEASE are graphics; VO, SOT, PKG and LITES are clips (video). PERM is one of the
- * show's permanent graphics (Station ID, Show Intro…), named by the element's name.
+ * Things that play during a section, each fired by its own cue. Graphics and clips play from DDR2 through
+ * DSK 2: L3, OTSL, OTSR, FSG and TEASE are graphics; VO, SOT, PKG and LITES are clips (video). MUSIC plays
+ * from the TriCaster's Sound player, named by the track (like the intro music under the tease). PERM is one
+ * of the show's permanent graphics (Station ID, Show Intro…), named by the element's name.
  */
-export const ELEMENT_TYPES = ['L3', 'OTSL', 'OTSR', 'FSG', 'TEASE', 'LITES', 'VO', 'SOT', 'PKG', 'PERM'] as const;
+export const ELEMENT_TYPES = ['L3', 'OTSL', 'OTSR', 'FSG', 'TEASE', 'LITES', 'VO', 'SOT', 'PKG', 'MUSIC', 'PERM'] as const;
 export type ElementType = (typeof ELEMENT_TYPES)[number];
 
 /** One element of a section, for example the VO that plays while the anchor reads. */

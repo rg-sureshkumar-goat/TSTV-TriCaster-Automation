@@ -900,6 +900,11 @@ tr.dragging td {
   color: #14532d;
 }
 
+.element-chip.music {
+  background: #f3e8ff;
+  color: #581c87;
+}
+
 .menu-heading {
   padding: 8px 10px 2px;
   font-size: 11px;
@@ -924,6 +929,11 @@ tr.dragging td {
   .element-chip.permanent {
     background: #14532d;
     color: #dcfce7;
+  }
+
+  .element-chip.music {
+    background: #581c87;
+    color: #f3e8ff;
   }
 }
 
