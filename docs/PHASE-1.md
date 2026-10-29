@@ -1,5 +1,7 @@
 # Phase 1: website foundation
 
+**Approved by RG on Oct 29, 2026.** RG rebuilt a real episode ("October 26 PrimeTime Show", 55 sections in 5 blocks) on the live website. Two people editing at once was checked by the automated browser tests rather than by two real people, so it gets a real-world check in the Phase 2 test. The admin usage panel moves to the next phase.
+
 Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archive and export. This page explains how to try it on your Mac, how to put it online (one time, about 30 minutes), and how to run the Phase 1 test.
 
 ## What's in Phase 1
@@ -42,7 +44,7 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
 - Cue chips in scripts, and talent tags shown in the script, come in Phase 2.
 - The prompter, plus actual section timing recorded from it, comes in Phase 3.
 - Graphics don't yet link to script cues (Phase 2) or files with Ready/Missing (Phase 4).
-- The admin usage panel still needs to be built: it shows today's Cloudflare usage against the free limits. It needs the website to be online first.
+- The admin usage panel (today's Cloudflare usage against the free limits) moves to the next phase.
 
 ## Try it on your Mac first (no accounts needed)
 

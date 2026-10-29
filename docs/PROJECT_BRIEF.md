@@ -243,8 +243,8 @@ The automation depends on what the TC1 accepts from another computer, and that i
 
 There's no deadline, so the plan aims for the fastest path to a first live test. Each phase ends with a short test RG can run, and the next phase waits for his OK. Phases 1–3 replace Rundown Creator on their own, even before any automation works.
 
-0. **TriCaster probe and simulator.** The probe tool from the section above, plus a fake TriCaster that behaves like the TC1. Test: RG runs the probe at the station; Claude Code reads the results file.
-1. **Website foundation.** Sign-in, Shows and Episodes, the rundown grid, timing, archive and export. Test: build a real episode's rundown.
+0. **TriCaster probe and simulator.** The probe tool from the section above, plus a fake TriCaster that behaves like the TC1. Test: RG runs the probe at the station; Claude Code reads the results file. *Done Oct 28, 2026.*
+1. **Website foundation.** Sign-in, Shows and Episodes, the rundown grid, timing, archive and export. Test: build a real episode's rundown. *Approved Oct 29, 2026.*
 2. **Script editor.** Section script pages with live co-editing, cue chips and talent tags. Test: two people edit the same script at once.
 3. **Prompter.** Full-screen prompter with arrow-key control and live updates. Test: run a past show's script on the prompter computer.
 4. **Show app on the simulator.** Producer screen, graphics import and matching, the cue engine with every rule above, cameras by section, Pause and manual cues. Test: a full mock show against the simulator.
