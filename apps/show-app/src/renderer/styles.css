@@ -790,3 +790,22 @@ h3 {
 .item > .missing {
   flex: none;
 }
+
+/* The Playlist's buttons wrap onto a second line when the box is narrow. */
+.playlist h2 {
+  flex-wrap: wrap;
+}
+
+.playlist h2 .actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.missing-button {
+  color: #fca5a5;
+  border-color: #7f1d1d;
+}
+
+.small-window {
+  width: min(560px, calc(100vw - 40px));
+}

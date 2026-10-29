@@ -42,7 +42,8 @@ const droppedPaths = (e: DragEvent) =>
 
 export function App() {
   const [state, setState] = useState<AppState | null>(null);
-  const [graphicsOpen, setGraphicsOpen] = useState(false);
+  // Which window is open over the screen: Edit graphics (every cue and its file) or just what's missing.
+  const [graphicsOpen, setGraphicsOpen] = useState<'edit' | 'missing' | false>(false);
   useEffect(() => window.showApp.onState(setState), []);
 
   // Space fires the next cue; P pauses and resumes. Not while typing in a box or with a window open.
@@ -64,13 +65,13 @@ export function App() {
   // Files to place by hand show up in the graphics window.
   const problems = state?.problems.length ?? 0;
   useEffect(() => {
-    if (problems > 0) setGraphicsOpen(true);
+    if (problems > 0) setGraphicsOpen('edit');
   }, [problems]);
 
   if (!state) return <div className="loading">Starting…</div>;
   const importGraphics = async () => {
     await act({ kind: 'importFiles' });
-    setGraphicsOpen(true);
+    setGraphicsOpen('edit');
   };
   return (
     <div className={`app${state.automation.paused ? ' paused' : ''}`}>
@@ -82,9 +83,10 @@ export function App() {
           </p>
         </main>
       ) : (
-        <Show state={state} onImport={importGraphics} onReview={() => setGraphicsOpen(true)} />
+        <Show state={state} onImport={importGraphics} onEdit={() => setGraphicsOpen('edit')} onMissing={() => setGraphicsOpen('missing')} />
       )}
-      {graphicsOpen && state.episode && <GraphicsWindow state={state} onClose={() => setGraphicsOpen(false)} onImport={importGraphics} />}
+      {graphicsOpen === 'edit' && state.episode && <GraphicsWindow state={state} onClose={() => setGraphicsOpen(false)} onImport={importGraphics} />}
+      {graphicsOpen === 'missing' && state.episode && <MissingWindow state={state} onClose={() => setGraphicsOpen(false)} />}
     </div>
   );
 }
@@ -186,7 +188,7 @@ function SimulatorPanel({ state }: { state: AppState }) {
 
 // ---- The show ----
 
-function Show({ state, onImport, onReview }: { state: AppState; onImport: () => void; onReview: () => void }) {
+function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImport: () => void; onEdit: () => void; onMissing: () => void }) {
   const { automation, website, prompter, live } = state;
   return (
     <main className="show">
@@ -211,7 +213,7 @@ function Show({ state, onImport, onReview }: { state: AppState; onImport: () => 
           <Program state={state} />
           <Cameras state={state} />
         </div>
-        <Playlist state={state} onImport={onImport} onReview={onReview} />
+        <Playlist state={state} onImport={onImport} onEdit={onEdit} onMissing={onMissing} />
         <Status state={state} />
         <Preview state={state} />
         <PermanentBox state={state} />
@@ -279,7 +281,7 @@ function Panel({ title, actions, className = '', children }: { title: string; ac
   );
 }
 
-function Playlist({ state, onImport, onReview }: { state: AppState; onImport: () => void; onReview: () => void }) {
+function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onImport: () => void; onEdit: () => void; onMissing: () => void }) {
   const { automation } = state;
   const missing = state.sections.flatMap((s) => s.elements).filter((e) => e.behavior !== 'music' && !e.file).length;
   return (
@@ -291,7 +293,10 @@ function Playlist({ state, onImport, onReview }: { state: AppState; onImport: ()
           <button className="primary" onClick={onImport}>
             Import graphics
           </button>
-          <button onClick={onReview} title="See which file is on which cue">
+          <button onClick={onEdit} title="Every cue and its file: change, remove or place files by hand">
+            Edit graphics
+          </button>
+          <button className={missing ? 'missing-button' : ''} onClick={onMissing} title="Just the graphics that still need a file">
             {missing ? `${missing} missing` : 'All files ✓'}
           </button>
         </>
@@ -539,7 +544,51 @@ function Music({ state }: { state: AppState }) {
   );
 }
 
-// ---- The graphics window: which file is on which cue ----
+// ---- The graphics windows ----
+
+/** Just the graphics that still need a file (RG, Oct 29, 2026). */
+function MissingWindow({ state, onClose }: { state: AppState; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const missing = state.sections.flatMap((s) => s.elements.filter((e) => e.behavior !== 'music' && !e.file).map((e) => ({ section: s, element: e })));
+  return (
+    <div className="overlay" role="dialog" aria-label="Missing graphics" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="window small-window">
+        <h2>
+          Missing graphics
+          <span className="actions">
+            <button className="primary" onClick={onClose}>
+              Done
+            </button>
+          </span>
+        </h2>
+        {missing.length === 0 ? (
+          <p>Every graphic has its file.</p>
+        ) : (
+          <table className="elements">
+            <tbody>
+              {missing.map(({ section, element }) => (
+                <tr key={element.id}>
+                  <td className="muted">
+                    {section.label} {section.slug}
+                  </td>
+                  <td>
+                    <span className={`chip ${elementKind(element.type)}`}>{element.label}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Edit graphics: every cue and its file.
 
 function GraphicsWindow({ state, onClose, onImport }: { state: AppState; onClose: () => void; onImport: () => void }) {
   useEffect(() => {
