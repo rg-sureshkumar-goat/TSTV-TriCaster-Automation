@@ -1761,10 +1761,11 @@ button.danger {
   font-weight: 800;
 }
 
+/* The section number: green on a red box (RG, Oct 29, 2026). */
 .p-label {
   padding: 0 0.3em;
-  background: var(--p-text);
-  color: var(--p-bg);
+  background: #dc2626;
+  color: #4ade80;
   border-radius: 0.15em;
 }
 
@@ -1827,7 +1828,7 @@ button.danger {
   border-bottom: 2px dashed currentColor;
 }
 
-/* The reading line: arrows at each side, where cues fire. */
+/* The reading line: big white arrows at each side, where cues fire (RG, Oct 29, 2026). */
 .prompter-reading-line {
   position: absolute;
   top: var(--p-line);
@@ -1835,12 +1836,14 @@ button.danger {
   right: 0;
   display: flex;
   justify-content: space-between;
-  padding: 0 4px;
-  font-size: calc(var(--p-size) * 0.5);
+  align-items: center;
+  height: calc(var(--p-size) * var(--p-spacing));
+  padding: 0 2px;
+  font-size: calc(var(--p-size) * 1.1);
   line-height: 1;
-  color: #f97316;
+  color: #ffffff;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
   pointer-events: none;
-  transform: translateY(calc(var(--p-size) * 0.1));
 }
 
 .prompter-hud {

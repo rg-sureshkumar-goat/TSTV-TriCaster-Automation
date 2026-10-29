@@ -451,13 +451,9 @@ function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof 
     case 'section':
       return (
         <div className="p-section" data-key={line.key} data-marker="section" data-section={line.sectionId} data-label={line.label}>
+          {/* Just the number and the camera; the script's speaker markers say who reads (RG, Oct 29, 2026). */}
           <span className="p-label">{line.label}</span>
-          {line.readers.map((name) => (
-            <span key={name} className="p-reader" style={{ color: colorForTalent(name, colors) }}>
-              {name.toUpperCase()}
-            </span>
-          ))}
-          <span className="p-camera">▸ {line.camera.toUpperCase()}</span>
+          <span className="p-camera">{line.camera.toUpperCase()}</span>
         </div>
       );
     case 'crossTalk':

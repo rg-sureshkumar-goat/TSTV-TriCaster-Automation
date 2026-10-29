@@ -6,7 +6,7 @@ Phase 3 adds the prompter: a full-screen page of the website for the prompter co
 
 - **Open prompter.** Each episode has an **Open prompter** button at the top. It opens the prompter in a new window. Its address, `/prompter/<episode>`, can be bookmarked on the prompter computer.
 - **What it shows:**
-  - each section starts with its number, who reads it (in their color) and the camera to look at, like **A2 JORDAN RILEY PARK ▸ CAMERA 2**
+  - each section starts with its number, in green on a red box, and the camera to look at, like **A2 CAMERA 2**
   - a cross-talk section just says **CROSS TALK**
   - speaker tags like `{JORDAN}` become a marker in that person's color
   - cues are bold colored markers, like **TAKE L3 SCORE**, in the rundown's colors
@@ -29,7 +29,7 @@ Phase 3 adds the prompter: a full-screen page of the website for the prompter co
   The mouse wheel nudges the text. A small line at the bottom left shows the speed and the section, for the operator.
 - **Settings** (press S), saved on that computer: text size, line spacing, side margins, where the reading line is, how much each arrow press changes the speed, and the text and background colors. **Back to the defaults** undoes them. There's no mirror setting.
 - **Edits while it runs.** Script edits appear as they're made. The line on the reading line stays exactly where it is, even when someone adds or removes lines above it.
-- **Cues.** The orange arrows at each side mark the reading line. When a section start or a cue crosses it, the prompter sends that to the episode. For now, the rundown page shows it in a **Prompter** bar: where the prompter is, its speed, and the last cue it fired. From Phase 4 the show app fires them on the TriCaster. Jumping with Page Down starts the section it lands on, but doesn't fire the cues it skipped.
+- **Cues.** The big white arrows at each side mark the reading line. When a section start or a cue crosses it, the prompter sends that to the episode. For now, the rundown page shows it in a **Prompter** bar: where the prompter is, its speed, and the last cue it fired. From Phase 4 the show app fires them on the TriCaster. Jumping with Page Down starts the section it lands on, but doesn't fire the cues it skipped.
 - **If the internet drops**, the prompter keeps going with the copy it saved on that computer, and shows a small yellow warning. Edits come through again when the connection returns.
 
 ## Set up the prompter computer (one time)
@@ -42,9 +42,9 @@ Phase 3 adds the prompter: a full-screen page of the website for the prompter co
 ## The Phase 3 test: run a past show on the prompter computer
 
 1. **Deploy** (see below), then on the prompter computer open the October 26 episode and click **Open prompter**.
-2. **Looks:** check each section's number, readers (in their colors) and camera, the speaker markers, the cue markers, and that floated sections are missing. Set the text size and colors with **S**, then reload: they should stay.
+2. **Looks:** check each section's number (green on red) and camera, the speaker markers in their colors, the cue markers, and that floated sections are missing. Set the text size and colors with **S**, then reload: they should stay.
 3. **Keys:** run through the script with ↑ and ↓, including backwards, Space, Page Down, Page Up and Home. Check the speed feels right for your anchors. If each press is too big or too small a step, change **Speed change per arrow press** in the settings.
-4. **Cues:** on another computer, open the same episode's rundown. As the prompter scrolls, check the **Prompter** bar shows the right section and each cue as it crosses the orange arrows.
+4. **Cues:** on another computer, open the same episode's rundown. As the prompter scrolls, check the **Prompter** bar shows the right section and each cue as it crosses the white arrows.
 5. **Live edits:** while the prompter scrolls, have someone change the script of the section being read, and of one above it. The text should change without the line being read jumping.
 6. **Internet drop:** turn off the prompter computer's Wi-Fi for a minute. It should keep scrolling with a yellow warning, then catch up when Wi-Fi is back.
 7. **Monitors:** check it reads well on the camera monitors and the mirror.

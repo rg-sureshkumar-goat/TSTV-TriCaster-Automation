@@ -55,8 +55,9 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await prompter.goto(episodeUrl.replace('/episodes/', '/prompter/'));
   await expect(prompter.locator('.p-section')).toHaveCount(2);
   await expect(prompter.locator('.p-section').first()).toContainText('A1');
-  await expect(prompter.locator('.p-section').first()).toContainText('JORDAN');
   await expect(prompter.locator('.p-section').first()).toContainText('CAMERA 1');
+  // Just the number and the camera: the speaker marker below says who reads.
+  await expect(prompter.locator('.p-section').first()).not.toContainText('JORDAN');
   await expect(prompter.locator('.p-speaker')).toHaveText('JORDAN');
   await expect(prompter.locator('.p-cue')).toHaveText('TAKE FSG');
   await expect(prompter.locator('.p-text', { hasText: 'SECOND LINE.' })).toBeVisible();
