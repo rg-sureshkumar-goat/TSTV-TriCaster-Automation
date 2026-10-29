@@ -10,7 +10,7 @@ export interface ExportInfo {
   defaultCamera: string;
 }
 
-const HEADERS = ['#', 'Slug', 'Type', 'Writer', 'Talent', 'Camera', 'Elements', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
+const HEADERS = ['#', 'Slug', 'Type', 'Writer', 'Talent', 'Camera', 'Graphics', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
 
 function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
   const backTime = (offset: number | null) => (offset === null ? '' : info.airTime ? formatClock(info.airTime, offset) : `+${formatDuration(offset)}`);

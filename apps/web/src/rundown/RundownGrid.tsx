@@ -66,7 +66,7 @@ export function RundownGrid({ doc, timing, settings, airTime, me, readOnly, othe
             <th title="Who writes this section's script">Writer</th>
             <th title="Who reads it on air">Talent</th>
             <th className="camera-col">Camera</th>
-            <th title="Graphics and clips that play during this section, in order">Elements</th>
+            <th title="Graphics and clips that play during this section, in order (L3, OTS, FSG, VO, SOT, PKG)">Graphics</th>
             <th className="time-col" title="Estimated length">Est.</th>
             <th className="time-col" title={airTime ? 'Clock time this must start to end on time' : 'How far into the show this must start to end on time'}>
               Back-time
@@ -380,7 +380,7 @@ function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
   );
 }
 
-// ---- Elements ----
+// ---- Graphics (the section's elements: graphics and clips, shown in the Graphics column) ----
 
 const ELEMENT_HELP: Record<ElementType, string> = {
   L3: 'lower third',
@@ -409,7 +409,7 @@ function ElementsCell({ section, label, doc, me, readOnly }: { section: SectionR
           className={`element-chip ${isClip(e.type) ? 'clip' : 'graphic'}`}
           disabled={readOnly}
           title={`${e.type}: ${ELEMENT_HELP[e.type]}`}
-          aria-label={`${label} element ${i + 1}: ${e.type}${e.name ? ` ${e.name}` : ''}`}
+          aria-label={`${label} graphic ${i + 1}: ${e.type}${e.name ? ` ${e.name}` : ''}`}
           onClick={(ev) => toggle(e.id, ev.currentTarget)}
         >
           <strong>{e.type}</strong>
@@ -417,13 +417,13 @@ function ElementsCell({ section, label, doc, me, readOnly }: { section: SectionR
         </button>
       ))}
       {!readOnly && (
-        <button className="element-add" aria-label={`Add an element to ${label}`} title="Add an element" onClick={(ev) => toggle('add', ev.currentTarget)}>
+        <button className="element-add" aria-label={`Add a graphic to ${label}`} title="Add a graphic" onClick={(ev) => toggle('add', ev.currentTarget)}>
           +
         </button>
       )}
       {open?.id === 'add' && (
         <Popover anchor={open.anchor} onClose={close}>
-          <div className="menu" role="menu" aria-label={`Add an element to ${label}`}>
+          <div className="menu" role="menu" aria-label={`Add a graphic to ${label}`}>
             {ELEMENT_TYPES.map((type) => (
               <button
                 key={type}
@@ -452,7 +452,7 @@ function ElementEditor({ element, index, count, sectionId, label, doc, me, onDon
   const [name, setName] = useState(element.name);
   const saveName = () => name.trim() !== element.name && updateElement(doc, sectionId, element.id, { name: name.trim() }, me);
   return (
-    <div className="element-editor" role="dialog" aria-label={`${label} ${element.type} element`}>
+    <div className="element-editor" role="dialog" aria-label={`${label} ${element.type} graphic`}>
       <label>
         Type
         <select value={element.type} onChange={(e) => updateElement(doc, sectionId, element.id, { type: e.target.value as ElementType }, me)}>

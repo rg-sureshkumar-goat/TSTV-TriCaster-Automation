@@ -63,21 +63,21 @@ test('two people build one rundown together', async ({ browser }) => {
   await expect(sam.getByLabel('A2 writer')).toHaveValue('Sam');
   await expect(sam.getByLabel('A2 talent')).toHaveValue('Jordan');
 
-  // Elements: A2 is a reader with an L3, and a VO playing over the anchor.
-  await rg.getByRole('button', { name: 'Add an element to A2' }).click();
+  // Graphics: A2 is a reader with an L3, and a VO playing over the anchor.
+  await rg.getByRole('button', { name: 'Add a graphic to A2' }).click();
   await rg.getByRole('menuitem', { name: /^L3/ }).click();
-  await rg.getByRole('button', { name: 'Add an element to A2' }).click();
+  await rg.getByRole('button', { name: 'Add a graphic to A2' }).click();
   await rg.getByRole('menuitem', { name: /^VO/ }).click();
-  await rg.getByRole('button', { name: 'A2 element 2: VO' }).click();
+  await rg.getByRole('button', { name: 'A2 graphic 2: VO' }).click();
   await rg.getByLabel('Name (optional)').fill('Highlights');
   await rg.getByRole('button', { name: 'Done' }).click();
-  await expect(sam.getByRole('button', { name: 'A2 element 2: VO Highlights' })).toBeVisible();
+  await expect(sam.getByRole('button', { name: 'A2 graphic 2: VO Highlights' })).toBeVisible();
   // Sam moves the VO first; RG sees the new order.
-  await sam.getByRole('button', { name: 'A2 element 2: VO Highlights' }).click();
+  await sam.getByRole('button', { name: 'A2 graphic 2: VO Highlights' }).click();
   await sam.getByRole('button', { name: '← Earlier' }).click();
   await sam.getByRole('button', { name: 'Done' }).click();
-  await expect(rg.getByRole('button', { name: 'A2 element 1: VO Highlights' })).toBeVisible();
-  await expect(rg.getByRole('button', { name: 'A2 element 2: L3' })).toBeVisible();
+  await expect(rg.getByRole('button', { name: 'A2 graphic 1: VO Highlights' })).toBeVisible();
+  await expect(rg.getByRole('button', { name: 'A2 graphic 2: L3' })).toBeVisible();
 
   // Floating A2 keeps it but drops it from the total, for both people.
   await rg.getByRole('button', { name: 'Actions for A2' }).click();
