@@ -10,13 +10,17 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
   - reading speed
   - camera names and the default camera
   - usual talent, each with a color
-  - segment types (Intro, Tease, Reader, Cross Talk, Package, SOT)
+  - segment types (Intro, Tease, Reader, Cross Talk, Q&A, Package, SOT, Permanent Graphic)
+  - permanent graphics used in every episode (Station ID, Show Intro, Commercial Break, Social Media L3, Website L3, Station Outro)
+  - commercial break length
 - **Episodes**, each with a title, air date and start time, and an **Anchors / Correspondents** section where the producer enters that episode's on-air talent. Each person gets a color, and a section whose Talent is set to them shows that color. The PDF export lists them at the top.
 - **The rundown grid**:
   - Blocks A, B, C, with sections numbered A1, A2, B1. Numbers update when rows move.
-  - Columns: Slug, Type, Writer, Talent, Camera, Graphics, Notes, Est., Back-time, and Last edit. There's no green-screen column, because each show's background is set once in the show app (Phase 4).
-  - **Writer** is typed in. **Talent** is a dropdown of this episode's anchors and correspondents, so the producer just picks who reads each section.
-  - **Graphics:** what plays during a section, in order, for example an L3 and then a VO over the anchor during a Reader. Click **+** to add one (L3, OTSL, OTSR, FSG, VO, SOT, PKG). Click a chip to name it, change its type, move it earlier or later, or remove it. Blue chips are graphics and orange chips are clips. Later phases connect each element to its cue in the script and its file, and that's what the TriCaster cueing runs on.
+  - Columns: Slug, Type, Writer, Talent, Camera, Headline, Graphics, Notes, Assign Graphics, Est., Back-time, and Last edit. The column headers stay at the top as you scroll. There's no green-screen column, because each show's background is set once in the show app (Phase 4).
+  - **Writer**, **Headline**, **Notes** and **Assign Graphics** are typed in.
+  - **Talent:** click the cell and tick everyone who reads the section, from this episode's anchors and correspondents. Several people can share a section (they mark their parts in the script with `{Name}`). **Everyone (cross talk)** is for unscripted cross talk, and the prompter will just say CROSS TALK.
+  - **Graphics:** what plays during a section, in order, for example an L3 and then a VO over the anchor during a Reader. Click **+** to add one (L3, OTSL, OTSR, FSG, TEASE, LITES, VO, SOT, PKG, MUSIC) or one of the show's permanent graphics (★). Click a chip to name it, change its type, move it earlier or later, or remove it. Blue chips are graphics, red chips are video, purple chips are music (played from the TriCaster's Sound player), and green ★ chips are permanent graphics. Later phases connect each element to its cue in the script and its file, and that's what the TriCaster cueing runs on.
+  - **Commercial breaks** appear on their own between blocks, using the show's break length.
   - **Live editing:** everyone in the episode sees changes within about a second, plus colored initials for who else is there and a highlight on the cell they're editing.
   - **Authorship:** every row records who created it and who last edited it.
   - Drag the ⋮⋮ handle to reorder rows. The ⋯ menu floats, moves, inserts and deletes rows.
@@ -30,6 +34,7 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
   - a shared text box that several people can type in at once
   - a word counter
   - an estimate of the read time at 143–154 words a minute
+  - who reads it and which camera to look at
   - who has edited the script
   - links to the previous and next sections
 
@@ -142,8 +147,10 @@ Open your website and click **Sign in with Google**. You're the admin. Use **Peo
    - default camera
    - talent, with colors
    - segment types
+   - permanent graphics
+   - commercial break length
 4. **Create an episode** with its real air date and start time, and enter its anchors and correspondents.
-5. **Rebuild a past episode's rundown from Rundown Creator:** blocks, sections, slugs, types, writers, talent, cameras and estimates. Give each section its **graphics** in order: L3s, VOs, SOTs, packages, OTS and FSGs.
+5. **Rebuild a past episode's rundown from Rundown Creator:** blocks, sections, slugs, types, writers, talent, cameras, headlines and estimates. Give each section its **graphics** in order, including permanent graphics and music. *(Done Oct 29, 2026: "October 26 PrimeTime Show", 55 sections in 5 blocks.)*
 6. **Check timing** against Rundown Creator: total, over or under, and back-times.
 7. **Drag a row** to a new place, then **float** a section. Check that the numbers and totals update.
 8. **Publish the rundown,** then check that the other person can now see it. Before you publish, they shouldn't be able to.
