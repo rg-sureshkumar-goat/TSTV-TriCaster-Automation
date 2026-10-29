@@ -9,6 +9,7 @@ import {
   addElement,
   deleteRow,
   ELEMENT_TYPES,
+  EVERYONE_TALENT,
   formatClock,
   formatDuration,
   insertBlock,
@@ -71,8 +72,10 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, airTime,
             <th title="Who writes this section's script">Writer</th>
             <th title="Who reads it on air">Talent</th>
             <th className="camera-col">Camera</th>
-            <th title="Graphics and clips that play during this section, in order (L3, OTS, FSG, VO, SOT, PKG)">Graphics</th>
+            <th className="headline-col" title="The on-screen headline for this section">Headline</th>
+            <th title="Graphics and clips that play during this section, in order (L3, OTS, FSG, TEASE, LITES, VO, SOT, PKG, and the show's permanent graphics)">Graphics</th>
             <th className="notes-col">Notes</th>
+            <th className="person-col" title="Who makes this section's graphics">Assign Graphics</th>
             <th className="time-col" title="Estimated length">Est.</th>
             <th className="time-col" title={airTime ? 'Clock time this must start to end on time' : 'How far into the show this must start to end on time'}>
               Back-time
@@ -156,7 +159,7 @@ function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectio
           <td className="num-col">
             <strong>{computed.label}</strong>
           </td>
-          <td colSpan={7}>
+          <td colSpan={9}>
             <div className="block-title">
               <strong>Block {computed.label}</strong>
               <TextCell value={row.title} placeholder="Block title (optional)" readOnly={readOnly} onCommit={(title) => updateRow(doc, row.id, { title }, me)} ariaLabel={`Block ${computed.label} title`} />
@@ -241,8 +244,10 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
             'person-col',
           )}
           {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
-          {cell('elements', <ElementsCell section={row} label={computed.label} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
+          {cell('headline', <TextCell value={row.headline} placeholder="Headline" readOnly={readOnly} onCommit={(headline) => set({ headline })} ariaLabel={`${computed.label} headline`} />, 'headline-col')}
+          {cell('elements', <ElementsCell section={row} label={computed.label} permanent={settings.permanentGraphics} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
           {cell('notes', <TextCell value={row.notes} placeholder="Notes" readOnly={readOnly} onCommit={(notes) => set({ notes })} ariaLabel={`${computed.label} notes`} />, 'notes-col')}
+          {cell('assignGraphics', <TextCell value={row.assignGraphics} placeholder="Who makes them" readOnly={readOnly} onCommit={(assignGraphics) => set({ assignGraphics })} ariaLabel={`${computed.label} assign graphics`} />, 'person-col')}
           {cell('est', <DurationCell value={row.estSeconds} autoSeconds={computed.seconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
           <td className="time-col">{backTime}</td>
           <td className="edited-col" title={row.createdBy ? `Added by ${row.createdBy.name}` : undefined}>
@@ -362,10 +367,11 @@ function TalentSelect({ value, talent, readOnly, onChange, ariaLabel }: { value:
   const anchors = talent.filter((t) => t.role === 'anchor').map((t) => t.name);
   const correspondents = talent.filter((t) => t.role === 'correspondent').map((t) => t.name);
   // Keep showing a name that was picked earlier even if it's since been removed from the list.
-  const other = value && !anchors.includes(value) && !correspondents.includes(value) ? value : '';
+  const other = value && value !== EVERYONE_TALENT && !anchors.includes(value) && !correspondents.includes(value) ? value : '';
   return (
     <select className="cell-input" value={value} disabled={readOnly} aria-label={ariaLabel} onChange={(e) => onChange(e.target.value)}>
       <option value="">{talent.length === 0 ? 'Add talent above' : '—'}</option>
+      <option value={EVERYONE_TALENT}>{EVERYONE_TALENT}</option>
       {anchors.length > 0 && (
         <optgroup label="Anchors">
           {anchors.map((n) => (
@@ -498,12 +504,18 @@ const ELEMENT_HELP: Record<ElementType, string> = {
   VO: 'video the anchor reads over',
   SOT: 'sound bite with its own audio',
   PKG: 'package',
+  TEASE: 'tease graphic',
+  LITES: 'LITES graphic',
+  PERM: 'one of the show’s permanent graphics',
 };
 
 const isClip = (type: ElementType) => type === 'VO' || type === 'SOT' || type === 'PKG';
+const chipClass = (type: ElementType) => (type === 'PERM' ? 'permanent' : isClip(type) ? 'clip' : 'graphic');
+/** The types picked from the + menu's first list; permanent graphics are listed by name below them. */
+const PICKABLE_TYPES = ELEMENT_TYPES.filter((t) => t !== 'PERM');
 
 /** The section's elements as chips, in the order they're expected to fire, plus a + to add one. */
-function ElementsCell({ section, label, doc, me, readOnly }: { section: SectionRow; label: string; doc: Y.Doc; me: Person; readOnly: boolean }) {
+function ElementsCell({ section, label, permanent, doc, me, readOnly }: { section: SectionRow; label: string; permanent: string[]; doc: Y.Doc; me: Person; readOnly: boolean }) {
   const [open, setOpen] = useState<{ id: string; anchor: HTMLElement } | null>(null);
   const close = () => setOpen(null);
   const toggle = (id: string, anchor: HTMLElement) => setOpen(open?.id === id ? null : { id, anchor });
@@ -514,14 +526,20 @@ function ElementsCell({ section, label, doc, me, readOnly }: { section: SectionR
       {section.elements.map((e, i) => (
         <button
           key={e.id}
-          className={`element-chip ${isClip(e.type) ? 'clip' : 'graphic'}`}
+          className={`element-chip ${chipClass(e.type)}`}
           disabled={readOnly}
-          title={`${e.type}: ${ELEMENT_HELP[e.type]}`}
+          title={e.type === 'PERM' ? `Permanent graphic: ${e.name}` : `${e.type}: ${ELEMENT_HELP[e.type]}`}
           aria-label={`${label} graphic ${i + 1}: ${e.type}${e.name ? ` ${e.name}` : ''}`}
           onClick={(ev) => toggle(e.id, ev.currentTarget)}
         >
-          <strong>{e.type}</strong>
-          {e.name && <span>{e.name}</span>}
+          {e.type === 'PERM' ? (
+            <strong>★ {e.name || 'Permanent graphic'}</strong>
+          ) : (
+            <>
+              <strong>{e.type}</strong>
+              {e.name && <span>{e.name}</span>}
+            </>
+          )}
         </button>
       ))}
       {!readOnly && (
@@ -532,7 +550,7 @@ function ElementsCell({ section, label, doc, me, readOnly }: { section: SectionR
       {open?.id === 'add' && (
         <Popover anchor={open.anchor} onClose={close}>
           <div className="menu" role="menu" aria-label={`Add a graphic to ${label}`}>
-            {ELEMENT_TYPES.map((type) => (
+            {PICKABLE_TYPES.map((type) => (
               <button
                 key={type}
                 role="menuitem"
@@ -544,21 +562,35 @@ function ElementsCell({ section, label, doc, me, readOnly }: { section: SectionR
                 <strong>{type}</strong> <span className="muted small">{ELEMENT_HELP[type]}</span>
               </button>
             ))}
+            {permanent.length > 0 && <div className="menu-heading">Permanent graphics</div>}
+            {permanent.map((name) => (
+              <button
+                key={`perm-${name}`}
+                role="menuitem"
+                onClick={() => {
+                  addElement(doc, section.id, 'PERM', me, name);
+                  close();
+                }}
+              >
+                <strong>★ {name}</strong>
+              </button>
+            ))}
           </div>
         </Popover>
       )}
       {editing && open && (
         <Popover anchor={open.anchor} onClose={close}>
-          <ElementEditor element={editing} index={section.elements.indexOf(editing)} count={section.elements.length} sectionId={section.id} label={label} doc={doc} me={me} onDone={close} />
+          <ElementEditor element={editing} permanent={permanent} index={section.elements.indexOf(editing)} count={section.elements.length} sectionId={section.id} label={label} doc={doc} me={me} onDone={close} />
         </Popover>
       )}
     </div>
   );
 }
 
-function ElementEditor({ element, index, count, sectionId, label, doc, me, onDone }: { element: Element; index: number; count: number; sectionId: string; label: string; doc: Y.Doc; me: Person; onDone: () => void }) {
+function ElementEditor({ element, permanent, index, count, sectionId, label, doc, me, onDone }: { element: Element; permanent: string[]; index: number; count: number; sectionId: string; label: string; doc: Y.Doc; me: Person; onDone: () => void }) {
   const [name, setName] = useState(element.name);
-  const saveName = () => name.trim() !== element.name && updateElement(doc, sectionId, element.id, { name: name.trim() }, me);
+  // A permanent graphic's name comes from its dropdown, which saves straight away.
+  const saveName = () => element.type !== 'PERM' && name.trim() !== element.name && updateElement(doc, sectionId, element.id, { name: name.trim() }, me);
   return (
     <div className="element-editor" role="dialog" aria-label={`${label} ${element.type} graphic`}>
       <label>
@@ -571,6 +603,18 @@ function ElementEditor({ element, index, count, sectionId, label, doc, me, onDon
           ))}
         </select>
       </label>
+      {element.type === 'PERM' ? (
+        <label>
+          Which permanent graphic
+          <select value={element.name} onChange={(e) => updateElement(doc, sectionId, element.id, { name: e.target.value }, me)}>
+            {(permanent.includes(element.name) ? permanent : [element.name, ...permanent]).map((n) => (
+              <option key={n} value={n}>
+                {n || '—'}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
       <label>
         Name (optional)
         <input
@@ -588,6 +632,7 @@ function ElementEditor({ element, index, count, sectionId, label, doc, me, onDon
           }}
         />
       </label>
+      )}
       <div className="buttons">
         <button disabled={index === 0} onClick={() => moveElement(doc, sectionId, element.id, index - 1, me)}>
           ← Earlier

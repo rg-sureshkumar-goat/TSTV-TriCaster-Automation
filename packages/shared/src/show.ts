@@ -19,6 +19,11 @@ export interface ShowSettings {
   talent: Talent[];
   /** Segment types for the rundown's Type column. */
   segmentTypes: string[];
+  /**
+   * Graphics used in every episode (Station ID, Show Intro…). They must be loaded on the TriCaster before
+   * every show, and the rundown's Graphics column picks them as PERM elements.
+   */
+  permanentGraphics: string[];
 }
 
 export const TALENT_COLORS = ['#2563eb', '#d97706', '#059669', '#db2777', '#7c3aed', '#0891b2', '#dc2626', '#65a30d'];
@@ -30,13 +35,16 @@ export const DEFAULT_SHOW_SETTINGS: ShowSettings = {
   defaultCamera: 'Camera 1',
   talent: [],
   // TSTV's section types (RG, Oct 28, 2026). What plays during a section goes in its Elements instead.
-  segmentTypes: ['Intro', 'Tease', 'Reader', 'Cross Talk', 'Package', 'SOT'],
+  segmentTypes: ['Intro', 'Tease', 'Reader', 'Cross Talk', 'Q&A', 'Package', 'SOT', 'Permanent Graphic'],
+  // TSTV's permanent graphics (RG, Oct 29, 2026). Each show can edit its own list.
+  permanentGraphics: ['Station ID', 'Show Intro', 'Commercial Break', 'Social Media L3', 'Website L3', 'Station Outro'],
 };
 
 /** Earlier default lists. Shows still using one unchanged get TSTV's current list instead. */
 const EARLIER_DEFAULT_SEGMENT_TYPES = [
   ['Reader', 'VO', 'VO/SOT', 'SOT', 'PKG', 'OTS', 'FSG', 'Weather', 'Tease', 'Lites'],
   ['Intro', 'Tease', 'Reader', 'Cross Talk'],
+  ['Intro', 'Tease', 'Reader', 'Cross Talk', 'Package', 'SOT'],
 ].map((list) => list.join('|'));
 
 /** Fills in anything missing or malformed, so old or hand-edited settings never break the site. */
@@ -66,5 +74,6 @@ export function normalizeShowSettings(input: unknown): ShowSettings {
       const types = strings(s.segmentTypes, DEFAULT_SHOW_SETTINGS.segmentTypes);
       return EARLIER_DEFAULT_SEGMENT_TYPES.includes(types.join('|')) ? [...DEFAULT_SHOW_SETTINGS.segmentTypes] : types;
     })(),
+    permanentGraphics: strings(s.permanentGraphics, DEFAULT_SHOW_SETTINGS.permanentGraphics),
   };
 }

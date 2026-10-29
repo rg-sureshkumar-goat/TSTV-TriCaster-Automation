@@ -63,7 +63,7 @@ test('two people build one rundown together', async ({ browser }) => {
   await expect(row(rg, 'A1')).toContainText('7:27:45 PM');
 
   // Setting the type and talent works through the dropdowns, and syncs.
-  await expect(rg.getByLabel('A2 type').locator('option')).toHaveText(['—', 'Intro', 'Tease', 'Reader', 'Cross Talk', 'Package', 'SOT']);
+  await expect(rg.getByLabel('A2 type').locator('option')).toHaveText(['—', 'Intro', 'Tease', 'Reader', 'Cross Talk', 'Q&A', 'Package', 'SOT', 'Permanent Graphic']);
   await rg.getByLabel('A2 type').selectOption('Reader');
   await expect(sam.getByLabel('A2 type')).toHaveValue('Reader');
 
@@ -78,13 +78,20 @@ test('two people build one rundown together', async ({ browser }) => {
 
   // Writer is typed in; Talent is picked from this episode's anchors and correspondents. Both sync.
   await rg.getByRole('textbox', { name: 'A2 writer' }).fill('Sam');
-  await expect(rg.getByLabel('A2 talent').locator('option')).toHaveText(['—', 'Jordan', 'Riley Park']);
+  await expect(rg.getByLabel('A2 talent').locator('option')).toHaveText(['—', 'Everyone (cross talk)', 'Jordan', 'Riley Park']);
   await rg.getByLabel('A2 talent').selectOption('Jordan');
   await expect(sam.getByLabel('A2 writer')).toHaveValue('Sam');
   await expect(sam.getByLabel('A2 talent')).toHaveValue('Jordan');
   await expect(row(sam, 'A2').locator('.talent-cell .dot')).toBeVisible();
   await rg.getByRole('textbox', { name: 'A2 notes' }).fill('Confirm final score');
   await expect(sam.getByLabel('A2 notes')).toHaveValue('Confirm final score');
+  await rg.getByRole('textbox', { name: 'A2 headline' }).fill('Horns win big');
+  await rg.getByRole('textbox', { name: 'A2 assign graphics' }).fill('Pat');
+  await expect(sam.getByLabel('A2 headline')).toHaveValue('Horns win big');
+  await expect(sam.getByLabel('A2 assign graphics')).toHaveValue('Pat');
+  // A1 is cross talk: no single reader.
+  await rg.getByLabel('A1 talent').selectOption('Everyone (cross talk)');
+  await expect(sam.getByLabel('A1 talent')).toHaveValue('Everyone (cross talk)');
 
   // Graphics: A2 is a reader with an L3, and a VO playing over the anchor.
   await rg.getByRole('button', { name: 'Add a graphic to A2' }).click();
@@ -101,6 +108,14 @@ test('two people build one rundown together', async ({ browser }) => {
   await sam.getByRole('button', { name: 'Done' }).click();
   await expect(rg.getByRole('button', { name: 'A2 graphic 1: VO Highlights' })).toBeVisible();
   await expect(rg.getByRole('button', { name: 'A2 graphic 2: L3' })).toBeVisible();
+
+  // A1 opens with the show's Station ID, a permanent graphic, then a TEASE graphic.
+  await rg.getByRole('button', { name: 'Add a graphic to A1' }).click();
+  await rg.getByRole('menuitem', { name: '★ Station ID' }).click();
+  await rg.getByRole('button', { name: 'Add a graphic to A1' }).click();
+  await rg.getByRole('menuitem', { name: /^TEASE/ }).click();
+  await expect(sam.getByRole('button', { name: 'A1 graphic 1: PERM Station ID' })).toBeVisible();
+  await expect(sam.getByRole('button', { name: 'A1 graphic 2: TEASE' })).toBeVisible();
 
   // Floating A2 keeps it but drops it from the total, for both people.
   await rg.getByRole('button', { name: 'Actions for A2' }).click();
@@ -119,6 +134,9 @@ test('two people build one rundown together', async ({ browser }) => {
   // Clicking a slug opens its script page. RG and Sam type in the same script at once.
   await slugLink(rg, 'A1', 'Cold Open').click();
   await expect(rg.getByRole('heading', { name: /A1 · Cold Open/ })).toBeVisible();
+  // The script page says who reads it and which camera to look at.
+  await expect(rg.getByRole('note', { name: 'Who reads and which camera' })).toContainText('Everyone (cross talk)');
+  await expect(rg.getByRole('note', { name: 'Who reads and which camera' })).toContainText('Camera 1');
   await rg.getByLabel('Script for A1').fill('Good evening and welcome to TSTV News.');
   await expect(rg.locator('.script-stats')).toContainText('7 words');
   await expect(rg.locator('.script-stats')).toContainText('Read time about 0:03');
@@ -148,7 +166,8 @@ test('two people build one rundown together', async ({ browser }) => {
   expect(download.suggestedFilename()).toBe('E2E News - Test Episode rundown.csv');
   expect(csv).toContain('A1,Cold Open');
   expect(csv).toContain('"VO Highlights, L3"');
-  expect(csv).toContain('A2,Basketball Wins,Reader,Sam,Jordan');
+  expect(csv).toContain('A2,Basketball Wins,Reader,Sam,Jordan,Camera 1,Horns win big,');
+  expect(csv).toContain('"Station ID, TEASE"');
   expect(csv).toContain('Sam Writer');
 
   // Export PDF makes a real PDF file.

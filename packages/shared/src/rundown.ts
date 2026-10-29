@@ -10,9 +10,10 @@ export interface Person {
 
 /**
  * Things that play during a section, each fired by its own cue. All of them play from DDR2 through DSK 2.
- * L3, OTSL, OTSR and FSG are graphics; VO, SOT and PKG are clips.
+ * L3, OTSL, OTSR, FSG, TEASE and LITES are graphics; VO, SOT and PKG are clips. PERM is one of the show's
+ * permanent graphics (Station ID, Show Intro…), named by the element's name.
  */
-export const ELEMENT_TYPES = ['L3', 'OTSL', 'OTSR', 'FSG', 'VO', 'SOT', 'PKG'] as const;
+export const ELEMENT_TYPES = ['L3', 'OTSL', 'OTSR', 'FSG', 'TEASE', 'LITES', 'VO', 'SOT', 'PKG', 'PERM'] as const;
 export type ElementType = (typeof ELEMENT_TYPES)[number];
 
 /** One element of a section, for example the VO that plays while the anchor reads. */
@@ -23,9 +24,18 @@ export interface Element {
   name: string;
 }
 
+/** How an element reads in exports and on the script page: "VO Highlights", or just "Station ID" for a permanent graphic. */
+export function elementLabel(e: Pick<Element, 'type' | 'name'>): string {
+  if (e.type === 'PERM') return e.name || 'Permanent graphic';
+  return e.name ? `${e.type} ${e.name}` : e.type;
+}
+
 export function isElementType(value: unknown): value is ElementType {
   return typeof value === 'string' && (ELEMENT_TYPES as readonly string[]).includes(value);
 }
+
+/** The Talent choice for sections with no single reader: everyone talks (cross talk). */
+export const EVERYONE_TALENT = 'Everyone (cross talk)';
 
 export interface BlockRow {
   id: string;
@@ -44,12 +54,16 @@ export interface SectionRow {
   type: string;
   /** Who writes the section's script, typed in by the producer. */
   writer: string;
-  /** Who reads it on air, typed in. */
+  /** Who reads it on air: one of the episode's anchors or correspondents, or EVERYONE_TALENT for cross talk. */
   talent: string;
   /** Camera name from the show's camera list; empty means the show's default camera. */
   camera: string;
+  /** The on-screen headline for the section. */
+  headline: string;
   /** Free-form notes for the section. */
   notes: string;
+  /** Who makes the section's graphics, typed in. */
+  assignGraphics: string;
   /** Kept in the rundown but skipped on air. */
   floated: boolean;
   /** Estimated length in seconds, typed in by hand. Later phases add script read time and clip lengths. */
@@ -72,7 +86,9 @@ export const EMPTY_SECTION: SectionFields = {
   writer: '',
   talent: '',
   camera: '',
+  headline: '',
   notes: '',
+  assignGraphics: '',
   floated: false,
   estSeconds: null,
 };
@@ -102,7 +118,9 @@ export function readRow(map: Y.Map<unknown>): Row {
     writer: text(s.writer),
     talent: text(s.talent),
     camera: text(s.camera),
+    headline: text(s.headline),
     notes: text(s.notes),
+    assignGraphics: text(s.assignGraphics),
     createdBy: s.createdBy,
     createdAt: s.createdAt,
     updatedBy: s.updatedBy,

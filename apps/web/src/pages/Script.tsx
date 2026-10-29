@@ -4,6 +4,8 @@ import type * as Y from 'yjs';
 import {
   computeRundown,
   countWords,
+  elementLabel,
+  EVERYONE_TALENT,
   formatDuration,
   noteScriptEdit,
   READING_SPEED,
@@ -62,6 +64,8 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
   const readTime = fastestSeconds === slowestSeconds ? formatDuration(fastestSeconds) : `${formatDuration(fastestSeconds)}–${formatDuration(slowestSeconds)}`;
   const colors = talentColors(room.talent, show.settings.talent);
   const talentColor = section && colors.find((t) => t.name.toLowerCase() === section.talent.trim().toLowerCase())?.color;
+  const camera = section ? section.camera || show.settings.defaultCamera : '';
+  const everyone = section?.talent === EVERYONE_TALENT;
   const here = room.others.filter((o) => o.focus === `${sectionId}:script`);
   const link = (i: number) => `/episodes/${episode.id}/sections/${sections[i].row.id}`;
 
@@ -85,15 +89,29 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
               <PresenceList others={here} />
             </div>
           </div>
+          <div className="read-cue" role="note" aria-label="Who reads and which camera">
+            <div>
+              <span className="muted small">Read by</span>
+              <strong>
+                {talentColor && <span className="dot inline" style={{ background: talentColor }} />}{' '}
+                {everyone ? 'Everyone (cross talk)' : section.talent || 'Not picked yet'}
+              </strong>
+            </div>
+            <div>
+              <span className="muted small">Look at</span>
+              <strong>{camera || 'Not picked yet'}</strong>
+            </div>
+            {section.headline && (
+              <div>
+                <span className="muted small">Headline</span>
+                <strong>{section.headline}</strong>
+              </div>
+            )}
+          </div>
           <p className="script-meta">
             {section.type && <span>Type: {section.type}</span>}
             {section.writer && <span>Writer: {section.writer}</span>}
-            {section.talent && (
-              <span>
-                Talent: {talentColor && <span className="dot inline" style={{ background: talentColor }} />} {section.talent}
-              </span>
-            )}
-            {section.elements.length > 0 && <span>Graphics: {section.elements.map((e) => (e.name ? `${e.type} ${e.name}` : e.type)).join(', ')}</span>}
+            {section.elements.length > 0 && <span>Graphics: {section.elements.map(elementLabel).join(', ')}</span>}
           </p>
 
           <div className="script-stats" aria-live="polite">

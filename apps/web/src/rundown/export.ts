@@ -1,6 +1,6 @@
 // Exporting a rundown as CSV (for spreadsheets) or PDF (for printing and sharing). Both are made in
 // the browser, so they cost nothing on the server.
-import { formatClock, formatDuration, formatOverUnder, type RundownTiming, type SectionRow } from '@tstv/shared';
+import { elementLabel, formatClock, formatDuration, formatOverUnder, type RundownTiming, type SectionRow } from '@tstv/shared';
 
 export interface ExportInfo {
   showName: string;
@@ -12,13 +12,13 @@ export interface ExportInfo {
   correspondents?: string[];
 }
 
-const HEADERS = ['#', 'Slug', 'Type', 'Writer', 'Talent', 'Camera', 'Graphics', 'Notes', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
+const HEADERS = ['#', 'Slug', 'Type', 'Writer', 'Talent', 'Camera', 'Headline', 'Graphics', 'Notes', 'Assign Graphics', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
 
 function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
   const backTime = (offset: number | null) => (offset === null ? '' : info.airTime ? formatClock(info.airTime, offset) : `+${formatDuration(offset)}`);
   return timing.rows.map((c) => {
     if (c.row.kind === 'block') {
-      return [c.label, `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, '', '', '', '', '', '', '', formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime(c.backTimeOffset), '', ''];
+      return [c.label, `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, '', '', '', '', '', '', '', '', '', formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime(c.backTimeOffset), '', ''];
     }
     const s = c.row as SectionRow;
     return [
@@ -28,8 +28,10 @@ function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
       s.writer,
       s.talent,
       s.camera || info.defaultCamera,
-      s.elements.map((e) => (e.name ? `${e.type} ${e.name}` : e.type)).join(', '),
+      s.headline,
+      s.elements.map(elementLabel).join(', '),
       s.notes,
+      s.assignGraphics,
       s.floated ? 'Floated' : '',
       c.seconds > 0 || s.estSeconds !== null ? formatDuration(c.seconds) : '',
       backTime(c.backTimeOffset),

@@ -73,9 +73,10 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 **Rundown grid**
 
 - One row per section, grouped under block headers A, B, C. Sections are numbered within the block: A1, A2, B1.
-- Columns: Section, Slug, Segment type (**Intro, Tease, Reader, Cross Talk, Package, SOT**, decided Oct 28, 2026; each show can still edit its list), **Writer** (typed in; added Oct 28, 2026), Talent (a dropdown of the episode's anchors and correspondents), Camera, Elements (attached graphics with Ready or Missing status), **Notes** (typed in; added Oct 28, 2026), Est. duration, Back-time. *(No green-screen column: decided Oct 28, 2026, since each show uses one background for the whole show. See Part 3.)*
+- Columns: Section, Slug, Segment type (**Intro, Tease, Reader, Cross Talk, Q&A, Package, SOT, Permanent Graphic**, decided Oct 28, 2026, with Q&A and Permanent Graphic added Oct 29, 2026; each show can still edit its list), **Writer** (typed in; added Oct 28, 2026), Talent (a dropdown of the episode's anchors and correspondents, plus **Everyone (cross talk)** for sections with no single reader, added Oct 29, 2026), Camera, **Headline** (typed in; added Oct 29, 2026), Elements (attached graphics with Ready or Missing status), **Notes** (typed in; added Oct 28, 2026), **Assign Graphics** (typed in: who makes the section's graphics; added Oct 29, 2026), Est. duration, Back-time. The column headers stay at the top while you scroll down the rundown. *(No green-screen column: decided Oct 28, 2026, since each show uses one background for the whole show. See Part 3.)*
 - **Decided Oct 28, 2026:** a section can have several things happening in it, so the **Elements** column (titled **Graphics** in the rundown) lists each section's elements in the order they fire. For example, a Reader can have an L3 and then a VO playing over the anchor.
-  - Element types: L3, OTSL, OTSR, FSG, VO, SOT and PKG. Each element can also have an optional name.
+  - Element types: L3, OTSL, OTSR, FSG, **TEASE**, **LITES**, VO, SOT and PKG (TEASE and LITES added Oct 29, 2026). Each element can also have an optional name.
+  - **Permanent graphics (decided Oct 29, 2026):** each show has a list of graphics used in every episode. TSTV's default list is Station ID, Show Intro, Commercial Break, Social Media L3, Website L3 and Station Outro, and each show can edit it in its settings. The Graphics column can pick any of them for a section. In Phase 4 the show app makes sure they're loaded on the TriCaster before every show.
   - Elements are planned in the rundown first.
   - In Phase 2 each element is linked to its cue chip in the script. In Phase 4 it's linked to its file, with Ready or Missing.
   - The TriCaster cueing is built from them.
@@ -91,6 +92,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 **Script pages**
 
 - Each section opens to its own script page. The prompter shows all sections in rundown order.
+- **Reading cue (decided Oct 29, 2026):** the script page, and in Phase 3 the prompter, clearly shows who reads each section (or that everyone does, for cross talk) and which camera to look at.
 - **Decided Oct 28, 2026:**
   - Each slug in the rundown is a link to its script page.
   - The script page has a text box. Above it are a **word counter** and an estimate of how long a typical anchor takes to read the script, at **143 to 154 words a minute** (2.38 to 2.57 words a second).
@@ -115,7 +117,7 @@ The prompter is a full-screen page of the website, opened in a browser on the ex
 
 - **Controls:** the up arrow speeds up, the down arrow slows down, exactly like today. The spacebar pauses and resumes. Other keys jump to the next or previous section and back to the top.
 - **Settings:** text size, line width and margins, line spacing, text and background colors, and the position of the reading-line marker. No mirror setting is needed.
-- **What it shows:** each section starts with its number (B5) and the talent name, color-coded by talent. Cues appear as bold colored markers in the text, as on today's prompter. Floated sections are skipped.
+- **What it shows:** each section starts with its number (B5), the talent name (color-coded by talent, or "Everyone" for cross talk) and the camera to look at. Cues appear as bold colored markers in the text, as on today's prompter. Floated sections are skipped.
 - **Live updates:** script edits appear as they're made without moving the text the anchor is reading.
 - **Cue firing:** when a cue marker or section start crosses the reading line, the prompter sends that event to the show app (see Part 3). It also sends its position a few times a second so the producer can see where the anchors are.
 - **Internet drops:** the prompter keeps scrolling the last version of the script and shows a small warning to the runner. Edits sync again when the connection returns.

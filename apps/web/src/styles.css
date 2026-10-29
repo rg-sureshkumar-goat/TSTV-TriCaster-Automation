@@ -521,7 +521,9 @@ table.simple td {
 /* Rundown grid */
 
 .grid-wrap {
-  overflow-x: auto;
+  /* Scrolls inside its own box, so the column headers stay in view while you scroll down the rundown. */
+  overflow: auto;
+  max-height: calc(100vh - 90px);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -530,7 +532,11 @@ table.simple td {
 table.rundown {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1500px;
+  min-width: 1850px;
+}
+
+.headline-col {
+  min-width: 180px;
 }
 
 .notes-col {
@@ -552,6 +558,7 @@ table.rundown {
 table.rundown th {
   position: sticky;
   top: 0;
+  box-shadow: inset 0 -1px 0 var(--border);
   background: var(--surface-2);
   text-align: left;
   font-size: 12px;
@@ -561,7 +568,7 @@ table.rundown th {
   letter-spacing: 0.03em;
   padding: 8px 6px;
   border-bottom: 1px solid var(--border);
-  z-index: 1;
+  z-index: 3;
 }
 
 table.rundown td {
@@ -808,6 +815,21 @@ tr.dragging td {
   color: #7c2d12;
 }
 
+.element-chip.permanent {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.menu-heading {
+  padding: 8px 10px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
 @media (prefers-color-scheme: dark) {
   .element-chip.graphic {
     background: #1e3a8a;
@@ -817,6 +839,11 @@ tr.dragging td {
   .element-chip.clip {
     background: #7c2d12;
     color: #ffedd5;
+  }
+
+  .element-chip.permanent {
+    background: #14532d;
+    color: #dcfce7;
   }
 }
 
@@ -909,6 +936,22 @@ tr.dragging td {
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
+}
+
+.read-cue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 32px;
+  padding: 10px 14px;
+  margin: 0 0 12px;
+  background: var(--surface-2);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  font-size: 18px;
+}
+
+.read-cue > div {
+  display: grid;
 }
 
 .script-meta {

@@ -79,7 +79,7 @@ export class EpisodeRoom extends YServer<Env> {
     const timing = computeRundown(rows, 0, sectionSecondsFrom(scriptWordCounts(this.document)));
     const sections = rows.filter((r) => r.kind === 'section');
     const searchText = rows
-      .map((r) => (r.kind === 'block' ? r.title : [r.slug, r.type, r.writer, r.talent, r.notes, ...r.elements.map((e) => `${e.type} ${e.name}`)].join(' ')))
+      .map((r) => (r.kind === 'block' ? r.title : [r.slug, r.type, r.writer, r.talent, r.headline, r.notes, r.assignGraphics, ...r.elements.map((e) => `${e.type} ${e.name}`)].join(' ')))
       .join(' ')
       .concat(allScriptText(this.document))
       .replace(/\s+/g, ' ')

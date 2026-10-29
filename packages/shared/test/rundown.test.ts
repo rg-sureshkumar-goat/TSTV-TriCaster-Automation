@@ -35,7 +35,9 @@ const section = (slug: string, estSeconds: number | null, extra: Partial<Section
   writer: '',
   talent: '',
   camera: '',
+  headline: '',
   notes: '',
+  assignGraphics: '',
   floated: false,
   estSeconds,
   elements: [],
@@ -236,12 +238,18 @@ describe('formatting', () => {
 
 describe('show settings', () => {
   it('uses TSTV\'s section types, and moves shows off earlier default lists', () => {
-    const tstv = ['Intro', 'Tease', 'Reader', 'Cross Talk', 'Package', 'SOT'];
+    const tstv = ['Intro', 'Tease', 'Reader', 'Cross Talk', 'Q&A', 'Package', 'SOT', 'Permanent Graphic'];
     expect(DEFAULT_SHOW_SETTINGS.segmentTypes).toEqual(tstv);
     expect(normalizeShowSettings({ segmentTypes: ['Reader', 'VO', 'VO/SOT', 'SOT', 'PKG', 'OTS', 'FSG', 'Weather', 'Tease', 'Lites'] }).segmentTypes).toEqual(tstv);
     expect(normalizeShowSettings({ segmentTypes: ['Intro', 'Tease', 'Reader', 'Cross Talk'] }).segmentTypes).toEqual(tstv);
+    expect(normalizeShowSettings({ segmentTypes: ['Intro', 'Tease', 'Reader', 'Cross Talk', 'Package', 'SOT'] }).segmentTypes).toEqual(tstv);
     // A list someone chose on purpose is kept.
     expect(normalizeShowSettings({ segmentTypes: ['Reader', 'Weather'] }).segmentTypes).toEqual(['Reader', 'Weather']);
+  });
+
+  it('gives shows saved before permanent graphics existed TSTV\'s list, and keeps a show\'s own list', () => {
+    expect(normalizeShowSettings({ segmentTypes: ['Reader'] }).permanentGraphics).toEqual(['Station ID', 'Show Intro', 'Commercial Break', 'Social Media L3', 'Website L3', 'Station Outro']);
+    expect(normalizeShowSettings({ permanentGraphics: ['Station ID', ' ', 'Sports Open'] }).permanentGraphics).toEqual(['Station ID', 'Sports Open']);
   });
 
   it('fills in defaults and fixes bad values', () => {
