@@ -35,7 +35,6 @@ const section = (slug: string, estSeconds: number | null, extra: Partial<Section
   writer: '',
   talent: '',
   camera: '',
-  greenScreen: '',
   floated: false,
   estSeconds,
   elements: [],
@@ -200,7 +199,9 @@ describe('elements', () => {
     old.set('id', 'old');
     old.set('kind', 'section');
     old.set('slug', 'Old story');
+    old.set('greenScreen', 'Studio BG');
     rowsOf(doc).push([old]);
+    expect(readRows(doc)[0]).not.toHaveProperty('greenScreen');
     expect((readRows(doc)[0] as SectionRow).elements).toEqual([]);
     expect((readRows(doc)[0] as SectionRow).writer).toBe('');
     addElement(doc, 'old', 'FSG', alex);

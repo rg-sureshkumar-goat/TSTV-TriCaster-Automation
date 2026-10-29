@@ -28,7 +28,7 @@ These are the facts the build has to fit, confirmed on site on Oct 28, 2026.
 | Cameras | 3 studio cameras on TriCaster inputs 1, 2 and 3. Cameras 1 and 2 have prompter monitors and are used interchangeably for the anchors; camera 3 is the wide shot. All three face the green screen. Angles and zoom use other hardware and are out of scope. |
 | Program path | Program runs through M/E 1: the main program row shows M/E 1, and cameras are switched on M/E 1's row. |
 | Graphics and clips | L3s, OTS, FSGs, VOs, SOTs and packages all play from DDR2 and are put on air with the DSK 2 Take button. They're loaded from a USB drive in rundown order. DDR2 has AutoPlay on: taking DSK 2 on plays the cued clip, and taking it off stops DDR2 and cues the next clip. Each block in DDR2 starts with a break clip (today "TSTV Ident 2022 News") that's held during the commercial break. DDR1 is not used. |
-| Green screen | The background lives in GFX 1, keyed with LiveMatte and layered in an M/E (M/E 2): a camera on M/E 2's A row over GFX 1. Taking it to air switches the program row from M/E 1 to M/E 2. |
+| Green screen | Each show has its own green-screen background, which doesn't change during the show. The background lives in GFX 1, keyed with LiveMatte and layered in an M/E. The probe saw M/E 2 set up as a camera on its A row over GFX 1, and GFX 1 on program through M/E 1. |
 | Audio | Separate sound board, out of scope. SOTs and packages carry their own audio from DDR2. |
 | Streaming | YouTube, not through the TriCaster. Out of scope. |
 | Recording | The TC1 records. Shows are often aired or published later. |
@@ -72,7 +72,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 **Rundown grid**
 
 - One row per section, grouped under block headers A, B, C. Sections are numbered within the block: A1, A2, B1.
-- Columns: Section, Slug, Segment type (**Intro, Tease, Reader, Cross Talk, Package, SOT**, decided Oct 28, 2026; each show can still edit its list), **Writer** (typed in; added Oct 28, 2026), Talent (typed in), Camera, Green-screen background, Elements (attached graphics with Ready or Missing status), Est. duration, Back-time.
+- Columns: Section, Slug, Segment type (**Intro, Tease, Reader, Cross Talk, Package, SOT**, decided Oct 28, 2026; each show can still edit its list), **Writer** (typed in; added Oct 28, 2026), Talent (typed in), Camera, Elements (attached graphics with Ready or Missing status), Est. duration, Back-time. *(No green-screen column: decided Oct 28, 2026, since each show uses one background for the whole show. See Part 3.)*
 - **Decided Oct 28, 2026:** a section can have several things happening in it, so the **Elements** column lists each section's elements in the order they fire. For example, a Reader can have an L3 and then a VO playing over the anchor.
   - Element types: L3, OTSL, OTSR, FSG, VO, SOT and PKG. Each element can also have an optional name.
   - Elements are planned in the rundown first.
@@ -157,9 +157,10 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 **Green screen**
 
-- The producer drops an image or video onto a section. When that section starts, the app loads it as the background and takes the green-screen M/E to air. When the section ends, it goes back to the camera.
+- **Decided Oct 28, 2026:** each show uses one green-screen background for the whole show. There is no green screen per section.
+- **The show app has a single green-screen drop box.** The producer drops the image or clip for the show's background onto it, and the app loads it on the TC1 as the background used throughout the show.
 - The TD sets up the green-screen M/E's LiveMatte key once and saves it in the TC1 session. After that nobody keys anything by hand.
-- Stills go in GFX 1. Video backgrounds need a free player (DDR1 is likely; to confirm).
+- Stills go in GFX 1. A clip background needs a free player; DDR1 is free (confirmed Oct 28).
 
 **Recording**
 
@@ -242,7 +243,7 @@ There's no deadline, so the plan aims for the fastest path to a first live test.
 - [x] Which TriCaster inputs are the three cameras, and which camera faces the green screen? *Inputs 1–3. Cameras 1 and 2 have prompter monitors; camera 3 is the wide shot. All three face the green screen.*
 - [x] Is DDR1 free for green-screen video backgrounds? *Yes. It isn't used.*
 - [ ] Who must approve changing TC1 settings (a fixed network address, a shared folder)? *No network change is needed. Copying files over the cable needs a Windows login on the TC1.*
-- [ ] For a green-screen section, which camera is keyed? All three face the green screen. The likely answer is the section's own camera.
+- [ ] During a show, is the green-screen key on air the whole time behind the anchors, and through which M/E? The probe saw GFX 1 on program through M/E 1. *(There's no per-section green screen: decided Oct 28, 2026.)*
 - [ ] How do the file types TEASE, NAMES, RDR and LITES (seen on the real DDR2 playlist) map to cues? Should the importer also accept spellings like `OTS_L` and names ending in `(1)` or `copy`?
 - [ ] When the app builds the DDR2 playlist, should it put the break clip ("TSTV Ident 2022 News") at the start of each block, as TDs do today?
 - [ ] Who may sign in to the website: invited people only, or anyone with a UT email?

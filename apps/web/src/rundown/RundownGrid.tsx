@@ -66,7 +66,6 @@ export function RundownGrid({ doc, timing, settings, airTime, me, readOnly, othe
             <th title="Who writes this section's script">Writer</th>
             <th title="Who reads it on air">Talent</th>
             <th className="camera-col">Camera</th>
-            <th>Green screen</th>
             <th title="Graphics and clips that play during this section, in order">Elements</th>
             <th className="time-col" title="Estimated length">Est.</th>
             <th className="time-col" title={airTime ? 'Clock time this must start to end on time' : 'How far into the show this must start to end on time'}>
@@ -149,7 +148,7 @@ function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectio
           <td className="num-col">
             <strong>{computed.label}</strong>
           </td>
-          <td colSpan={7}>
+          <td colSpan={6}>
             <div className="block-title">
               <strong>Block {computed.label}</strong>
               <TextCell value={row.title} placeholder="Block title (optional)" readOnly={readOnly} onCommit={(title) => updateRow(doc, row.id, { title }, me)} ariaLabel={`Block ${computed.label} title`} />
@@ -232,7 +231,6 @@ function SectionLine({ computed, index, count, doc, me, settings, readOnly, back
             'person-col',
           )}
           {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
-          {cell('greenScreen', <TextCell value={row.greenScreen} placeholder="—" readOnly={readOnly} onCommit={(greenScreen) => set({ greenScreen })} ariaLabel={`${computed.label} green screen`} />)}
           {cell('elements', <ElementsCell section={row} label={computed.label} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
           {cell('est', <DurationCell value={row.estSeconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
           <td className="time-col">{backTime}</td>

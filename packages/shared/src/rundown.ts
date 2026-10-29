@@ -48,8 +48,6 @@ export interface SectionRow {
   talent: string;
   /** Camera name from the show's camera list; empty means the show's default camera. */
   camera: string;
-  /** Name of the green-screen background, if the section uses one. */
-  greenScreen: string;
   /** Kept in the rundown but skipped on air. */
   floated: boolean;
   /** Estimated length in seconds, typed in by hand. Later phases add script read time and clip lengths. */
@@ -72,7 +70,6 @@ export const EMPTY_SECTION: SectionFields = {
   writer: '',
   talent: '',
   camera: '',
-  greenScreen: '',
   floated: false,
   estSeconds: null,
 };
@@ -92,11 +89,20 @@ export function readRow(map: Y.Map<unknown>): Row {
     return { id: String(data.id), kind: 'block', title: String((data as BlockRow).title ?? ''), createdBy: data.createdBy, updatedBy: data.updatedBy, updatedAt: data.updatedAt };
   }
   const s = data as Partial<SectionRow>;
+  const text = (value: unknown) => (typeof value === 'string' ? value : '');
+  // Only known fields, so anything older documents still carry (like a removed column) is ignored.
   return {
-    ...EMPTY_SECTION,
-    ...s,
     id: String(s.id),
     kind: 'section',
+    slug: text(s.slug),
+    type: text(s.type),
+    writer: text(s.writer),
+    talent: text(s.talent),
+    camera: text(s.camera),
+    createdBy: s.createdBy,
+    createdAt: s.createdAt,
+    updatedBy: s.updatedBy,
+    updatedAt: s.updatedAt,
     floated: Boolean(s.floated),
     estSeconds: typeof s.estSeconds === 'number' ? s.estSeconds : null,
     elements: Array.isArray(s.elements)

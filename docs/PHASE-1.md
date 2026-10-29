@@ -14,7 +14,7 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
 - **Episodes**, each with a title, air date and start time.
 - **The rundown grid**:
   - Blocks A, B, C, with sections numbered A1, A2, B1. Numbers update when rows move.
-  - Columns: Slug, Type, Writer, Talent, Camera, Green screen, Elements, Est., Back-time, and Last edit.
+  - Columns: Slug, Type, Writer, Talent, Camera, Elements, Est., Back-time, and Last edit. There's no green-screen column, because each show's background is set once in the show app (Phase 4).
   - **Writer** and **Talent** are typed in. A talent name that matches the show's talent list gets that person's color.
   - **Elements:** what plays during a section, in order, for example an L3 and then a VO over the anchor during a Reader. Click **+** to add one (L3, OTSL, OTSR, FSG, VO, SOT, PKG). Click a chip to name it, change its type, move it earlier or later, or remove it. Blue chips are graphics and orange chips are clips. Later phases connect each element to its cue in the script and its file, and that's what the TriCaster cueing runs on.
   - **Live editing:** everyone in the episode sees changes within about a second, plus colored initials for who else is there and a highlight on the cell they're editing.
@@ -131,7 +131,7 @@ Open your website and click **Sign in with Google**. You're the admin. Use **Peo
    - talent, with colors
    - segment types
 4. **Create an episode** with its real air date and start time.
-5. **Rebuild a past episode's rundown from Rundown Creator:** blocks, sections, slugs, types, talent, cameras, green-screen backgrounds and estimates. Give each section its **elements** in order: L3s, VOs, SOTs, packages, OTS and FSGs.
+5. **Rebuild a past episode's rundown from Rundown Creator:** blocks, sections, slugs, types, writers, talent, cameras and estimates. Give each section its **elements** in order: L3s, VOs, SOTs, packages, OTS and FSGs.
 6. **Check timing** against Rundown Creator: total, over or under, and back-times.
 7. **Drag a row** to a new place, then **float** a section. Check that the numbers and totals update.
 8. **Edit at the same time as the other person.** You should see:

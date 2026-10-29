@@ -78,7 +78,7 @@ Every connection to the cloud goes through the Worker, which checks sign-in befo
 
 ### 4.2 What lives where
 
-- **Episode room (one per episode).** The rundown rows (blocks, sections, slug, segment type, talent, camera, green-screen background name, floated flag, elements), every section's script with its cue chips, and the live show channel. Because the prompter, the producer and every writer share one live copy, an edit appears everywhere within about a second. The room saves itself every few seconds. It also holds the episode's thumbnails: small JPEGs of about 15 KB each.
+- **Episode room (one per episode).** The rundown rows (blocks, sections, slug, segment type, writer, talent, camera, floated flag, elements), every section's script with its cue chips, and the live show channel. Because the prompter, the producer and every writer share one live copy, an edit appears everywhere within about a second. The room saves itself every few seconds. It also holds the episode's thumbnails: small JPEGs of about 15 KB each.
 - **D1 database.** Users and invites. Shows and their settings: default camera, camera names, usual talent, target length, words per minute and the segment-type list. The episode list, searchable text of archived episodes, and timing history.
 - **Never in the cloud:** media files.
 
@@ -172,7 +172,7 @@ If a direct command turns out not to exist, the fallback from the brief still ap
 **What the probe found about how TSTV's TC1 is set up**, which shapes the show app:
 
 - **Program runs through M/E 1,** so the app takes cameras on M/E 1's A row (`v1_a_row`).
-- **The green screen** means switching the program row to M/E 2.
+- **The green screen** is one background per show, dropped into the show app once and loaded into GFX 1 (stills) or DDR 1 (clips). There's no per-section green screen. Which M/E carries it on air gets confirmed in Phase 4/5.
 - **DSK 2 shows DDR 2 with AutoPlay.** Taking DSK 2 on plays the cued clip, and taking it off stops DDR 2 and cues the next one.
 - **When a clip ends by itself, DSK 2 stays on,** so the app sends "DSK 2 off" for the brief's "clip ends first" rule.
 - **The TC1 reports the DDR playlists (`ddr_playlist`) and the seconds left in each clip (`ddr_timecode`).**
