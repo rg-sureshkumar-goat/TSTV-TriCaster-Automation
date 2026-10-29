@@ -1,11 +1,11 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { breakGraphic, computeRundown, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type ShowSettings } from '@tstv/shared';
+import { breakGraphic, computeRundown, cueLabel, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type RundownTiming, type ShowSettings } from '@tstv/shared';
 import { TalentPanel } from '../rundown/TalentPanel.tsx';
 import { api, useLoad, type User } from '../lib/api.ts';
 import { Link, navigate } from '../lib/router.tsx';
 import { formatDate, formatTime } from '../lib/format.ts';
 import { RundownGrid } from '../rundown/RundownGrid.tsx';
-import { useEpisodeDoc } from '../rundown/useEpisodeDoc.ts';
+import { useEpisodeDoc, type CueEvent, type Presence } from '../rundown/useEpisodeDoc.ts';
 import { exportCsv, exportPdf } from '../rundown/export.ts';
 import { ConnectionBadge, PresenceList } from '../components/RoomStatus.tsx';
 import type { EpisodeListItem } from './Show.tsx';
@@ -134,6 +134,9 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
             </button>
           )}
           <PresenceList others={room.others} />
+          <button onClick={() => window.open(`/prompter/${episode.id}`, '_blank')} title="Opens the prompter in a new window, for the prompter computer">
+            Open prompter
+          </button>
           <button onClick={() => exportCsv(timing, exportInfo)}>Export CSV</button>
           <button onClick={() => exportPdf(timing, exportInfo)}>Export PDF</button>
           {!readOnly && <button onClick={archive}>Archive</button>}
@@ -146,6 +149,8 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
         </div>
       </div>
       {message && <p className="error">{message}</p>}
+
+      <PrompterBar others={room.others} lastCue={room.lastCue} timing={timing} />
 
       {room.synced && room.doc && <TalentPanel doc={room.doc} talent={room.talent} colors={settings.talent} readOnly={readOnly} />}
 
@@ -185,6 +190,37 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
             onClose={() => navigate(`/episodes/${episode.id}`, { keepScroll: true })}
           />
         </Suspense>
+      )}
+    </div>
+  );
+}
+
+/** Where the prompter is, and the last cue it fired, while a prompter has this episode open. */
+function PrompterBar({ others, lastCue, timing }: { others: Presence[]; lastCue: CueEvent | null; timing: RundownTiming }) {
+  const prompter = others.find((o) => o.prompter)?.prompter;
+  if (!prompter && !lastCue) return null;
+  const section = (id: string) => timing.rows.find((c) => c.row.id === id);
+  const cue = (() => {
+    if (!lastCue) return '';
+    const c = section(lastCue.sectionId);
+    if (lastCue.kind === 'section') return `${c?.label ?? 'A section'} started`;
+    const element = c?.row.kind === 'section' ? c.row.elements.find((e) => e.id === lastCue.elementId) : undefined;
+    return `${element ? cueLabel(element) : 'A cue'}${c ? ` (${c.label})` : ''}`;
+  })();
+  return (
+    <div className="prompter-bar" role="status" aria-label="Prompter">
+      <strong>Prompter</strong>
+      {prompter ? (
+        <span>
+          {prompter.label ? `on ${prompter.label}` : 'at the top'} · {prompter.paused ? 'paused' : prompter.speed === 0 ? 'stopped' : prompter.speed > 0 ? `speed ${prompter.speed}` : `backwards ${-prompter.speed}`}
+        </span>
+      ) : (
+        <span className="muted">not open</span>
+      )}
+      {lastCue && (
+        <span>
+          Last cue: <strong>{cue}</strong> <span className="muted small">{new Date(lastCue.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span>
+        </span>
       )}
     </div>
   );

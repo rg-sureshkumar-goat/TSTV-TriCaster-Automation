@@ -122,6 +122,26 @@ export class EpisodeRoom extends YServer<Env> {
     super.onConnect(connection, ctx);
   }
 
+  /**
+   * The prompter reports each section start and cue chip as it crosses the reading line. The room passes
+   * it on to everyone else connected: the rundown page shows it, and from Phase 4 the show app fires it.
+   */
+  onCustomMessage(connection: Connection, message: string): void {
+    let event: { type?: unknown; kind?: unknown; sectionId?: unknown; elementId?: unknown };
+    try {
+      event = JSON.parse(message);
+    } catch {
+      return;
+    }
+    if (event.type !== 'cue' || (event.kind !== 'section' && event.kind !== 'cue') || typeof event.sectionId !== 'string') return;
+    if (event.kind === 'cue' && typeof event.elementId !== 'string') return;
+    const from = (connection.state as ConnectionInfo | null)?.user?.name ?? 'Prompter';
+    this.broadcastCustomMessage(
+      JSON.stringify({ type: 'cue', kind: event.kind, sectionId: event.sectionId.slice(0, 64), elementId: event.kind === 'cue' ? String(event.elementId).slice(0, 64) : undefined, at: Date.now(), from }),
+      connection,
+    );
+  }
+
   isReadOnly(connection: Connection): boolean {
     return this.archived || Boolean((connection.state as ConnectionInfo | null)?.readOnly);
   }

@@ -12,6 +12,26 @@ export interface Presence {
   color: string;
   /** The cell they're editing, as "rowId:field". */
   focus: string | null;
+  /** Set when this is a prompter: where it is and how fast it's going. */
+  prompter?: PrompterStatus;
+}
+
+/** What a prompter tells everyone a few times a second. */
+export interface PrompterStatus {
+  sectionId: string | null;
+  label: string;
+  /** Arrow-key speed steps; below zero runs backwards. */
+  speed: number;
+  paused: boolean;
+}
+
+/** A section start or cue chip that just crossed the prompter's reading line. */
+export interface CueEvent {
+  kind: 'section' | 'cue';
+  sectionId: string;
+  elementId?: string;
+  at: number;
+  from: string;
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
@@ -34,6 +54,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
   const [synced, setSynced] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [others, setOthers] = useState<Presence[]>([]);
+  const [lastCue, setLastCue] = useState<CueEvent | null>(null);
   const archivedRef = useRef(onArchivedChange);
   archivedRef.current = onArchivedChange;
 
@@ -71,15 +92,16 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
       const list: Presence[] = [];
       provider.awareness.getStates().forEach((state, clientId) => {
         if (clientId === doc.clientID || !state?.name) return;
-        list.push({ clientId, name: String(state.name), color: String(state.color), focus: (state.focus as string | null) ?? null });
+        list.push({ clientId, name: String(state.name), color: String(state.color), focus: (state.focus as string | null) ?? null, prompter: (state.prompter as PrompterStatus | undefined) ?? undefined });
       });
       setOthers(list);
     };
     const onCustom = (message: string) => {
       try {
         // Archived or deleted by someone else: reload the page's details (a deleted one then says so).
-        const type = (JSON.parse(message) as { type?: string }).type;
-        if (type === 'archived' || type === 'deleted') archivedRef.current?.();
+        const event = JSON.parse(message) as { type?: string } & CueEvent;
+        if (event.type === 'archived' || event.type === 'deleted') archivedRef.current?.();
+        if (event.type === 'cue') setLastCue({ kind: event.kind, sectionId: event.sectionId, elementId: event.elementId, at: event.at, from: event.from });
       } catch {
         // Not a message for us.
       }
@@ -104,7 +126,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
   const setFocus = (focus: string | null) => room?.provider.awareness.setLocalStateField('focus', focus);
 
-  return { doc: room?.doc ?? null, provider: room?.provider ?? null, rows, scriptWords, cued, talent, synced: synced && room !== null, status, others, setFocus };
+  return { doc: room?.doc ?? null, provider: room?.provider ?? null, rows, scriptWords, cued, talent, synced: synced && room !== null, status, others, setFocus, lastCue };
 }
 
 /** An episode's live room, as the rundown page and its script window see it. */

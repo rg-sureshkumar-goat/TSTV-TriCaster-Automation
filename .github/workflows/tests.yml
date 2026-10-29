@@ -25,7 +25,7 @@ jobs:
       - run: npm test
       - name: Build the website
         run: npm run build -w apps/web
-      - name: Browser tests (two people editing one rundown)
+      - name: Browser tests (two people editing one rundown, and the prompter in Chrome and Safari's engine)
         run: |
-          npx playwright install chromium
+          npx playwright install chromium webkit
           npm run test:e2e

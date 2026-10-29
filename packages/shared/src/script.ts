@@ -75,6 +75,18 @@ export function readScriptParagraphs(body: Y.XmlFragment): ScriptPiece[][] {
   return paragraphs;
 }
 
+/**
+ * The script's lines, each with a key that stays the same while the script is edited around it, so the
+ * prompter can keep the line being read in place.
+ */
+export function readScriptLines(body: Y.XmlFragment): { key: string; pieces: ScriptPiece[] }[] {
+  const lines = readScriptParagraphs(body);
+  return body.toArray().map((child, i) => {
+    const id = (child as Y.AbstractType<unknown>)._item?.id;
+    return { key: id ? `${id.client}-${id.clock}` : `line-${i}`, pieces: lines[i] };
+  });
+}
+
 /** The script's words, one line per paragraph, without its cue chips. */
 export function scriptPlainText(body: Y.XmlFragment | undefined): string {
   if (!body) return '';
@@ -225,6 +237,12 @@ function taggedReadersOf(doc: Y.Doc): Y.Map<string> {
 }
 
 const ONLY_A_TAG = new RegExp(`^${SPEAKER_TAG_SOURCE}$`);
+
+/** The name in a line that's only a speaker tag, like "JORDAN" for "{JORDAN}"; otherwise null. */
+export function speakerTagLine(line: string): string | null {
+  const match = ONLY_A_TAG.exec(line.trim());
+  return match ? match[1].trim() : null;
+}
 
 /**
  * Run by the episode room only: writes each section's readers into its script as speaker tags, whenever

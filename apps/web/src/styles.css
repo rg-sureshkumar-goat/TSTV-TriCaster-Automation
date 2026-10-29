@@ -1683,3 +1683,247 @@ button.danger {
   align-items: center;
   gap: 8px;
 }
+
+/* The prompter's status on the rundown page (Phase 3) */
+
+.prompter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  margin: 12px 0 0;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+}
+
+/* The prompter (Phase 3): full screen, text scrolled past a fixed reading line. Colors and sizes come
+   from its settings, saved on the prompter computer. */
+
+.prompter {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--p-bg);
+  color: var(--p-text);
+  font-family: Helvetica, Arial, sans-serif;
+}
+
+.prompter.idle {
+  cursor: none;
+}
+
+.prompter-message {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+  background: #000;
+  color: #fff;
+  font-size: 24px;
+}
+
+.prompter-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.prompter-content {
+  position: relative;
+  padding: var(--p-line) var(--p-margin) 100vh;
+  font-size: var(--p-size);
+  line-height: var(--p-spacing);
+  font-weight: 600;
+  will-change: transform;
+}
+
+.prompter-content > * {
+  margin: 0;
+}
+
+.p-text {
+  min-height: calc(var(--p-size) * var(--p-spacing));
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.p-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5em;
+  margin-top: 1em !important;
+  padding: 0.15em 0;
+  border-top: 3px solid currentColor;
+  font-size: 0.7em;
+  font-weight: 800;
+}
+
+.p-label {
+  padding: 0 0.3em;
+  background: var(--p-text);
+  color: var(--p-bg);
+  border-radius: 0.15em;
+}
+
+.p-camera {
+  opacity: 0.75;
+}
+
+.p-cross-talk {
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.p-speaker {
+  font-weight: 800;
+  font-size: 0.8em;
+}
+
+.p-speaker::before {
+  content: '▸ ';
+}
+
+.p-cue span {
+  display: inline-block;
+  padding: 0 0.35em;
+  border-radius: 0.15em;
+  font-size: 0.6em;
+  font-weight: 800;
+  color: #fff;
+}
+
+.p-cue.graphic span {
+  background: #2563eb;
+}
+
+.p-cue.clip span {
+  background: #dc2626;
+}
+
+.p-cue.music span {
+  background: #9333ea;
+}
+
+.p-cue.permanent span {
+  background: #16a34a;
+}
+
+.p-block,
+.p-break,
+.p-end {
+  margin: 1em 0 !important;
+  font-size: 0.55em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+  text-align: center;
+}
+
+.p-break {
+  border-top: 2px dashed currentColor;
+  border-bottom: 2px dashed currentColor;
+}
+
+/* The reading line: arrows at each side, where cues fire. */
+.prompter-reading-line {
+  position: absolute;
+  top: var(--p-line);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px;
+  font-size: calc(var(--p-size) * 0.5);
+  line-height: 1;
+  color: #f97316;
+  pointer-events: none;
+  transform: translateY(calc(var(--p-size) * 0.1));
+}
+
+.prompter-hud {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  display: flex;
+  gap: 16px;
+  font: 600 14px system-ui, sans-serif;
+  opacity: 0.55;
+}
+
+.prompter-offline {
+  color: #fbbf24;
+  opacity: 1;
+}
+
+.prompter-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  transition: opacity 0.3s;
+}
+
+.prompter.idle .prompter-controls {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.prompter-controls button,
+.prompter-panel button {
+  background: #222;
+  color: #fff;
+  border: 1px solid #555;
+}
+
+.prompter-panel {
+  position: absolute;
+  top: 54px;
+  right: 10px;
+  width: min(380px, calc(100vw - 20px));
+  max-height: calc(100vh - 70px);
+  overflow: auto;
+  padding: 16px 18px;
+  background: rgba(20, 20, 20, 0.96);
+  color: #eee;
+  border: 1px solid #444;
+  border-radius: 10px;
+  font: 15px system-ui, sans-serif;
+}
+
+.prompter-panel h2 {
+  margin: 0 0 8px;
+}
+
+.prompter-panel dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+}
+
+.prompter-panel dt {
+  font-weight: 700;
+}
+
+.prompter-panel dd {
+  margin: 0;
+}
+
+.settings-panel label {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0;
+}
+
+.settings-panel .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-panel input[type='range'] {
+  flex: 1;
+}

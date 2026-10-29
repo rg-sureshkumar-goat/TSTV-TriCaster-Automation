@@ -137,10 +137,13 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 The prompter is a full-screen page of the website, opened in a browser on the existing prompter computer. Its screen already feeds the camera monitors and mirror, so nothing else changes in the studio.
 
 - **Controls:** the up arrow speeds up, the down arrow slows down, exactly like today. The spacebar pauses and resumes. Other keys jump to the next or previous section and back to the top.
+  - **Decided Oct 29, 2026 (Phase 3):** a **prompter operator** runs it from the keyboard. Pressing the down arrow past a stop runs the text **backwards**, faster with each press, as today's prompter does. **Page Down** or **→** jumps to the next section, **Page Up** or **←** goes back to the start of the section (then the one before), **Home** goes back to the top, stopped. **F** is full screen, **S** opens the settings and **?** the list of keys. The mouse wheel nudges the text.
+  - **Signing in (decided Oct 29, 2026):** the prompter computer signs in to the website once with Google, ideally with a TSTV station Gmail that an admin invites, and stays signed in. (Pairing a computer with a code may come with the show app in Phase 4.)
+  - Opened from an episode's **Open prompter** button, at `/prompter/<episode>`.
 - **Settings:** text size, line width and margins, line spacing, text and background colors, and the position of the reading-line marker. No mirror setting is needed.
 - **What it shows:** each section starts with its number (B5), the talent names (color-coded by talent; a cross-talk section just says CROSS TALK) and the camera to look at. Cues appear as bold colored markers in the text, as on today's prompter. Floated sections are skipped.
 - **Live updates:** script edits appear as they're made without moving the text the anchor is reading.
-- **Cue firing:** when a cue marker or section start crosses the reading line, the prompter sends that event to the show app (see Part 3). It also sends its position a few times a second so the producer can see where the anchors are.
+- **Cue firing:** when a cue marker or section start crosses the reading line, the prompter sends that event to the show app (see Part 3). It also sends its position a few times a second so the producer can see where the anchors are. *(Phase 3: the rundown page shows where the prompter is and the last cue it fired. A jump with Page Down starts the section it lands on but doesn't fire the cues it skipped.)*
 - **Internet drops:** the prompter keeps scrolling the last version of the script and shows a small warning to the runner. Edits sync again when the connection returns.
 
 ## Part 3 — Show app and TriCaster automation

@@ -11,7 +11,11 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+    // The prompter computer is a Mac running Safari, so the prompter is also tested in Safari's engine.
+    { name: 'safari', testMatch: /prompter\.spec\.ts/, use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } },
+  ],
   webServer: {
     command: 'node e2e/start-server.mjs',
     url: 'http://localhost:5174/api/auth/options',

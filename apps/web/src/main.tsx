@@ -11,6 +11,7 @@ import { PeoplePage } from './pages/People.tsx';
 import { UsagePage } from './pages/Usage.tsx';
 import { PrivacyPage } from './pages/Privacy.tsx';
 import { WelcomePage } from './pages/Welcome.tsx';
+import { PrompterPage } from './pages/Prompter.tsx';
 import { applyStoredTheme, useTheme } from './lib/theme.ts';
 import './styles.css';
 
@@ -36,6 +37,9 @@ function App() {
   if (user === undefined) return <div className="page-loading">Loading…</div>;
   if (user === null || path === '/signin') return <SignInPage />;
   if (user.needsName) return <WelcomePage email={user.email} onDone={loadMe} />;
+  // The prompter fills the whole screen, with no top bar.
+  const prompter = path.match(/^\/prompter\/([\w-]+)$/);
+  if (prompter) return <PrompterPage episodeId={prompter[1]} user={user} />;
 
   const signOut = async () => {
     await api('/auth/signout', { method: 'POST' });

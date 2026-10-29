@@ -92,7 +92,7 @@ The browser works out timing from the shared rundown: script words ÷ words per 
 - **Only people on the invite list get in.** The TD (admin) adds email addresses on an admin page. Anyone else sees "Ask the TD for an invite."
 - The open question "invited people only, or anyone with a UT email?" becomes a setting: the invite list can also allow a whole email domain later.
 - **Authorship.** Every rundown row and script records who wrote it and who edited it, so the producer can see who wrote and edited each reader.
-- **The prompter computer and each show-app laptop are linked once as devices.** The device shows a pairing code, and a signed-in person approves it on the website. It stays linked until the TD removes it.
+- **The prompter computer signs in once with Google** (RG, Oct 29, 2026), ideally with a TSTV station Gmail an admin invites. **Each show-app laptop is linked once as a device:** the device shows a pairing code, and a signed-in person approves it on the website. It stays linked until the TD removes it.
   - **No one signs in to the show app itself** (RG's decision). Only one laptop is connected at a time, and running the TC1 means being in the studio.
   - **The one-time link keeps scripts and the cue feed private.** Its details get confirmed in Phase 4.
 - **Why not our own passwords:** Cloudflare's free tier allows 10 ms of computing per request, which is too little to store passwords safely. Google handles that part for us.
@@ -107,8 +107,8 @@ Archiving makes the episode room read-only and copies the scripts' text into D1 
 - **Content:** it reads from the same episode room as the editors, so script edits appear within about a second. Each section starts with its number and talent name, color-coded by talent, and cue chips show as bold colored markers. Floated sections are skipped.
 - **Scrolling:** smooth scrolling runs in the browser at 60 frames a second. The arrow keys change speed and the spacebar pauses, exactly like today. Other keys jump between sections. The settings from the brief (text size, margins, colors, reading-line position) are saved on that computer.
 - **Keeping its place during edits:** the prompter tracks which word sits on the reading line. When text above it changes height, it shifts the scroll by exactly that amount, so the line the anchor is reading doesn't move.
-- **Cue firing:** every cue chip and section start has a permanent ID. When one crosses the reading line, the prompter sends the ID and the time to the episode room. It also sends its position about 4 times a second.
-- **Internet drops:** the prompter keeps a copy of the script in the browser (it even survives a page reload), keeps scrolling and shows the runner a small warning. It doesn't replay missed cues when the connection returns, because a late graphic is worse than none. Instead, the show app's banner prompts the producer to fire cues by hand.
+- **Cue firing:** every cue chip and section start has a permanent ID. When one crosses the reading line while scrolling forward, the prompter sends the ID to the episode room, which stamps the time and passes it on to everyone else connected. Its position and speed go out about 4 times a second, as part of who's-here (awareness) messages.
+- **Internet drops:** the prompter keeps a copy of the episode in the browser, saved every few seconds (it even survives a page reload), keeps scrolling and shows the operator a small warning. It doesn't replay missed cues when the connection returns, because a late graphic is worse than none. Instead, the show app's banner prompts the producer to fire cues by hand.
 
 ## 6. Show app
 
