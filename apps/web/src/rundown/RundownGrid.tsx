@@ -30,8 +30,10 @@ import {
 import type { Presence } from './useEpisodeDoc.ts';
 import { timeAgo } from '../lib/format.ts';
 import { Popover } from '../components/Popover.tsx';
+import { Link } from '../lib/router.tsx';
 
 interface GridProps {
+  episodeId: string;
   doc: Y.Doc;
   timing: RundownTiming;
   settings: ShowSettings;
@@ -42,7 +44,7 @@ interface GridProps {
   setFocus: (focus: string | null) => void;
 }
 
-export function RundownGrid({ doc, timing, settings, airTime, me, readOnly, others, setFocus }: GridProps) {
+export function RundownGrid({ episodeId, doc, timing, settings, airTime, me, readOnly, others, setFocus }: GridProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const ids = timing.rows.map((c) => c.row.id);
 
@@ -85,6 +87,7 @@ export function RundownGrid({ doc, timing, settings, airTime, me, readOnly, othe
                 ) : (
                   <SectionLine
                     key={c.row.id}
+                    episodeId={episodeId}
                     computed={c as ComputedRow & { row: SectionRow }}
                     index={index}
                     count={timing.rows.length}
@@ -180,6 +183,7 @@ function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectio
 }
 
 interface SectionLineProps {
+  episodeId: string;
   computed: ComputedRow & { row: SectionRow };
   index: number;
   count: number;
@@ -192,7 +196,7 @@ interface SectionLineProps {
   setFocus: (focus: string | null) => void;
 }
 
-function SectionLine({ computed, index, count, doc, me, settings, readOnly, backTime, focusedBy, setFocus }: SectionLineProps) {
+function SectionLine({ episodeId, computed, index, count, doc, me, settings, readOnly, backTime, focusedBy, setFocus }: SectionLineProps) {
   const row = computed.row;
   const set = (patch: Partial<SectionRow>) => updateRow(doc, row.id, patch, me);
   // A typed talent name that matches the show's talent list gets that person's color.
@@ -220,7 +224,7 @@ function SectionLine({ computed, index, count, doc, me, settings, readOnly, back
             {computed.label}
             {row.floated && <span className="badge">Floated</span>}
           </td>
-          {cell('slug', <TextCell value={row.slug} placeholder="Slug" readOnly={readOnly} onCommit={(slug) => set({ slug })} ariaLabel={`${computed.label} slug`} />, 'slug-col')}
+          {cell('slug', <SlugCell row={row} label={computed.label} episodeId={episodeId} readOnly={readOnly} onCommit={(slug) => set({ slug })} />, 'slug-col')}
           {cell('type', <SelectCell value={row.type} options={settings.segmentTypes} readOnly={readOnly} onChange={(type) => set({ type })} ariaLabel={`${computed.label} type`} />, 'type-col')}
           {cell('writer', <TextCell value={row.writer} placeholder="Writer" readOnly={readOnly} onCommit={(writer) => set({ writer })} ariaLabel={`${computed.label} writer`} />, 'person-col')}
           {cell(
@@ -266,7 +270,56 @@ function SectionLine({ computed, index, count, doc, me, settings, readOnly, back
 }
 
 /** A text field that sends each keystroke to everyone, without jumping while you type. */
-function TextCell({ value, placeholder, readOnly, onCommit, ariaLabel }: { value: string; placeholder: string; readOnly: boolean; onCommit: (value: string) => void; ariaLabel: string }) {
+/**
+ * The slug links to the section's script page. An empty slug, or one being renamed (✎), is a text box,
+ * so building the rundown stays quick.
+ */
+function SlugCell({ row, label, episodeId, readOnly, onCommit }: { row: SectionRow; label: string; episodeId: string; readOnly: boolean; onCommit: (slug: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  if (!readOnly && (editing || !row.slug)) {
+    return (
+      <TextCell
+        value={row.slug}
+        placeholder="Slug"
+        readOnly={readOnly}
+        onCommit={onCommit}
+        ariaLabel={`${label} slug`}
+        autoFocus={editing}
+        onEditingChange={setEditing}
+      />
+    );
+  }
+  return (
+    <span className="slug-link">
+      <Link to={`/episodes/${episodeId}/sections/${row.id}`} aria-label={`Open the script for ${label} ${row.slug}`}>
+        {row.slug || 'Untitled'}
+      </Link>
+      {!readOnly && (
+        <button className="rename" aria-label={`Rename ${label}`} title="Rename" onClick={() => setEditing(true)}>
+          ✎
+        </button>
+      )}
+    </span>
+  );
+}
+
+function TextCell({
+  value,
+  placeholder,
+  readOnly,
+  onCommit,
+  ariaLabel,
+  autoFocus,
+  onEditingChange,
+}: {
+  value: string;
+  placeholder: string;
+  readOnly: boolean;
+  onCommit: (value: string) => void;
+  ariaLabel: string;
+  autoFocus?: boolean;
+  onEditingChange?: (editing: boolean) => void;
+}) {
   const [draft, setDraft] = useState(value);
   const editing = useRef(false);
   useEffect(() => {
@@ -280,11 +333,17 @@ function TextCell({ value, placeholder, readOnly, onCommit, ariaLabel }: { value
       aria-label={ariaLabel}
       disabled={readOnly}
       maxLength={200}
-      onFocus={() => (editing.current = true)}
+      autoFocus={autoFocus}
+      onFocus={() => {
+        editing.current = true;
+        onEditingChange?.(true);
+      }}
       onBlur={() => {
         editing.current = false;
         setDraft(value);
+        onEditingChange?.(false);
       }}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       onChange={(e) => {
         setDraft(e.target.value);
         onCommit(e.target.value);

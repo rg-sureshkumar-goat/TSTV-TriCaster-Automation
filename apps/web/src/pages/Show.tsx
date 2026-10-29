@@ -13,6 +13,8 @@ export interface EpisodeListItem {
   summary: { sections: number; estSeconds: number } | null;
   updatedAt: number;
   createdByName: string | null;
+  createdById: string | null;
+  publishedAt: number | null;
 }
 
 interface ShowData {
@@ -69,6 +71,7 @@ function EpisodeList({ episodes, target, empty }: { episodes: EpisodeListItem[];
           <Link to={`/episodes/${e.id}`} className="card-link">
             <strong>
               {e.title} {e.status === 'archived' && <span className="badge">Archived</span>}
+              {!e.publishedAt && <span className="badge draft">Draft</span>}
             </strong>
             <span className="muted">
               {[formatDate(e.airDate), formatTime(e.airTime)].filter(Boolean).join(' at ') || 'No air date'}

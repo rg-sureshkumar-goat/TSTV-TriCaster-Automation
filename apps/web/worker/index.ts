@@ -38,6 +38,19 @@ app.route('/auth', authRoutes);
 app.use('*', signedIn);
 
 const now = () => Date.now();
+
+/**
+ * Who can see an episode: everyone once it's published; before that, only whoever created it and admins.
+ * Use with .bind(..., ...visibleTo(user)).
+ */
+const VISIBLE = '(e.published_at IS NOT NULL OR e.created_by = ? OR ? = 1)';
+const visibleTo = (user: User) => [user.id, user.isAdmin ? 1 : 0] as const;
+
+async function visibleEpisode(env: Env, user: User, id: string): Promise<Record<string, unknown> | null> {
+  return env.DB.prepare(`SELECT e.* FROM episodes e WHERE e.id = ? AND ${VISIBLE}`)
+    .bind(id, ...visibleTo(user))
+    .first<Record<string, unknown>>();
+}
 const clean = (value: unknown, max = 200) => String(value ?? '').trim().slice(0, max);
 const isDate = (v: string) => v === '' || /^\d{4}-\d{2}-\d{2}$/.test(v);
 const isTime = (v: string) => v === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
@@ -49,10 +62,12 @@ app.get('/me', (c) => c.json({ user: c.get('user') }));
 app.get('/shows', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT s.id, s.name, s.settings,
-            (SELECT COUNT(*) FROM episodes e WHERE e.show_id = s.id AND e.status = 'active') AS active_episodes,
+            (SELECT COUNT(*) FROM episodes e WHERE e.show_id = s.id AND e.status = 'active' AND ${VISIBLE}) AS active_episodes,
             (SELECT MAX(e.air_date) FROM episodes e WHERE e.show_id = s.id) AS latest_air_date
      FROM shows s ORDER BY s.name COLLATE NOCASE`,
-  ).all<Record<string, unknown>>();
+  )
+    .bind(...visibleTo(c.get('user')))
+    .all<Record<string, unknown>>();
   return c.json({
     shows: results.map((r) => ({
       id: r.id,
@@ -79,11 +94,11 @@ app.get('/shows/:id', async (c) => {
   const show = await c.env.DB.prepare('SELECT id, name, settings FROM shows WHERE id = ?').bind(c.req.param('id')).first<Record<string, unknown>>();
   if (!show) return c.json({ error: 'Show not found.' }, 404);
   const { results } = await c.env.DB.prepare(
-    `SELECT e.id, e.title, e.air_date, e.air_time, e.status, e.summary, e.updated_at, u.name AS created_by_name
+    `SELECT e.id, e.title, e.air_date, e.air_time, e.status, e.summary, e.updated_at, e.published_at, e.created_by, u.name AS created_by_name
      FROM episodes e LEFT JOIN users u ON u.id = e.created_by
-     WHERE e.show_id = ? ORDER BY e.air_date DESC, e.created_at DESC`,
+     WHERE e.show_id = ? AND ${VISIBLE} ORDER BY e.air_date DESC, e.created_at DESC`,
   )
-    .bind(show.id)
+    .bind(show.id, ...visibleTo(c.get('user')))
     .all<Record<string, unknown>>();
   return c.json({
     show: { id: show.id, name: show.name, settings: normalizeShowSettings(JSON.parse(String(show.settings))) },
@@ -115,6 +130,8 @@ function episodeJson(r: Record<string, unknown>) {
     summary: r.summary ? JSON.parse(String(r.summary)) : null,
     updatedAt: r.updated_at,
     createdByName: r.created_by_name ?? null,
+    createdById: r.created_by ?? null,
+    publishedAt: r.published_at ?? null,
   };
 }
 
@@ -139,9 +156,9 @@ app.post('/shows/:id/episodes', async (c) => {
 app.get('/episodes/:id', async (c) => {
   const row = await c.env.DB.prepare(
     `SELECT e.*, u.name AS created_by_name, s.name AS show_name, s.settings AS show_settings
-     FROM episodes e JOIN shows s ON s.id = e.show_id LEFT JOIN users u ON u.id = e.created_by WHERE e.id = ?`,
+     FROM episodes e JOIN shows s ON s.id = e.show_id LEFT JOIN users u ON u.id = e.created_by WHERE e.id = ? AND ${VISIBLE}`,
   )
-    .bind(c.req.param('id'))
+    .bind(c.req.param('id'), ...visibleTo(c.get('user')))
     .first<Record<string, unknown>>();
   if (!row) return c.json({ error: 'Episode not found.' }, 404);
   return c.json({
@@ -152,7 +169,7 @@ app.get('/episodes/:id', async (c) => {
 
 app.patch('/episodes/:id', async (c) => {
   const body = await c.req.json<{ title?: string; airDate?: string; airTime?: string }>();
-  const row = await c.env.DB.prepare('SELECT * FROM episodes WHERE id = ?').bind(c.req.param('id')).first<Record<string, unknown>>();
+  const row = await visibleEpisode(c.env, c.get('user'), c.req.param('id'));
   if (!row) return c.json({ error: 'Episode not found.' }, 404);
   if (row.status === 'archived') return c.json({ error: 'This episode is archived, so it can’t be changed.' }, 409);
   const title = body.title === undefined ? String(row.title) : clean(body.title, 120);
@@ -176,9 +193,28 @@ async function setArchived(env: Env, episodeId: string, archived: boolean): Prom
   );
 }
 
+// Publishing: the producer (whoever created the episode) or an admin makes a finished rundown visible to everyone.
+app.post('/episodes/:id/publish', async (c) => {
+  const user = c.get('user');
+  const row = await visibleEpisode(c.env, user, c.req.param('id'));
+  if (!row) return c.json({ error: 'Episode not found.' }, 404);
+  if (row.created_by !== user.id && !user.isAdmin) return c.json({ error: 'Only the producer who created this episode, or an admin, can publish it.' }, 403);
+  await c.env.DB.prepare('UPDATE episodes SET published_at = COALESCE(published_at, ?), updated_at = ? WHERE id = ?').bind(now(), now(), row.id).run();
+  return c.json({ ok: true });
+});
+
+app.post('/episodes/:id/unpublish', async (c) => {
+  const user = c.get('user');
+  const row = await visibleEpisode(c.env, user, c.req.param('id'));
+  if (!row) return c.json({ error: 'Episode not found.' }, 404);
+  if (row.created_by !== user.id && !user.isAdmin) return c.json({ error: 'Only the producer who created this episode, or an admin, can do that.' }, 403);
+  await c.env.DB.prepare('UPDATE episodes SET published_at = NULL, updated_at = ? WHERE id = ?').bind(now(), row.id).run();
+  return c.json({ ok: true });
+});
+
 app.post('/episodes/:id/archive', async (c) => {
   const id = c.req.param('id');
-  if (!(await c.env.DB.prepare('SELECT 1 FROM episodes WHERE id = ?').bind(id).first())) return c.json({ error: 'Episode not found.' }, 404);
+  if (!(await visibleEpisode(c.env, c.get('user'), id))) return c.json({ error: 'Episode not found.' }, 404);
   await setArchived(c.env, id, true);
   return c.json({ ok: true });
 });
@@ -196,10 +232,10 @@ app.get('/search', async (c) => {
   const like = `%${q.replace(/[%_\\]/g, (ch) => `\\${ch}`)}%`;
   const { results } = await c.env.DB.prepare(
     `SELECT e.*, s.name AS show_name FROM episodes e JOIN shows s ON s.id = e.show_id
-     WHERE e.title LIKE ? ESCAPE '\\' OR e.search_text LIKE ? ESCAPE '\\' OR s.name LIKE ? ESCAPE '\\'
+     WHERE (e.title LIKE ? ESCAPE '\\' OR e.search_text LIKE ? ESCAPE '\\' OR s.name LIKE ? ESCAPE '\\') AND ${VISIBLE}
      ORDER BY e.air_date DESC LIMIT 50`,
   )
-    .bind(like, like, like)
+    .bind(like, like, like, ...visibleTo(c.get('user')))
     .all<Record<string, unknown>>();
   return c.json({ episodes: results.map((r) => ({ ...episodeJson(r), showName: r.show_name })) });
 });
@@ -261,7 +297,9 @@ export default {
         onBeforeConnect: async (req, lobby) => {
           const user = await getSessionUser(req, env);
           if (!user) return new Response('Please sign in.', { status: 401 });
-          const episode = await env.DB.prepare('SELECT status FROM episodes WHERE id = ?').bind(lobby.name).first<{ status: string }>();
+          const episode = await env.DB.prepare(`SELECT e.status FROM episodes e WHERE e.id = ? AND ${VISIBLE}`)
+            .bind(lobby.name, ...visibleTo(user))
+            .first<{ status: string }>();
           if (!episode) return new Response('Episode not found.', { status: 404 });
           const headers = new Headers(req.headers);
           headers.set('x-tstv-user', JSON.stringify({ id: user.id, name: user.name }));

@@ -4,7 +4,7 @@
 import { YServer } from 'y-partyserver';
 import * as Y from 'yjs';
 import type { Connection, ConnectionContext } from 'partyserver';
-import { computeRundown, initEpisode, readRows, type Person } from '@tstv/shared';
+import { allScriptText, computeRundown, ensureScripts, initEpisode, readRows, rowsOf, type Person } from '@tstv/shared';
 import type { Env } from './env.ts';
 
 interface ConnectionInfo {
@@ -41,6 +41,7 @@ export class EpisodeRoom extends YServer<Env> {
         offset += c.content.byteLength;
       }
       Y.applyUpdate(this.document, update);
+      this.watchScripts();
       return;
     }
     // A brand-new episode: start it with block A and one section, credited to whoever created it.
@@ -50,6 +51,13 @@ export class EpisodeRoom extends YServer<Env> {
       .bind(this.episodeId)
       .first<{ id: string | null; name: string | null }>();
     initEpisode(this.document, { id: creator?.id ?? 'system', name: creator?.name ?? 'TSTV' });
+    this.watchScripts();
+  }
+
+  /** Every section gets its script here, in one place, as soon as the section exists. */
+  private watchScripts(): void {
+    ensureScripts(this.document);
+    rowsOf(this.document).observeDeep(() => ensureScripts(this.document));
   }
 
   async onSave(): Promise<void> {
@@ -73,6 +81,7 @@ export class EpisodeRoom extends YServer<Env> {
     const searchText = rows
       .map((r) => (r.kind === 'block' ? r.title : [r.slug, r.type, r.writer, r.talent, r.notes, ...r.elements.map((e) => `${e.type} ${e.name}`)].join(' ')))
       .join(' ')
+      .concat(allScriptText(this.document))
       .replace(/\s+/g, ' ')
       .trim();
     const summary = JSON.stringify({ sections: sections.length, estSeconds: timing.totalSeconds });

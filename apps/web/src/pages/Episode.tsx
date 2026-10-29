@@ -6,6 +6,7 @@ import { formatDate, formatTime } from '../lib/format.ts';
 import { RundownGrid } from '../rundown/RundownGrid.tsx';
 import { useEpisodeDoc } from '../rundown/useEpisodeDoc.ts';
 import { exportCsv, exportPdf } from '../rundown/export.ts';
+import { ConnectionBadge, PresenceList } from '../components/RoomStatus.tsx';
 import type { EpisodeListItem } from './Show.tsx';
 
 interface EpisodeData {
@@ -29,6 +30,18 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
   const [message, setMessage] = useState<string | null>(null);
   const me = { id: user.id, name: user.name };
   const exportInfo = { showName: show.name, episodeTitle: episode.title, airDate: formatDate(episode.airDate), airTime: episode.airTime, defaultCamera: show.settings.defaultCamera };
+
+  const canPublish = episode.createdById === user.id || user.isAdmin;
+  const publish = async (on: boolean) => {
+    if (on && !confirm('Publish this rundown? Everyone who can sign in will be able to see it and write its scripts.')) return;
+    if (!on && !confirm('Unpublish this rundown? Only you and admins will see it until it’s published again.')) return;
+    try {
+      await api(`/episodes/${episode.id}/${on ? 'publish' : 'unpublish'}`, { method: 'POST' });
+      reload();
+    } catch (e) {
+      setMessage((e as Error).message);
+    }
+  };
 
   const archive = async () => {
     if (!confirm('Archive this episode? It becomes read-only but stays searchable. Only the admin can un-archive it.')) return;
@@ -61,6 +74,13 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
           <div>
             <h1>
               {episode.title} {readOnly && <span className="badge">Archived · read-only</span>}
+              {episode.publishedAt ? (
+                <span className="badge published">Published</span>
+              ) : (
+                <span className="badge draft" title="Only the producer who created it and admins can see a draft">
+                  Draft · not visible to everyone yet
+                </span>
+              )}
             </h1>
             <p className="muted">
               {[formatDate(episode.airDate), formatTime(episode.airTime)].filter(Boolean).join(' at ') || 'No air date set'}
@@ -74,6 +94,16 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
         )}
         <div className="episode-actions">
           <ConnectionBadge status={room.status} synced={room.synced} />
+          {!episode.publishedAt && canPublish && !readOnly && (
+            <button className="primary" onClick={() => publish(true)}>
+              Publish rundown
+            </button>
+          )}
+          {episode.publishedAt && canPublish && !readOnly && (
+            <button className="link-button" onClick={() => publish(false)}>
+              Unpublish
+            </button>
+          )}
           <PresenceList others={room.others} />
           <button onClick={() => exportCsv(timing, exportInfo)}>Export CSV</button>
           <button onClick={() => exportPdf(timing, exportInfo)}>Export PDF</button>
@@ -103,34 +133,9 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
       {!room.synced || !room.doc ? (
         <p className="muted">Loading the rundown…</p>
       ) : (
-        <RundownGrid doc={room.doc} timing={timing} settings={show.settings} airTime={episode.airTime} me={me} readOnly={readOnly} others={room.others} setFocus={room.setFocus} />
+        <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={show.settings} airTime={episode.airTime} me={me} readOnly={readOnly} others={room.others} setFocus={room.setFocus} />
       )}
     </div>
-  );
-}
-
-function ConnectionBadge({ status, synced }: { status: string; synced: boolean }) {
-  if (status === 'connected' && synced) return <span className="status live" title="Changes save and appear for everyone automatically">● Live</span>;
-  if (status === 'connecting') return <span className="status waiting">● Connecting…</span>;
-  return <span className="status offline" title="Your changes will sync when the connection returns">● Offline, reconnecting…</span>;
-}
-
-function PresenceList({ others }: { others: { clientId: number; name: string; color: string }[] }) {
-  if (others.length === 0) return null;
-  const names = [...new Map(others.map((o) => [o.name, o])).values()];
-  return (
-    <span className="presence" title={`Also here: ${names.map((o) => o.name).join(', ')}`}>
-      {names.slice(0, 5).map((o) => (
-        <span key={o.clientId} className="avatar" style={{ background: o.color }}>
-          {o.name
-            .split(/\s+/)
-            .map((w) => w[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase()}
-        </span>
-      ))}
-    </span>
   );
 }
 

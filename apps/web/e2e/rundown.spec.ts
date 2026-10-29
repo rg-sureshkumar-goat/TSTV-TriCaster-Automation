@@ -11,7 +11,9 @@ async function signIn(browser: Browser, name: string): Promise<Page> {
   return page;
 }
 
-const row = (page: Page, label: string) => page.locator('tr', { has: page.getByLabel(`${label} slug`) });
+const row = (page: Page, label: string) =>
+  page.locator('tr.section-row', { has: page.locator('td.num-col', { hasText: new RegExp(`^${label}(Floated)?$`) }) });
+const slugLink = (page: Page, label: string, slug: string) => page.getByRole('link', { name: `Open the script for ${label} ${slug}` });
 
 test('two people build one rundown together', async ({ browser }) => {
   const rg = await signIn(browser, 'RG (TD)');
@@ -32,17 +34,25 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByLabel('A1 estimated length').fill('0:45');
   await rg.getByLabel('A1 estimated length').press('Enter');
 
-  // Sam opens the same episode and sees RG's work.
+  // It's a draft: Sam can't see it yet.
+  await expect(rg.getByText('Draft · not visible to everyone yet')).toBeVisible();
   const sam = await signIn(browser, 'Sam Writer');
   await sam.goto(episodeUrl);
-  await expect(sam.getByLabel('A1 slug')).toHaveValue('Cold Open');
+  await expect(sam.getByText('Episode not found.')).toBeVisible();
+
+  // RG publishes the rundown; now Sam sees RG's work, with the slug as a link to its script.
+  rg.once('dialog', (dialog) => dialog.accept());
+  await rg.getByRole('button', { name: 'Publish rundown' }).click();
+  await expect(rg.getByText('Published', { exact: true })).toBeVisible();
+  await sam.goto(episodeUrl);
+  await expect(slugLink(sam, 'A1', 'Cold Open')).toBeVisible();
 
   // Sam adds a section; RG sees it appear and sees who wrote it.
   await sam.getByRole('button', { name: '+ Section' }).click();
   await sam.getByLabel('A2 slug').fill('Basketball Wins');
   await sam.getByLabel('A2 estimated length').fill('1:30');
   await sam.getByLabel('A2 estimated length').press('Enter');
-  await expect(rg.getByLabel('A2 slug')).toHaveValue('Basketball Wins');
+  await expect(slugLink(rg, 'A2', 'Basketball Wins')).toBeVisible();
   await expect(row(rg, 'A2').locator('.edited-col')).toContainText('Sam Writer');
   await expect(rg.locator('.presence')).toHaveAttribute('title', /Sam Writer/);
 
@@ -93,7 +103,24 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByLabel('B1 slug').fill('Weather');
   await rg.getByRole('button', { name: 'Actions for B1' }).click();
   await rg.getByRole('menuitem', { name: 'Move up' }).click();
-  await expect(sam.getByLabel('A3 slug')).toHaveValue('Weather');
+  await expect(slugLink(sam, 'A3', 'Weather')).toBeVisible();
+
+  // Clicking a slug opens its script page. RG and Sam type in the same script at once.
+  await slugLink(rg, 'A1', 'Cold Open').click();
+  await expect(rg.getByRole('heading', { name: /A1 · Cold Open/ })).toBeVisible();
+  await rg.getByLabel('Script for A1').fill('Good evening and welcome to TSTV News.');
+  await expect(rg.locator('.script-stats')).toContainText('7 words');
+  await expect(rg.locator('.script-stats')).toContainText('Read time about 0:03');
+  await slugLink(sam, 'A1', 'Cold Open').click();
+  await expect(sam.getByLabel('Script for A1')).toHaveValue('Good evening and welcome to TSTV News.');
+  await sam.getByLabel('Script for A1').press('End');
+  await sam.getByLabel('Script for A1').pressSequentially(' The Longhorns won tonight.');
+  await expect(rg.getByLabel('Script for A1')).toHaveValue('Good evening and welcome to TSTV News. The Longhorns won tonight.');
+  await expect(rg.locator('.script-stats')).toContainText('11 words');
+  await expect(rg.locator('.script-stats')).toContainText('0:04–0:05');
+  await expect(rg.locator('.script-foot')).toContainText('Edited by RG (TD), Sam Writer');
+  await rg.goto(episodeUrl);
+  await sam.goto(episodeUrl);
 
   // Export CSV includes the rows and who wrote them.
   const downloadPromise = rg.waitForEvent('download');
@@ -126,9 +153,9 @@ test('two people build one rundown together', async ({ browser }) => {
   rg.once('dialog', (dialog) => dialog.accept());
   await rg.getByRole('button', { name: 'Archive', exact: true }).click();
   await expect(rg.getByText('Archived · read-only')).toBeVisible();
-  await expect(rg.getByLabel('A1 slug')).toBeDisabled();
+  await expect(rg.getByLabel('A1 writer')).toBeDisabled();
   await expect(sam.getByText('Archived · read-only')).toBeVisible();
-  await expect(sam.getByLabel('A1 slug')).toBeDisabled();
+  await expect(sam.getByLabel('A1 writer')).toBeDisabled();
 });
 
 test('only signed-in people get in, and only the admin manages people', async ({ browser, request }) => {

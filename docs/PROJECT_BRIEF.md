@@ -79,6 +79,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
   - In Phase 2 each element is linked to its cue chip in the script. In Phase 4 it's linked to its file, with Ready or Missing.
   - The TriCaster cueing is built from them.
 - Drag rows to reorder, add or delete sections, and **float** a section (keep it but skip it on air). Section numbers update when rows move.
+- **Publish rundown (decided Oct 28, 2026):** a new episode is a draft. Only the producer who created it and admins can see it. When the rundown is built, the producer clicks **Publish rundown** and everyone who can sign in sees it. The producer or an admin can unpublish it.
 
 **Timing**
 
@@ -89,6 +90,10 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 **Script pages**
 
 - Each section opens to its own script page. The prompter shows all sections in rundown order.
+- **Decided Oct 28, 2026:**
+  - Each slug in the rundown is a link to its script page.
+  - The script page has a text box. Above it are a **word counter** and an estimate of how long a typical anchor takes to read the script, at **143 to 154 words a minute** (2.38 to 2.57 words a second).
+  - The page records everyone who edited the script, and who edited it last.
 - **Live co-editing**, like Google Docs: several people type in the same rundown and the same script at once, with each other's cursors visible and no overwritten work.
 - **Cues** are inserted with a toolbar button or shortcut as locked chips in the text: Take L3, Take VO, Take SOT, Take PKG, Take OTSL, Take OTSR, Take FSG.
 - Each section is tagged with the on-air **talent** who reads it, and the prompter shows that name at the section's start.

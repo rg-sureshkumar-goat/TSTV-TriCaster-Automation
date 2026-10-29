@@ -6,6 +6,7 @@ import { SignInPage } from './pages/SignIn.tsx';
 import { ShowsPage } from './pages/Shows.tsx';
 import { ShowPage } from './pages/Show.tsx';
 import { EpisodePage } from './pages/Episode.tsx';
+import { ScriptPage } from './pages/Script.tsx';
 import { SearchPage } from './pages/Search.tsx';
 import { PeoplePage } from './pages/People.tsx';
 import './styles.css';
@@ -36,6 +37,7 @@ function App() {
   if (path === '/' || path === '/shows') page = <ShowsPage />;
   else if ((m = path.match(/^\/shows\/([\w-]+)$/))) page = <ShowPage showId={m[1]} />;
   else if ((m = path.match(/^\/episodes\/([\w-]+)$/))) page = <EpisodePage episodeId={m[1]} user={user} />;
+  else if ((m = path.match(/^\/episodes\/([\w-]+)\/sections\/([\w-]+)$/))) page = <ScriptPage key={m[2]} episodeId={m[1]} sectionId={m[2]} user={user} />;
   else if (path === '/search') page = <SearchPage />;
   else if (path === '/people' && user.isAdmin) page = <PeoplePage me={user} />;
   else page = <div className="empty">That page doesn’t exist. <Link to="/">Go to Shows</Link></div>;

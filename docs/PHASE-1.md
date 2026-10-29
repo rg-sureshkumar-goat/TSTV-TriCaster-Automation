@@ -24,8 +24,16 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
 - **Archive:** the episode becomes read-only, including for anyone who has it open, but stays searchable. Only an admin can un-archive.
 - **Export** to CSV and PDF, and **Search** across all episodes, archived ones included.
 
+- **Publish rundown:** a new episode is a draft that only its creator and admins can see. Click **Publish rundown** when it's ready, and everyone who can sign in sees it.
+- **Script pages:** click a slug to open its script page. Hover over a slug and click ✎ to rename it. The page has:
+  - a shared text box that several people can type in at once
+  - a word counter
+  - an estimate of the read time at 143–154 words a minute
+  - who has edited the script
+  - links to the previous and next sections
+
 **Not yet:**
-- Script pages and cue chips come in Phase 2.
+- Cue chips in scripts, and talent tags shown in the script, come in Phase 2.
 - The prompter, plus actual section timing recorded from it, comes in Phase 3.
 - Graphics don't yet link to script cues (Phase 2) or files with Ready/Missing (Phase 4).
 - The admin usage panel still needs to be built: it shows today's Cloudflare usage against the free limits. It needs the website to be online first.
@@ -134,14 +142,16 @@ Open your website and click **Sign in with Google**. You're the admin. Use **Peo
 5. **Rebuild a past episode's rundown from Rundown Creator:** blocks, sections, slugs, types, writers, talent, cameras and estimates. Give each section its **graphics** in order: L3s, VOs, SOTs, packages, OTS and FSGs.
 6. **Check timing** against Rundown Creator: total, over or under, and back-times.
 7. **Drag a row** to a new place, then **float** a section. Check that the numbers and totals update.
-8. **Edit at the same time as the other person.** You should see:
+8. **Publish the rundown,** then check that the other person can now see it. Before you publish, they shouldn't be able to.
+9. **Write a script:** click a slug and type a reader. Check the word count and the read time. Have the other person open the same script and type at the same time.
+10. **Edit the rundown at the same time as the other person.** You should see:
    - their edits within about a second
    - their initials at the top of the page
    - a colored outline on the cell they're editing
    - their name under **Last edit**
-9. **Export CSV and PDF,** then open both files.
-10. **Archive** the episode. It becomes read-only. Find it on the **Search** page.
-11. **Tell me** what's missing or awkward compared with Rundown Creator, and whether Phase 1 is approved.
+11. **Export CSV and PDF,** then open both files.
+12. **Archive** the episode. It becomes read-only. Find it on the **Search** page.
+13. **Tell me** what's missing or awkward compared with Rundown Creator, and whether Phase 1 is approved.
 
 ## Behind the scenes
 
