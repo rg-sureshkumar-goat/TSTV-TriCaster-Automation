@@ -7,9 +7,9 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities';
 import {
   addElement,
+  colorForTalent,
   deleteRow,
   ELEMENT_TYPES,
-  EVERYONE_TALENT,
   formatClock,
   formatDuration,
   insertBlock,
@@ -28,6 +28,7 @@ import {
   type RundownTiming,
   type SectionRow,
   type ShowSettings,
+  type Talent,
 } from '@tstv/shared';
 import type { Presence } from './useEpisodeDoc.ts';
 import { timeAgo } from '../lib/format.ts';
@@ -207,8 +208,6 @@ interface SectionLineProps {
 function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, readOnly, backTime, focusedBy, setFocus }: SectionLineProps) {
   const row = computed.row;
   const set = (patch: Partial<SectionRow>) => updateRow(doc, row.id, patch, me);
-  // A typed talent name that matches the show's talent list gets that person's color.
-  const talentColor = settings.talent.find((t) => t.name.toLowerCase() === row.talent.trim().toLowerCase())?.color;
   const cell = (field: string, children: ReactNode, className = '') => {
     const people = focusedBy(row.id, field);
     return (
@@ -235,14 +234,7 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
           {cell('slug', <SlugCell row={row} label={computed.label} episodeId={episodeId} readOnly={readOnly} onCommit={(slug) => set({ slug })} />, 'slug-col')}
           {cell('type', <SelectCell value={row.type} options={settings.segmentTypes} readOnly={readOnly} onChange={(type) => set({ type })} ariaLabel={`${computed.label} type`} />, 'type-col')}
           {cell('writer', <TextCell value={row.writer} placeholder="Writer" readOnly={readOnly} onCommit={(writer) => set({ writer })} ariaLabel={`${computed.label} writer`} />, 'person-col')}
-          {cell(
-            'talent',
-            <span className="talent-cell">
-              {talentColor && <span className="dot" style={{ background: talentColor }} />}
-              <TalentSelect value={row.talent} talent={talent} readOnly={readOnly} onChange={(name) => set({ talent: name })} ariaLabel={`${computed.label} talent`} />
-            </span>,
-            'person-col',
-          )}
+          {cell('talent', <TalentPicker value={row.talent} talent={talent} colors={settings.talent} label={computed.label} readOnly={readOnly} onChange={(names) => set({ talent: names })} />, 'person-col')}
           {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
           {cell('headline', <TextCell value={row.headline} placeholder="Headline" readOnly={readOnly} onCommit={(headline) => set({ headline })} ariaLabel={`${computed.label} headline`} />, 'headline-col')}
           {cell('elements', <ElementsCell section={row} label={computed.label} permanent={settings.permanentGraphics} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
@@ -362,36 +354,69 @@ function TextCell({
   );
 }
 
-/** Who reads the section: this episode's anchors and correspondents, entered above the rundown. */
-function TalentSelect({ value, talent, readOnly, onChange, ariaLabel }: { value: string; talent: EpisodeTalent[]; readOnly: boolean; onChange: (name: string) => void; ariaLabel: string }) {
+/**
+ * Who reads the section: one or more of this episode's anchors and correspondents, entered above the
+ * rundown. When several people talk, the script marks each part with the person's name, like {Jordan}.
+ */
+function TalentPicker({ value, talent, colors, label, readOnly, onChange }: { value: string[]; talent: EpisodeTalent[]; colors: Talent[]; label: string; readOnly: boolean; onChange: (names: string[]) => void }) {
+  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const anchors = talent.filter((t) => t.role === 'anchor').map((t) => t.name);
   const correspondents = talent.filter((t) => t.role === 'correspondent').map((t) => t.name);
-  // Keep showing a name that was picked earlier even if it's since been removed from the list.
-  const other = value && value !== EVERYONE_TALENT && !anchors.includes(value) && !correspondents.includes(value) ? value : '';
+  // Keep showing names picked earlier even if they've since been removed from the list.
+  const unlisted = value.filter((n) => !anchors.includes(n) && !correspondents.includes(n));
+  const toggle = (name: string) => onChange(value.includes(name) ? value.filter((n) => n !== name) : [...value, name]);
+  const dot = (name: string) => {
+    const color = colorForTalent(name, colors);
+    return color ? <span className="dot" style={{ background: color }} /> : null;
+  };
+  const group = (title: string, names: string[]) =>
+    names.length > 0 && (
+      <fieldset>
+        <legend>{title}</legend>
+        {names.map((n) => (
+          <label key={n} className="check">
+            <input type="checkbox" checked={value.includes(n)} onChange={() => toggle(n)} />
+            {dot(n)}
+            {n}
+          </label>
+        ))}
+      </fieldset>
+    );
+
   return (
-    <select className="cell-input" value={value} disabled={readOnly} aria-label={ariaLabel} onChange={(e) => onChange(e.target.value)}>
-      <option value="">{talent.length === 0 ? 'Add talent above' : '—'}</option>
-      <option value={EVERYONE_TALENT}>{EVERYONE_TALENT}</option>
-      {anchors.length > 0 && (
-        <optgroup label="Anchors">
-          {anchors.map((n) => (
-            <option key={`a-${n}`} value={n}>
+    <>
+      <button type="button" className="cell-input talent-button" disabled={readOnly} aria-label={`${label} talent`} aria-expanded={Boolean(anchor)} onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}>
+        {value.length === 0 ? (
+          <span className="muted">{talent.length === 0 ? 'Add talent above' : '—'}</span>
+        ) : (
+          value.map((n) => (
+            <span key={n} className="talent-name">
+              {dot(n)}
               {n}
-            </option>
-          ))}
-        </optgroup>
+            </span>
+          ))
+        )}
+      </button>
+      {anchor && (
+        <Popover anchor={anchor} onClose={() => setAnchor(null)}>
+          <div className="talent-picker" role="dialog" aria-label={`Who reads ${label}`}>
+            {talent.length === 0 ? (
+              <p className="muted small">Add this episode’s anchors and correspondents above the rundown first.</p>
+            ) : (
+              <p className="muted small">Tick everyone who talks in this section.</p>
+            )}
+            {group('Anchors', anchors)}
+            {group('Correspondents', correspondents)}
+            {group('No longer listed', unlisted)}
+            <div className="buttons">
+              <button className="primary" onClick={() => setAnchor(null)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </Popover>
       )}
-      {correspondents.length > 0 && (
-        <optgroup label="Correspondents">
-          {correspondents.map((n) => (
-            <option key={`c-${n}`} value={n}>
-              {n}
-            </option>
-          ))}
-        </optgroup>
-      )}
-      {other && <option value={other}>{other}</option>}
-    </select>
+    </>
   );
 }
 

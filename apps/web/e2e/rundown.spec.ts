@@ -76,22 +76,27 @@ test('two people build one rundown together', async ({ browser }) => {
   await expect(sam.getByRole('region', { name: 'On-air talent' })).toContainText('Jordan');
   await expect(sam.getByRole('region', { name: 'On-air talent' })).toContainText('Riley Park');
 
-  // Writer is typed in; Talent is picked from this episode's anchors and correspondents. Both sync.
+  // Writer is typed in; Talent is ticked from this episode's anchors and correspondents. Both sync.
   await rg.getByRole('textbox', { name: 'A2 writer' }).fill('Sam');
-  await expect(rg.getByLabel('A2 talent').locator('option')).toHaveText(['—', 'Everyone (cross talk)', 'Jordan', 'Riley Park']);
-  await rg.getByLabel('A2 talent').selectOption('Jordan');
+  await rg.getByRole('button', { name: 'A2 talent' }).click();
+  await expect(rg.getByRole('dialog', { name: 'Who reads A2' }).getByRole('checkbox')).toHaveCount(2);
+  await rg.getByRole('checkbox', { name: 'Jordan' }).check();
+  await rg.getByRole('button', { name: 'Done' }).click();
   await expect(sam.getByLabel('A2 writer')).toHaveValue('Sam');
-  await expect(sam.getByLabel('A2 talent')).toHaveValue('Jordan');
-  await expect(row(sam, 'A2').locator('.talent-cell .dot')).toBeVisible();
+  await expect(sam.getByRole('button', { name: 'A2 talent' })).toHaveText('Jordan');
+  await expect(row(sam, 'A2').locator('.talent-name .dot')).toBeVisible();
   await rg.getByRole('textbox', { name: 'A2 notes' }).fill('Confirm final score');
   await expect(sam.getByLabel('A2 notes')).toHaveValue('Confirm final score');
   await rg.getByRole('textbox', { name: 'A2 headline' }).fill('Horns win big');
   await rg.getByRole('textbox', { name: 'A2 assign graphics' }).fill('Pat');
   await expect(sam.getByLabel('A2 headline')).toHaveValue('Horns win big');
   await expect(sam.getByLabel('A2 assign graphics')).toHaveValue('Pat');
-  // A1 is cross talk: no single reader.
-  await rg.getByLabel('A1 talent').selectOption('Everyone (cross talk)');
-  await expect(sam.getByLabel('A1 talent')).toHaveValue('Everyone (cross talk)');
+  // Two people talk in A1.
+  await rg.getByRole('button', { name: 'A1 talent' }).click();
+  await rg.getByRole('checkbox', { name: 'Jordan' }).check();
+  await rg.getByRole('checkbox', { name: 'Riley Park' }).check();
+  await rg.getByRole('button', { name: 'Done' }).click();
+  await expect(sam.getByRole('button', { name: 'A1 talent' })).toHaveText('JordanRiley Park');
 
   // Graphics: A2 is a reader with an L3, and a VO playing over the anchor.
   await rg.getByRole('button', { name: 'Add a graphic to A2' }).click();
@@ -135,7 +140,7 @@ test('two people build one rundown together', async ({ browser }) => {
   await slugLink(rg, 'A1', 'Cold Open').click();
   await expect(rg.getByRole('heading', { name: /A1 · Cold Open/ })).toBeVisible();
   // The script page says who reads it and which camera to look at.
-  await expect(rg.getByRole('note', { name: 'Who reads and which camera' })).toContainText('Everyone (cross talk)');
+  await expect(rg.getByRole('note', { name: 'Who reads and which camera' })).toContainText('Riley Park');
   await expect(rg.getByRole('note', { name: 'Who reads and which camera' })).toContainText('Camera 1');
   await rg.getByLabel('Script for A1').fill('Good evening and welcome to TSTV News.');
   await expect(rg.locator('.script-stats')).toContainText('7 words');
@@ -167,6 +172,7 @@ test('two people build one rundown together', async ({ browser }) => {
   expect(csv).toContain('A1,Cold Open');
   expect(csv).toContain('"VO Highlights, L3"');
   expect(csv).toContain('A2,Basketball Wins,Reader,Sam,Jordan,Camera 1,Horns win big,');
+  expect(csv).toContain('"Jordan, Riley Park"');
   expect(csv).toContain('"Station ID, TEASE"');
   expect(csv).toContain('Sam Writer');
 

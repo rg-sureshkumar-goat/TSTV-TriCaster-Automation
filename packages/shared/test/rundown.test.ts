@@ -33,7 +33,7 @@ const section = (slug: string, estSeconds: number | null, extra: Partial<Section
   slug,
   type: '',
   writer: '',
-  talent: '',
+  talent: [],
   camera: '',
   headline: '',
   notes: '',
@@ -111,6 +111,18 @@ describe('shared document', () => {
     expect(row.estSeconds).toBe(45);
     expect(row.createdBy).toEqual(alex);
     expect(row.updatedBy).toEqual(sam);
+  });
+
+  it('lets several people read a section, and reads sections saved with one typed-in name', () => {
+    const doc = new Y.Doc();
+    const id = insertSection(doc, alex, { slug: 'Q&A' });
+    updateRow(doc, id, { talent: ['Jordan', 'Riley Park'] }, alex);
+    expect((readRows(doc)[0] as SectionRow).talent).toEqual(['Jordan', 'Riley Park']);
+    // Before Oct 29, 2026 a section held one name as text.
+    rowsOf(doc).get(0).set('talent', ' Jordan ');
+    expect((readRows(doc)[0] as SectionRow).talent).toEqual(['Jordan']);
+    rowsOf(doc).get(0).set('talent', '');
+    expect((readRows(doc)[0] as SectionRow).talent).toEqual([]);
   });
 
   it('moves a row and keeps its id and authorship', () => {

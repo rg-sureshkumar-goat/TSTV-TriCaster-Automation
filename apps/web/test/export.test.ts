@@ -5,8 +5,8 @@ import { toCsv } from '../src/rundown/export.ts';
 const sam = { id: 'u2', name: 'Sam Writer' };
 const rows: Row[] = [
   { id: 'a', kind: 'block', title: 'Top stories' },
-  { id: 's1', kind: 'section', slug: 'Basketball, "big" win', type: 'Reader', writer: 'Sam', talent: 'Jordan', camera: '', headline: 'Horns win big', notes: 'Check score', assignGraphics: 'Pat', floated: false, estSeconds: 90, elements: [{ id: 'e1', type: 'L3', name: 'Score' }, { id: 'e2', type: 'VO', name: '' }, { id: 'e3', type: 'PERM', name: 'Station ID' }], createdBy: sam, updatedBy: sam },
-  { id: 's2', kind: 'section', slug: 'Weather', type: 'Cross Talk', writer: '', talent: 'Riley', camera: 'Camera 3', headline: '', notes: '', assignGraphics: '', floated: true, estSeconds: 60, elements: [] },
+  { id: 's1', kind: 'section', slug: 'Basketball, "big" win', type: 'Reader', writer: 'Sam', talent: ['Jordan', 'Riley'], camera: '', headline: 'Horns win big', notes: 'Check score', assignGraphics: 'Pat', floated: false, estSeconds: 90, elements: [{ id: 'e1', type: 'L3', name: 'Score' }, { id: 'e2', type: 'VO', name: '' }, { id: 'e3', type: 'PERM', name: 'Station ID' }], createdBy: sam, updatedBy: sam },
+  { id: 's2', kind: 'section', slug: 'Weather', type: 'Cross Talk', writer: '', talent: ['Riley'], camera: 'Camera 3', headline: '', notes: '', assignGraphics: '', floated: true, estSeconds: 60, elements: [] },
 ];
 
 describe('CSV export', () => {
@@ -19,7 +19,7 @@ describe('CSV export', () => {
   });
 
   it('quotes commas and quotes, lists elements in order, fills in the default camera, and names the writer', () => {
-    expect(lines[2]).toBe('A1,"Basketball, ""big"" win",Reader,Sam,Jordan,Camera 1,Horns win big,"L3 Score, VO, Station ID",Check score,Pat,,1:30,7:28:30 PM,Sam Writer,Sam Writer');
+    expect(lines[2]).toBe('A1,"Basketball, ""big"" win",Reader,Sam,"Jordan, Riley",Camera 1,Horns win big,"L3 Score, VO, Station ID",Check score,Pat,,1:30,7:28:30 PM,Sam Writer,Sam Writer');
   });
 
   it('marks floated sections and gives them no back-time', () => {

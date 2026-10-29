@@ -2,10 +2,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import {
+  colorForTalent,
   computeRundown,
   countWords,
   elementLabel,
-  EVERYONE_TALENT,
   formatDuration,
   noteScriptEdit,
   READING_SPEED,
@@ -63,9 +63,7 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
   const { fastestSeconds, slowestSeconds } = readTimeRange(words);
   const readTime = fastestSeconds === slowestSeconds ? formatDuration(fastestSeconds) : `${formatDuration(fastestSeconds)}–${formatDuration(slowestSeconds)}`;
   const colors = talentColors(room.talent, show.settings.talent);
-  const talentColor = section && colors.find((t) => t.name.toLowerCase() === section.talent.trim().toLowerCase())?.color;
   const camera = section ? section.camera || show.settings.defaultCamera : '';
-  const everyone = section?.talent === EVERYONE_TALENT;
   const here = room.others.filter((o) => o.focus === `${sectionId}:script`);
   const link = (i: number) => `/episodes/${episode.id}/sections/${sections[i].row.id}`;
 
@@ -92,9 +90,17 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
           <div className="read-cue" role="note" aria-label="Who reads and which camera">
             <div>
               <span className="muted small">Read by</span>
-              <strong>
-                {talentColor && <span className="dot inline" style={{ background: talentColor }} />}{' '}
-                {everyone ? 'Everyone (cross talk)' : section.talent || 'Not picked yet'}
+              <strong className="read-by">
+                {section.talent.length === 0
+                  ? 'Not picked yet'
+                  : section.talent.map((name) => {
+                      const color = colorForTalent(name, colors);
+                      return (
+                        <span key={name}>
+                          {color && <span className="dot inline" style={{ background: color }} />} {name}
+                        </span>
+                      );
+                    })}
               </strong>
             </div>
             <div>
@@ -108,6 +114,9 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
               </div>
             )}
           </div>
+          {section.talent.length > 1 && (
+            <p className="muted small">Several people read this section. Start each person’s part with their name in curly brackets on its own line, like {'{'}{section.talent[0]}{'}'}.</p>
+          )}
           <p className="script-meta">
             {section.type && <span>Type: {section.type}</span>}
             {section.writer && <span>Writer: {section.writer}</span>}

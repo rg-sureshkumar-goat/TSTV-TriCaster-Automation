@@ -34,9 +34,6 @@ export function isElementType(value: unknown): value is ElementType {
   return typeof value === 'string' && (ELEMENT_TYPES as readonly string[]).includes(value);
 }
 
-/** The Talent choice for sections with no single reader: everyone talks (cross talk). */
-export const EVERYONE_TALENT = 'Everyone (cross talk)';
-
 export interface BlockRow {
   id: string;
   kind: 'block';
@@ -54,8 +51,11 @@ export interface SectionRow {
   type: string;
   /** Who writes the section's script, typed in by the producer. */
   writer: string;
-  /** Who reads it on air: one of the episode's anchors or correspondents, or EVERYONE_TALENT for cross talk. */
-  talent: string;
+  /**
+   * Who reads it on air: one or more of the episode's anchors and correspondents. When several people
+   * talk, the script marks each person's part with their name in curly brackets, like {Jordan}.
+   */
+  talent: string[];
   /** Camera name from the show's camera list; empty means the show's default camera. */
   camera: string;
   /** The on-screen headline for the section. */
@@ -84,7 +84,7 @@ export const EMPTY_SECTION: SectionFields = {
   slug: '',
   type: '',
   writer: '',
-  talent: '',
+  talent: [],
   camera: '',
   headline: '',
   notes: '',
@@ -116,7 +116,7 @@ export function readRow(map: Y.Map<unknown>): Row {
     slug: text(s.slug),
     type: text(s.type),
     writer: text(s.writer),
-    talent: text(s.talent),
+    talent: readTalent(s.talent),
     camera: text(s.camera),
     headline: text(s.headline),
     notes: text(s.notes),
@@ -133,6 +133,18 @@ export function readRow(map: Y.Map<unknown>): Row {
           .map((e) => ({ id: String(e.id), type: e.type, name: String(e.name ?? '') }))
       : [],
   };
+}
+
+/** A section's talent list. Sections saved before several people could be picked hold one name as text. */
+function readTalent(value: unknown): string[] {
+  const names = Array.isArray(value) ? value : [value];
+  const clean = names.filter((n): n is string => typeof n === 'string').map((n) => n.trim()).filter(Boolean);
+  return [...new Set(clean)];
+}
+
+/** "Jordan", or "Jordan, Riley Park" when several people read a section. */
+export function talentLabel(talent: string[]): string {
+  return talent.join(', ');
 }
 
 export function readRows(doc: Y.Doc): Row[] {

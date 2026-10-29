@@ -1,6 +1,6 @@
 // Exporting a rundown as CSV (for spreadsheets) or PDF (for printing and sharing). Both are made in
 // the browser, so they cost nothing on the server.
-import { elementLabel, formatClock, formatDuration, formatOverUnder, type RundownTiming, type SectionRow } from '@tstv/shared';
+import { elementLabel, formatClock, talentLabel, formatDuration, formatOverUnder, type RundownTiming, type SectionRow } from '@tstv/shared';
 
 export interface ExportInfo {
   showName: string;
@@ -26,7 +26,7 @@ function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
       s.slug,
       s.type,
       s.writer,
-      s.talent,
+      talentLabel(s.talent),
       s.camera || info.defaultCamera,
       s.headline,
       s.elements.map(elementLabel).join(', '),
