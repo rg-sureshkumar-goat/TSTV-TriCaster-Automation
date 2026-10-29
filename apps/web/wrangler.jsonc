@@ -14,8 +14,8 @@
     {
       "binding": "DB",
       "database_name": "tstv-show",
-      // Filled in when the database is created on TSTV's Cloudflare account (Phase 1 deploy).
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // The free D1 database on the Cloudflare account (created Oct 28, 2026).
+      "database_id": "657cf217-8a8e-4e3d-a90e-fd6921aac729",
       "migrations_dir": "migrations"
     }
   ],
