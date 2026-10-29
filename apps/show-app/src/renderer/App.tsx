@@ -298,7 +298,7 @@ function Playlist({ state, onImport, onReview }: { state: AppState; onImport: ()
       }
     >
       <h3>On air</h3>
-      <div className="on-air">{automation.onAir ? <Item element={automation.onAir} /> : <span className="muted">Nothing on DSK 2</span>}</div>
+      <div className="on-air">{automation.onAir ? <Item element={automation.onAir} musicTrack={state.musicTrack?.file} /> : <span className="muted">Nothing on DSK 2</span>}</div>
       <h3>
         Up next
         <button className="fire" onClick={() => act({ kind: 'fireNext' })} disabled={automation.upNext.length === 0 || automation.paused}>
@@ -308,7 +308,7 @@ function Playlist({ state, onImport, onReview }: { state: AppState; onImport: ()
       <ol className="queue">
         {automation.upNext.map((e, i) => (
           <li key={e.id} className={i === 0 ? 'first' : ''}>
-            <Item element={e} />
+            <Item element={e} musicTrack={state.musicTrack?.file} />
             <span className="actions">
               {i > 0 && <button onClick={() => act({ kind: 'chooseNext', elementId: e.id })}>Play next</button>}
               {automation.nextChoice === e.id && <button onClick={() => act({ kind: 'chooseNext', elementId: null })}>Back in order</button>}
@@ -323,11 +323,18 @@ function Playlist({ state, onImport, onReview }: { state: AppState; onImport: ()
   );
 }
 
-function Item({ element }: { element: ElementView }) {
+/** One cue: its chip, its section, and the file that will play (RG, Oct 29, 2026), or the show's music track. */
+function Item({ element, musicTrack }: { element: ElementView; musicTrack?: string | null }) {
+  const file = element.behavior === 'music' ? musicTrack : element.file;
   return (
     <span className="item">
       <span className={`chip ${elementKind(element.type)}`}>{element.label}</span>
       <span className="muted">{element.sectionLabel}</span>
+      {file && (
+        <span className="file-name" title={file}>
+          {file}
+        </span>
+      )}
       {element.behavior !== 'music' && !element.file && <span className="missing">no file</span>}
       {element.behavior !== 'music' && element.file && element.ddrItem === null && (
         <span className="missing" title="Its file isn’t in DDR 2 yet: use Load into the simulator in the Graphics window">

@@ -769,3 +769,24 @@ h3 {
 .music .row {
   margin-bottom: 10px;
 }
+
+/* The file a cue plays, next to its section number; long names end in "…" (hover for the whole name). */
+.item .file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.queue li .item {
+  flex: 1;
+  min-width: 0;
+}
+
+.item > .chip,
+.item > .muted,
+.item > .missing {
+  flex: none;
+}

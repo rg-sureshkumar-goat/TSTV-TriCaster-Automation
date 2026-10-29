@@ -56,14 +56,15 @@ function simple(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-/** True when a file's slug plausibly belongs to a section or element named this. */
+/**
+ * True when a file's slug plausibly belongs to a section or element named this. With no slug or name to
+ * compare (a section without a slug yet), there's nothing to doubt.
+ */
 export function slugMatches(fileSlug: string, ...names: string[]): boolean {
   const a = simple(fileSlug);
-  if (!a) return true;
-  return names.some((n) => {
-    const b = simple(n);
-    return b !== '' && (a.includes(b) || b.includes(a));
-  });
+  const known = names.map(simple).filter(Boolean);
+  if (!a || known.length === 0) return true;
+  return known.some((b) => a.includes(b) || b.includes(a));
 }
 
 export interface MediaSection {

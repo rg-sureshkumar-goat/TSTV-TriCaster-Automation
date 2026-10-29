@@ -39,6 +39,11 @@ describe('matching files to the rundown', () => {
     ]);
   });
 
+  it('doesn’t doubt a file for a section that has no slug yet', () => {
+    const result = matchMedia(['C1_LITES_Opener.mp4'], [{ label: 'C1', slug: '', elements: [{ id: 'lites', type: 'LITES', name: '' }] }]);
+    expect(result.matches).toEqual([{ file: 'C1_LITES_Opener.mp4', elementId: 'lites', section: 'C1', checkSlug: false }]);
+  });
+
   it('tells two files of one type apart by the elements’ names, and asks when it can’t', () => {
     const named = matchMedia(['A2_VO_Crowd.mov', 'A2_VO_Highlights.mov'], sections);
     expect(named.matches.map((m) => [m.file, m.elementId])).toEqual([
