@@ -397,6 +397,44 @@ table.simple td {
   border-bottom: 1px solid var(--border);
 }
 
+.notice {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--warn);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.usage td {
+  vertical-align: top;
+}
+
+.usage-bar-cell {
+  min-width: 140px;
+}
+
+.usage-bar {
+  height: 8px;
+  margin: 6px 0 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.usage-bar span {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+}
+
+.usage-bar.medium span {
+  background: var(--warn);
+}
+
+.usage-bar.high span {
+  background: var(--danger);
+}
+
 .search-box {
   width: 100%;
   font-size: 17px;

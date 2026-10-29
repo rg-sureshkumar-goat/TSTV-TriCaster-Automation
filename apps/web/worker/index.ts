@@ -6,6 +6,7 @@ import { getServerByName, routePartykitRequest } from 'partyserver';
 import { DEFAULT_SHOW_SETTINGS, normalizeShowSettings } from '@tstv/shared';
 import { authRoutes, getSessionUser } from './auth.ts';
 import type { Env, User } from './env.ts';
+import { fetchUsage } from './usage.ts';
 
 export { EpisodeRoom } from './room.ts';
 
@@ -249,6 +250,13 @@ app.get('/admin/people', adminOnly, async (c) => {
     users: users.results.map((u) => ({ id: u.id, email: u.email, name: u.name, isAdmin: u.is_admin === 1, lastSeenAt: u.last_seen_at })),
     invites: invites.results.map((i) => ({ email: i.email, createdAt: i.created_at })),
   });
+});
+
+// Today's Cloudflare usage against the free limits. Needs CF_ACCOUNT_ID and CF_API_TOKEN (docs/PHASE-2.md).
+app.get('/admin/usage', adminOnly, async (c) => {
+  if (!c.env.CF_ACCOUNT_ID || !c.env.CF_API_TOKEN) return c.json({ configured: false });
+  const items = await fetchUsage(c.env.CF_ACCOUNT_ID, c.env.CF_API_TOKEN);
+  return c.json({ configured: true, items, checkedAt: Date.now() });
 });
 
 app.post('/admin/invites', adminOnly, async (c) => {

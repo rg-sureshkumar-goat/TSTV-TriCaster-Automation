@@ -104,6 +104,12 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
   - **The rundown's Est. fills in from the script's read time** (the middle of that range, 148.5 words a minute). Typing a length overrides it; clearing it goes back to the script's time.
 - **Live co-editing**, like Google Docs: several people type in the same rundown and the same script at once, with each other's cursors visible and no overwritten work.
 - **Cues** are inserted with a toolbar button or shortcut as locked chips in the text: Take L3, Take VO, Take SOT, Take PKG, Take OTSL, Take OTSR, Take FSG.
+- **Decided Oct 29, 2026 (Phase 2):**
+  - The cue toolbar lists the section's graphics from the rundown, and each chip is linked to its graphic, one cue per graphic. **+ New graphic** adds a graphic to the rundown and drops its cue in one step. Renaming a graphic renames its chip; a removed graphic's chip shows as **Removed graphic**.
+  - In the rundown, graphics with no cue chip in their script yet have a dashed outline.
+  - Speaker tags (`{Name}`) show in the speaker's color, names that aren't the episode's talent are flagged, and a **Speakers** button starts each reader's part.
+  - Speaker tags and cue chips don't count as read words.
+  - Phase 1 plain-text scripts are copied into the editor word for word, one paragraph per line, and the original text is kept.
 - Each section is tagged with the on-air **talent** who reads it, and the prompter shows that name at the section's start.
 - During the show the producer can edit any script, and changes reach the prompter within about a second.
 

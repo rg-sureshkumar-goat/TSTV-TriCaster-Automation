@@ -224,7 +224,7 @@ Checked Oct 28, 2026. Limits change, so I'll recheck before each deploy phase.
 
 - **Daily reset.** Cloudflare's daily limits reset at 00:00 UTC, which is 7 pm Central during daylight saving time and 6 pm in winter. Even if a limit ran out mid-show, TC1 control and Pause would keep working, and the producer could fire cues with the spacebar.
 - **Sleep and wake.** Cloudflare doesn't pause free projects, so there's nothing to wake after winter or summer break. The brief asks for wake-up instructions, and with this stack there are none to give.
-- **Usage page.** I plan an admin page that shows today's usage against these limits, as part of Phase 1.
+- **Usage page.** Built in Phase 2: the admin's **Usage** page shows today's usage against these limits, from Cloudflare's analytics API, using a read-only token the TD creates (see [PHASE-2.md](PHASE-2.md)).
 - **What we avoid on purpose:**
   - Cloudflare R2 file storage, which asks for a payment method even on its free tier
   - Any paid plan

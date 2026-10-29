@@ -44,7 +44,7 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
 - Cue chips in scripts, and talent tags shown in the script, come in Phase 2.
 - The prompter, plus actual section timing recorded from it, comes in Phase 3.
 - Graphics don't yet link to script cues (Phase 2) or files with Ready/Missing (Phase 4).
-- The admin usage panel (today's Cloudflare usage against the free limits) moves to the next phase.
+- The admin usage panel (today's Cloudflare usage against the free limits) moved to Phase 2.
 
 ## Try it on your Mac first (no accounts needed)
 

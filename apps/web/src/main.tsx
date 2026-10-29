@@ -8,6 +8,7 @@ import { ShowPage } from './pages/Show.tsx';
 import { EpisodePage } from './pages/Episode.tsx';
 import { SearchPage } from './pages/Search.tsx';
 import { PeoplePage } from './pages/People.tsx';
+import { UsagePage } from './pages/Usage.tsx';
 import { PrivacyPage } from './pages/Privacy.tsx';
 import './styles.css';
 
@@ -49,6 +50,7 @@ function App() {
     );
   else if (path === '/search') page = <SearchPage />;
   else if (path === '/people' && user.isAdmin) page = <PeoplePage me={user} />;
+  else if (path === '/usage' && user.isAdmin) page = <UsagePage />;
   else page = <div className="empty">That page doesn’t exist. <Link to="/">Go to Shows</Link></div>;
 
   return (
@@ -61,6 +63,7 @@ function App() {
           <Link to="/" className={path === '/' || path.startsWith('/shows') ? 'active' : ''}>Shows</Link>
           <Link to="/search" className={path === '/search' ? 'active' : ''}>Search</Link>
           {user.isAdmin && <Link to="/people" className={path === '/people' ? 'active' : ''}>People</Link>}
+          {user.isAdmin && <Link to="/usage" className={path === '/usage' ? 'active' : ''}>Usage</Link>}
         </nav>
         <div className="me">
           <span title={user.email}>{user.name}</span>
