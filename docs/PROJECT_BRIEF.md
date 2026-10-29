@@ -83,7 +83,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
   - **MUSIC (decided Oct 29, 2026):** music is an element too, shown in purple and named by its track, such as the intro music that plays under the tease at the top of block A. The show app plays it from the TC1's Sound player when its cue is reached.
   - **Permanent graphics (decided Oct 29, 2026):** each show has a list of graphics used in every episode. TSTV's default list is Station ID, Show Intro, Commercial Break, Social Media L3, Website L3 and Station Outro, and each show can edit it in its settings. The Graphics column can pick any of them for a section. In Phase 4 the show app makes sure they're loaded on the TriCaster before every show.
   - Elements are planned in the rundown first.
-  - In Phase 2 each element is linked to its cue chip in the script. In Phase 4 it's linked to its file, with Ready or Missing.
+  - In Phase 2 each element is linked to its cue chip in the script. In Phase 4 it's linked to its file in the show app, and the rundown shows ✓ when it has one.
   - The TriCaster cueing is built from them.
 - **Commercial breaks (decided Oct 29, 2026):** a commercial break is added automatically between every two blocks. It shows the show's break permanent graphic (Commercial Break) and its length, and goes wherever the row below it goes. Each show sets its default break length in its settings (0:00 by default, which leaves breaks out of the timing); breaks count toward the episode total and back-times.
   - **Admins can change breaks in the rundown (decided Oct 29, 2026):** remove any break with the **×** to the left of "Commercial break", add a break above any section or block (from its ⋯ menu), and type a different length for one break right in its line, where it says "The show's break length". Clearing that length goes back to the show's. Contributors see the breaks but can't change them. (The website hides these controls from contributors; it doesn't block them on the server, which is fine for a team tool.)
@@ -138,7 +138,7 @@ The prompter is a full-screen page of the website, opened in a browser on the ex
 
 - **Controls:** the up arrow speeds up, the down arrow slows down, exactly like today. The spacebar pauses and resumes. Other keys jump to the next or previous section and back to the top.
   - **Decided Oct 29, 2026 (Phase 3):** a **prompter operator** runs it from the keyboard. Pressing the down arrow past a stop runs the text **backwards**, faster with each press, as today's prompter does. **Page Down** or **→** jumps to the next section, **Page Up** or **←** goes back to the start of the section (then the one before), **H** (or Home) goes back to the top, stopped. A **Go to section** list at the top, listing each section's number and slug, jumps to any section. **F** is full screen, **S** opens the settings and **?** the list of keys. The mouse wheel nudges the text.
-  - **Signing in (decided Oct 29, 2026):** the prompter computer signs in to the website once with Google, ideally with a TSTV station Gmail that an admin invites, and stays signed in. (Pairing a computer with a code may come with the show app in Phase 4.)
+  - **Signing in (decided Oct 29, 2026):** the prompter computer signs in to the website once with Google, ideally with a TSTV station Gmail that an admin invites, and stays signed in. (The show app connects with the episode's key instead of a sign-in; see Part 3.)
   - Opened from an episode's **Open prompter** button, at `/prompter/<episode>`.
   - **Looks (decided Oct 29, 2026):** the reading line is marked by big white arrows at each side. Each section starts with just its number, in green on a red box, and the camera to look at; who reads comes from the speaker markers in the script. A cross-talk section shows `**CROSS TALK**`, with the asterisks.
 - **Settings:** text size, line width and margins, line spacing, text and background colors, the position of the reading-line marker, and **the size of the reading-line arrows** (added Oct 29, 2026). No mirror setting is needed.
@@ -155,8 +155,8 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 - The producer plugs the USB-C-to-Ethernet adapter and the TC1 cable into her laptop and opens the app. The app finds the TC1 on the cable by itself. Producers never change network settings.
 - **No sign-in in the show app (decided Oct 28, 2026).** Only one laptop is connected at a time, and running the TC1 means being in the studio on the cable.
-- **Proposed, to confirm in Phase 4:** the app still reads the rundown and cues from the website. To keep scripts and the cue feed private, the admin links each show laptop to the website once.
-- **Episode key (RG, Oct 29, 2026; for Phase 4):** every episode gets its own unique key, which is copied from the website and pasted into the show app, so the app knows exactly which rundown to take cues and information from. To design in Phase 4 together with linking the laptop.
+- The app reads the rundown and cues from the website, using the episode key below.
+- **Episode key (decided Oct 29, 2026):** every episode has its own key, which the producer (or an admin) copies from the episode's **Show app key** button and pastes into the show app. The key alone lets the app follow that episode and its cues, read-only; there's no separate laptop approval. **Make a new key** cuts off any app using the old one.
 - Status lights show whether the website, the prompter and the TriCaster are connected.
 
 **Producer screen**
@@ -171,7 +171,9 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 **Importing graphics**
 
 - On an episode, the producer clicks **Import graphics** and picks the files or folder, usually from the USB drive the graphics team hands her.
-- File names follow `[Block][Section]_[Type]_[Slug]`, for example `B5_VO_Basketball.mov`. Types: L3, OTSL, OTSR, FSG, VO, SOT, PKG.
+- File names follow `[Block][Section]_[Type]_[Slug]`, for example `B5_VO_Basketball.mov`. Types: L3, OTSL, OTSR, FSG, TEASE, LITES, VO, SOT, PKG, plus the real playlist's **NAMES** (a lower third with the anchors' and correspondents' names, treated as L3) and **RDR** (an OTS graphic) (RG, Oct 29, 2026). Spellings like `OTS_L`, double underscores, `(1)` or `copy` at the end, and spaces are read too.
+- **Matching (decided Oct 29, 2026):** by section number and type first, then a check that the file's slug looks like the section's; if it doesn't, the app asks.
+- **Permanent graphics** are given a file once per show, and the app remembers it for every episode.
 - The app reads each name and attaches the file to the matching cue in that section. `B5_VO_Basketball` goes to section B5's Take VO cue. It also reads each file's length and makes a thumbnail.
 - It stops and asks the producer whenever it can't decide. For example: two files of the same type for one section (`B5_VO_Basketball1`, `B5_VO_Basketball2`), more files than cues, a cue with no file, a section that doesn't exist, or a name that doesn't follow the pattern. The producer drags each file onto the right cue.
 - Formats: L3, OTS and FSG files are Apple ProRes 4444 with alpha in QuickTime (.mov). VO, SOT and PKG files are .mov or .mp4.
@@ -218,10 +220,11 @@ Every element except MUSIC plays from DDR2 through DSK 2. Only one element is on
 | L3 | Its Take L3 cue reaches the reading line (usually the top of the section) | The section ends. It comes back up if a VO in the same section ends early. |
 | OTSL / OTSR | Its cue reaches the reading line | The section ends |
 | FSG | Its cue reaches the reading line | The section ends |
-| VO | Its cue reaches the reading line, and DDR2 plays the clip while the anchor reads | **Clip ends first:** DSK 2 off, the anchors are back, and the section's L3 returns if it has one. **Section ends first:** DDR2 stops, DSK 2 off, back to the anchors. |
-| SOT | Its cue reaches the reading line, and it plays with its own audio | The clip ends, then back to the anchors (assumed; to confirm) |
-| PKG | Same as SOT | Same as SOT (assumed; to confirm) |
-| MUSIC | Its cue reaches the reading line, and the Sound player plays the named track. It plays alongside DDR2, so graphics can go up over it. | The track ends (assumed; to confirm) |
+| VO, TEASE, LITES | Its cue reaches the reading line, and DDR2 plays the clip while the anchor reads (TEASE and LITES play like a VO: RG, Oct 29, 2026) | **Clip ends first:** DSK 2 off, the anchors are back, and the section's L3 returns if it has one. **Section ends first:** DDR2 stops, DSK 2 off, back to the anchors. |
+| SOT | Its cue reaches the reading line, and it plays with its own audio | The clip ends, then back to the anchors (confirmed by RG, Oct 29, 2026) |
+| PKG | Same as SOT | Same as SOT (confirmed Oct 29, 2026) |
+| Permanent graphics | Their cue. Those with their own audio (Show Intro, Station ID, Station Outro, Commercial Break) play like a SOT; Social Media L3 and Website L3 are lower thirds (RG, Oct 29, 2026). Each show sets which are which in its settings. | Like a SOT, or like an L3 |
+| MUSIC | **Decided Oct 29, 2026:** by default when the first Tease section in block A starts; also when a MUSIC cue reaches the reading line. The Sound player plays the named track alongside DDR2, so graphics can go up over it. | By default just before the Show Intro fires. The producer can change the music-in and music-out points for each show in the show app. |
 
 A section "ends" when the next section's start crosses the prompter's reading line. Clip end comes from the TriCaster's own playback status when it's available. Otherwise it comes from the clip length measured at import.
 
@@ -275,13 +278,13 @@ There's no deadline, so the plan aims for the fastest path to a first live test.
 
 ## Open questions
 
-- [ ] Do SOTs and packages play to the end and then go back to the anchors, as assumed?
+- [x] Do SOTs and packages play to the end and then go back to the anchors, as assumed? *Yes (RG, Oct 29, 2026).*
 - [x] Which TriCaster inputs are the three cameras, and which camera faces the green screen? *Inputs 1–3. Cameras 1 and 2 have prompter monitors; camera 3 is the wide shot. All three face the green screen.*
 - [x] Is DDR1 free for green-screen video backgrounds? *Yes. It isn't used.*
 - [ ] Who must approve changing TC1 settings (a fixed network address, a shared folder)? *No network change is needed. Copying files over the cable needs a Windows login on the TC1.*
 - [ ] During a show, is the green-screen key on air the whole time behind the anchors, and through which M/E? The probe saw GFX 1 on program through M/E 1. *(There's no per-section green screen: decided Oct 28, 2026.)*
-- [ ] How do the file types TEASE, NAMES, RDR and LITES (seen on the real DDR2 playlist) map to cues? Should the importer also accept spellings like `OTS_L` and names ending in `(1)` or `copy`?
-- [ ] Intro music: which Sound player track is it ("PrimeTime Main"?), does it play to its end or stop when the tease ends, and does the sound board need to do anything for it?
+- [x] How do the file types TEASE, NAMES, RDR and LITES (seen on the real DDR2 playlist) map to cues? Should the importer also accept spellings like `OTS_L` and names ending in `(1)` or `copy`? *TEASE and LITES play like a VO; NAMES is an L3; RDR is an OTS; and yes to the spellings (RG, Oct 29, 2026).*
+- [x] Intro music: when does it start and stop? *By default it starts with the first Tease in block A and stops just before the Show Intro; each show can change both in the show app (RG, Oct 29, 2026). The track is the MUSIC element's name, like "PrimeTime Main". Whether the sound board needs to do anything is still to confirm.*
 - [ ] When the app builds the DDR2 playlist, should it put the break clip ("TSTV Ident 2022 News") at the start of each block, as TDs do today?
 - [ ] Who may sign in to the website: invited people only, or anyone with a UT email?
 - [ ] Should old Rundown Creator rundowns be imported, or does TSTV start fresh?

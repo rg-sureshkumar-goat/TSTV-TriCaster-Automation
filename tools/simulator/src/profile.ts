@@ -57,6 +57,8 @@ export const PLAYERS = [
   { id: 'ddr2', label: 'B', stills: false, autoplay: true },
   { id: 'gfx1', label: 'GFX 1', stills: true, autoplay: false },
   { id: 'gfx2', label: 'GFX 2', stills: true, autoplay: false },
+  // The Sound player holds the show's music, with AutoPlay off (probe, Oct 28, 2026).
+  { id: 'sound', label: 'SOUND', stills: false, autoplay: false },
 ] as const;
 
 export const ME_COUNT = 4;
@@ -94,6 +96,10 @@ export const DEFAULT_PLAYLISTS: Record<string, ClipSpec[]> = {
     { name: 'Weather Map BG', durationMs: 0 },
   ],
   gfx2: [],
+  sound: [
+    { name: 'PrimeTime Main', durationMs: 56_000 },
+    { name: 'PrimeTime Transition Music', durationMs: 21_000 },
+  ],
 };
 
 export const MACROS: MacroSpec[] = [
@@ -110,5 +116,6 @@ export const GUESSED_NAMES = new Set([
   'record_start',
   'record_stop',
   ...['ddr1', 'ddr2', 'gfx1', 'gfx2'].flatMap((p) => [`${p}_select_index`, `${p}_select_clips`]),
+  'sound_select_index',
   ...Array.from({ length: DSK_COUNT }, (_, i) => `main_dsk${i + 1}_select`),
 ]);

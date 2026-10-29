@@ -137,6 +137,8 @@ function render() {
     row('Program', esc(programText)),
     row('DSK 2', dsk.onAir ? esc(dskPlayer ? currentClip(dskPlayer)?.name ?? 'on' : label(dsk.source)) : 'Off', dsk.onAir),
     row('Recording', sw.recording.on ? `● ${time(sw.recording.seconds * 1000)}` : 'Off', sw.recording.on),
+    // The Sound player plays the show's music (Phase 4).
+    row('Sound player', sw.players.sound?.playing ? `♪ ${esc(currentClip(sw.players.sound)?.name ?? 'Playing')}` : 'Stopped', Boolean(sw.players.sound?.playing)),
     row('Show app', appConnected ? 'Connected' : 'Not connected'),
   ].join(''));
 

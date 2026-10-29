@@ -9,15 +9,17 @@
   "workspaces": [
     "packages/shared",
     "apps/web",
+    "apps/show-app",
     "tools/simulator"
   ],
   "scripts": {
     "probe": "node tools/probe/probe.mjs",
     "simulator": "tsx tools/simulator/src/main.ts",
     "test": "vitest run",
-    "typecheck": "tsc -p tools/simulator && tsc -p tools/probe && tsc -p packages/shared && tsc -p apps/web && tsc -p apps/web/worker",
+    "typecheck": "tsc -p tools/simulator && tsc -p tools/probe && tsc -p packages/shared && tsc -p apps/web && tsc -p apps/web/worker && tsc -p apps/show-app",
     "dev": "npm run dev -w apps/web",
-    "test:e2e": "npm run test:e2e -w apps/web"
+    "test:e2e": "npm run test:e2e -w apps/web",
+    "show-app": "npm start -w apps/show-app"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
@@ -30,6 +32,8 @@
     "esbuild": false,
     "fsevents": false,
     "workerd": false,
-    "core-js": false
+    "core-js": false,
+    "electron": true,
+    "ffmpeg-static": true
   }
 }

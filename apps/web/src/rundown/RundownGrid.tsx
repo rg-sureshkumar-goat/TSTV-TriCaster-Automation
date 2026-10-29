@@ -30,6 +30,7 @@ import {
   type ComputedRow,
   type Element,
   type ElementType,
+  type MediaStatus,
   type EpisodeTalent,
   type Person,
   type RundownTiming,
@@ -52,6 +53,8 @@ interface GridProps {
   talent: EpisodeTalent[];
   /** Graphics that have a cue chip in a script. */
   cued: Set<string>;
+  /** Each element's file, from the show app. */
+  media: Record<string, MediaStatus>;
   airTime: string;
   me: Person;
   readOnly: boolean;
@@ -61,7 +64,7 @@ interface GridProps {
   setFocus: (focus: string | null) => void;
 }
 
-export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, airTime, me, readOnly, isAdmin, others, setFocus }: GridProps) {
+export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, media, airTime, me, readOnly, isAdmin, others, setFocus }: GridProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const ids = timing.rows.map((c) => c.row.id);
 
@@ -138,6 +141,7 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, ai
                       settings={settings}
                       talent={talent}
                       cued={cued}
+                      media={media}
                       readOnly={readOnly}
                       backTime={backTime(c.backTimeOffset)}
                       focusedBy={focusedBy}
@@ -287,6 +291,7 @@ interface SectionLineProps {
   settings: ShowSettings;
   talent: EpisodeTalent[];
   cued: Set<string>;
+  media: Record<string, MediaStatus>;
   readOnly: boolean;
   backTime: string;
   focusedBy: (rowId: string, field: string) => Presence[];
@@ -295,7 +300,7 @@ interface SectionLineProps {
   extraItems: MenuItem[];
 }
 
-function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, cued, readOnly, backTime, focusedBy, setFocus, extraItems }: SectionLineProps) {
+function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, cued, media, readOnly, backTime, focusedBy, setFocus, extraItems }: SectionLineProps) {
   const row = computed.row;
   const set = (patch: Partial<SectionRow>) => updateRow(doc, row.id, patch, me);
   const cell = (field: string, children: ReactNode, className = '') => {
@@ -342,7 +347,7 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
           {cell('talent', <TalentPicker value={row.talent} talent={talent} colors={settings.talent} label={computed.label} readOnly={readOnly} onChange={(names) => set({ talent: names })} />, 'person-col')}
           {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
           {cell('headline', <TextCell value={row.headline} placeholder="Headline" readOnly={readOnly} onCommit={(headline) => set({ headline })} ariaLabel={`${computed.label} headline`} />, 'headline-col')}
-          {cell('elements', <ElementsCell section={row} label={computed.label} permanent={settings.permanentGraphics} cued={cued} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
+          {cell('elements', <ElementsCell section={row} label={computed.label} permanent={settings.permanentGraphics} cued={cued} media={media} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
           {cell('notes', <TextCell value={row.notes} placeholder="Notes" readOnly={readOnly} onCommit={(notes) => set({ notes })} ariaLabel={`${computed.label} notes`} />, 'notes-col')}
           {cell('assignGraphics', <TextCell value={row.assignGraphics} placeholder="Who makes them" readOnly={readOnly} onCommit={(assignGraphics) => set({ assignGraphics })} ariaLabel={`${computed.label} assign graphics`} />, 'person-col')}
           {cell('est', <DurationCell value={row.estSeconds} autoSeconds={computed.seconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
@@ -625,7 +630,14 @@ function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
 const chipClass = elementKind;
 
 /** The section's elements as chips, in the order they're expected to fire, plus a + to add one. */
-function ElementsCell({ section, label, permanent, cued, doc, me, readOnly }: { section: SectionRow; label: string; permanent: string[]; cued: Set<string>; doc: Y.Doc; me: Person; readOnly: boolean }) {
+function ElementsCell({ section, label, permanent, cued, media, doc, me, readOnly }: { section: SectionRow; label: string; permanent: string[]; cued: Set<string>; media: Record<string, MediaStatus>; doc: Y.Doc; me: Person; readOnly: boolean }) {
+  // Once the show app has reported files, each element shows whether its file is there (Phase 4).
+  const reported = Object.keys(media).length > 0;
+  const fileNote = (e: Element) => {
+    const m = media[e.id];
+    if (m) return ` · file: ${m.file}${m.seconds ? ` (${formatDuration(m.seconds)})` : ''}`;
+    return reported && e.type !== 'MUSIC' ? ' · no file yet' : '';
+  };
   const [open, setOpen] = useState<{ id: string; anchor: HTMLElement } | null>(null);
   const close = () => setOpen(null);
   const toggle = (id: string, anchor: HTMLElement) => setOpen(open?.id === id ? null : { id, anchor });
@@ -636,9 +648,9 @@ function ElementsCell({ section, label, permanent, cued, doc, me, readOnly }: { 
       {section.elements.map((e, i) => (
         <button
           key={e.id}
-          className={`element-chip ${chipClass(e.type)}${cued.has(e.id) ? '' : ' uncued'}`}
+          className={`element-chip ${chipClass(e.type)}${cued.has(e.id) ? '' : ' uncued'}${media[e.id] ? ' has-file' : reported && e.type !== 'MUSIC' ? ' no-file' : ''}`}
           disabled={readOnly}
-          title={`${e.type === 'PERM' ? `Permanent graphic: ${e.name}` : `${e.type}: ${ELEMENT_HELP[e.type]}`}${cued.has(e.id) ? '' : ' · no cue in the script yet'}`}
+          title={`${e.type === 'PERM' ? `Permanent graphic: ${e.name}` : `${e.type}: ${ELEMENT_HELP[e.type]}`}${cued.has(e.id) ? '' : ' · no cue in the script yet'}${fileNote(e)}`}
           aria-label={`${label} graphic ${i + 1}: ${e.type}${e.name ? ` ${e.name}` : ''}`}
           onClick={(ev) => toggle(e.id, ev.currentTarget)}
         >

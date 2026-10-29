@@ -4,12 +4,14 @@
 import { YServer } from 'y-partyserver';
 import * as Y from 'yjs';
 import type { Connection, ConnectionContext } from 'partyserver';
-import { allScriptText, computeRundown, ensureScripts, scriptWordCounts, sectionSecondsFrom, initEpisode, readRows, rowsOf, tagReaders, upgradeScripts, type Person } from '@tstv/shared';
+import { allScriptText, clipSecondsBySection, computeRundown, ensureScripts, readMedia, scriptWordCounts, sectionSecondsFrom, initEpisode, readRows, rowsOf, setMedia, tagReaders, upgradeScripts, type Person } from '@tstv/shared';
 import type { Env } from './env.ts';
 
 interface ConnectionInfo {
   user?: Person;
   readOnly?: boolean;
+  /** The show app, connected with the episode's key. */
+  app?: boolean;
 }
 
 /** Documents are saved in pieces under this size, well below Cloudflare's 2 MB row limit. */
@@ -99,7 +101,7 @@ export class EpisodeRoom extends YServer<Env> {
     const rows = readRows(this.document);
     // Breaks of the show's length count as 0 here (the room doesn't know the length): the episode list
     // adds them from `breaks`. Breaks an admin gave their own length are already in estSeconds.
-    const timing = computeRundown(rows, 0, sectionSecondsFrom(scriptWordCounts(this.document)));
+    const timing = computeRundown(rows, 0, sectionSecondsFrom(scriptWordCounts(this.document), clipSecondsBySection(rows, readMedia(this.document))));
     const sections = rows.filter((r) => r.kind === 'section');
     const searchText = rows
       .map((r) => (r.kind === 'block' ? r.title : [r.slug, r.type, r.writer, ...r.talent, r.headline, r.notes, r.assignGraphics, ...r.elements.map((e) => `${e.type} ${e.name}`)].join(' ')))
@@ -118,7 +120,8 @@ export class EpisodeRoom extends YServer<Env> {
     const header = ctx.request.headers.get('x-tstv-user');
     const user = header ? (JSON.parse(header) as Person) : undefined;
     const readOnly = ctx.request.headers.get('x-tstv-readonly') === '1';
-    connection.setState((prev: ConnectionInfo | null) => ({ ...(prev ?? {}), user, readOnly }));
+    const app = ctx.request.headers.get('x-tstv-app') === '1';
+    connection.setState((prev: ConnectionInfo | null) => ({ ...(prev ?? {}), user, readOnly, app }));
     super.onConnect(connection, ctx);
   }
 
@@ -127,10 +130,16 @@ export class EpisodeRoom extends YServer<Env> {
    * it on to everyone else connected: the rundown page shows it, and from Phase 4 the show app fires it.
    */
   onCustomMessage(connection: Connection, message: string): void {
-    let event: { type?: unknown; kind?: unknown; sectionId?: unknown; elementId?: unknown };
+    let event: { type?: unknown; kind?: unknown; sectionId?: unknown; elementId?: unknown; items?: unknown };
     try {
       event = JSON.parse(message);
     } catch {
+      return;
+    }
+    // The show app reports which elements have a file, and each clip's length. The room writes it into the
+    // episode, so the rundown shows it (the app itself can't edit the episode).
+    if (event.type === 'media' && (connection.state as ConnectionInfo | null)?.app) {
+      if (event.items && typeof event.items === 'object') setMedia(this.document, event.items as Record<string, unknown>);
       return;
     }
     if (event.type !== 'cue' || (event.kind !== 'section' && event.kind !== 'cue') || typeof event.sectionId !== 'string') return;

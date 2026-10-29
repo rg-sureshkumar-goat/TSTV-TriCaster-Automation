@@ -324,11 +324,11 @@ export function scriptWordCounts(doc: Y.Doc): Record<string, number> {
 }
 
 /**
- * A section's estimated length: a length typed in by hand wins; otherwise the script's read time.
- * (Phase 4 adds SOT and package clip lengths.)
+ * A section's estimated length: a length typed in by hand wins; otherwise the script's read time plus its
+ * SOTs' and packages' lengths, once the show app has measured them (Phase 4).
  */
-export function sectionSecondsFrom(words: Record<string, number>) {
-  return (row: { id: string; estSeconds: number | null }) => row.estSeconds ?? estimatedReadSeconds(words[row.id] ?? 0);
+export function sectionSecondsFrom(words: Record<string, number>, clipSeconds: Record<string, number> = {}) {
+  return (row: { id: string; estSeconds: number | null }) => row.estSeconds ?? estimatedReadSeconds(words[row.id] ?? 0) + (clipSeconds[row.id] ?? 0);
 }
 
 /** Text of every section's script, for archive search. */

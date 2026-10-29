@@ -101,8 +101,10 @@ export function ddrPlaylistXml(players: PlayerXmlInfo[]): string {
     .map((p) => {
       const clips = p.playlist
         .map((c) => {
-          const folder = c.durationMs ? 'Clips' : 'Stills';
-          const file = `D:\\Sessions\\Practice\\${folder}\\Import\\${c.name}${c.durationMs ? '.mov' : '.png'}`;
+          // Music lives in the Stills folder as .wav, like on the TC1.
+          const folder = c.durationMs && p.id !== 'sound' ? 'Clips' : 'Stills';
+          const extension = p.id === 'sound' ? '.wav' : c.durationMs ? '.mov' : '.png';
+          const file = `D:\\Sessions\\Practice\\${folder}\\Import\\${c.name}${extension}`;
           const length = seconds(c.durationMs || 5000);
           return `<clip alias="${escapeXml(c.name)}" filename="${escapeXml(file)}" file_length="${length}" clip_length="${length}" />`;
         })

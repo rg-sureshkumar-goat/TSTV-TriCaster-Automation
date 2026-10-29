@@ -390,6 +390,17 @@ test('admins manage people, shows, episodes and commercial breaks', async ({ bro
   await expect(sam.getByRole('button', { name: /Remove the commercial break/ })).toHaveCount(0);
   await expect(sam.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
 
+  // The show app key: the producer copies it for the show app, which then reads the episode with it.
+  await rg.getByRole('button', { name: 'Show app key' }).click();
+  await expect(rg.getByLabel('Key', { exact: true })).toHaveText(/^tstv-/);
+  const key = (await rg.getByLabel('Key', { exact: true }).textContent())!;
+  const appReply = await rg.request.get('/api/app/episode', { headers: { Authorization: `Bearer ${key}` } });
+  expect((await appReply.json()).episode.title).toBe('Break Episode');
+  expect((await rg.request.get('/api/app/episode', { headers: { Authorization: 'Bearer tstv-not-a-real-key-123456789' } })).status()).toBe(401);
+  // A contributor can't get the key.
+  expect((await sam.request.get(`/api/episodes/${episodeUrl.split('/').pop()}/app-key`)).status()).toBe(403);
+  await rg.keyboard.press('Escape');
+
   // Deleting an episode, for admins only, erases it for good.
   rg.once('dialog', (dialog) => dialog.accept());
   await rg.getByRole('button', { name: 'Delete', exact: true }).click();

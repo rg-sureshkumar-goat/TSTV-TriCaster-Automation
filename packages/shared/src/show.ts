@@ -24,8 +24,15 @@ export interface ShowSettings {
    * every show, and the rundown's Graphics column picks them as PERM elements.
    */
   permanentGraphics: string[];
+  /**
+   * The permanent graphics that are clips with their own audio, like the Show Intro and Station ID (RG,
+   * Oct 29, 2026). They play to their end like a SOT. The rest, like Social Media L3, are lower thirds.
+   */
+  permanentWithSound: string[];
   /** Length of each commercial break between blocks, in seconds. 0 leaves breaks out of the show's timing. */
   breakSeconds: number;
+  /** Which TriCaster input each camera is, by camera name (Camera 1 → 1). Set once per show. */
+  cameraInputs: Record<string, number>;
 }
 
 export const TALENT_COLORS = ['#2563eb', '#d97706', '#059669', '#db2777', '#7c3aed', '#0891b2', '#dc2626', '#65a30d'];
@@ -40,8 +47,16 @@ export const DEFAULT_SHOW_SETTINGS: ShowSettings = {
   segmentTypes: ['Intro', 'Tease', 'Reader', 'Cross Talk', 'Q&A', 'Package', 'SOT', 'Permanent Graphic'],
   // TSTV's permanent graphics (RG, Oct 29, 2026). Each show can edit its own list.
   permanentGraphics: ['Station ID', 'Show Intro', 'Commercial Break', 'Social Media L3', 'Website L3', 'Station Outro'],
+  permanentWithSound: ['Station ID', 'Show Intro', 'Commercial Break', 'Station Outro'],
   breakSeconds: 0,
+  // TSTV's TC1: cameras are inputs 1–3 (probe, Oct 28, 2026).
+  cameraInputs: { 'Camera 1': 1, 'Camera 2': 2, 'Camera 3': 3 },
 };
+
+/** A camera's TriCaster input, from the show's settings (input 1 for a camera that isn't listed). */
+export function cameraInput(settings: ShowSettings, camera: string): number {
+  return settings.cameraInputs[camera] ?? 1;
+}
 
 /** The permanent graphic that plays during commercial breaks: the first whose name mentions a break. */
 export function breakGraphic(settings: ShowSettings): string | undefined {
@@ -73,6 +88,14 @@ export function normalizeShowSettings(input: unknown): ShowSettings {
   const target = Number(s.targetSeconds);
   const wpm = Number(s.wordsPerMinute);
   const breakSeconds = Number(s.breakSeconds);
+  const permanentGraphics = strings(s.permanentGraphics, DEFAULT_SHOW_SETTINGS.permanentGraphics);
+  const cameraInputs: Record<string, number> = {};
+  cameras.forEach((camera, i) => {
+    const input = Number((s.cameraInputs as Record<string, unknown> | undefined)?.[camera]);
+    // Unset: the number in the camera's name (Camera 2 → 2), else its place in the list.
+    const named = /(\d+)\s*$/.exec(camera);
+    cameraInputs[camera] = Number.isInteger(input) && input >= 1 && input <= 16 ? input : named ? Math.min(16, Math.max(1, Number(named[1]))) : Math.min(16, i + 1);
+  });
   return {
     targetSeconds: Number.isFinite(target) && target > 0 && target <= 6 * 3600 ? Math.round(target) : DEFAULT_SHOW_SETTINGS.targetSeconds,
     wordsPerMinute: Number.isFinite(wpm) && wpm >= 60 && wpm <= 400 ? Math.round(wpm) : DEFAULT_SHOW_SETTINGS.wordsPerMinute,
@@ -83,7 +106,12 @@ export function normalizeShowSettings(input: unknown): ShowSettings {
       const types = strings(s.segmentTypes, DEFAULT_SHOW_SETTINGS.segmentTypes);
       return EARLIER_DEFAULT_SEGMENT_TYPES.includes(types.join('|')) ? [...DEFAULT_SHOW_SETTINGS.segmentTypes] : types;
     })(),
-    permanentGraphics: strings(s.permanentGraphics, DEFAULT_SHOW_SETTINGS.permanentGraphics),
+    permanentGraphics,
+    // Shows saved before this setting: everything but the lower thirds has its own audio.
+    permanentWithSound: Array.isArray(s.permanentWithSound)
+      ? strings(s.permanentWithSound, []).filter((g) => permanentGraphics.includes(g))
+      : permanentGraphics.filter((g) => !/\bL3\b|lower third/i.test(g)),
+    cameraInputs,
     breakSeconds: Number.isFinite(breakSeconds) && breakSeconds >= 0 && breakSeconds <= 3600 ? Math.round(breakSeconds) : DEFAULT_SHOW_SETTINGS.breakSeconds,
   };
 }

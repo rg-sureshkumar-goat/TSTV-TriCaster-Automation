@@ -1,0 +1,209 @@
+// The switcher driver: the only code in the show app that talks to a switcher. It speaks the TC1's own
+// web control (port 80, /v1/…) and state stream (port 5951), which the simulator copies, so the same code
+// runs the real TC1 in Phase 5. See docs/TC1-FINDINGS.md.
+//
+// Safety (docs/ARCHITECTURE.md, 6.3): in simulator mode it refuses to send anything to a switcher that
+// doesn't identify itself as the TSTV simulator, so typing the TC1's address by mistake sends nothing.
+// Phase 4 has no live mode at all. Pause is one switch here: while it's on, nothing is sent.
+import { EventEmitter } from 'node:events';
+import net from 'node:net';
+import WebSocket from 'ws';
+import type { SwitcherCommand } from '@tstv/shared';
+
+export const SIMULATOR_NAME = 'TSTV Simulator';
+
+export interface SwitcherSnapshot {
+  status: 'off' | 'connecting' | 'connected' | 'error' | 'refused';
+  error: string | null;
+  address: string;
+  programInput: number | null;
+  dskOn: boolean;
+  ddrItem: number | null;
+  ddrPlaying: boolean;
+  ddrRemaining: number | null;
+  musicPlaying: boolean;
+  playlist: string[];
+  soundTracks: string[];
+}
+
+const attr = (text: string, name: string): string | undefined => new RegExp(`\\b${name}="([^"]*)"`).exec(text)?.[1];
+const unescape = (text: string) => text.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
+/** A player's clips from the TC1's ddr_playlist, by their names. */
+function playlistNames(xml: string, player: string): string[] {
+  const block = new RegExp(`<${player}\\b[^>]*>([\\s\\S]*?)</${player}>`).exec(xml)?.[1] ?? '';
+  return [...block.matchAll(/<clip\b([^>]*)\/?>/g)].map((m) => {
+    const alias = attr(m[1], 'alias');
+    const file = attr(m[1], 'filename') ?? '';
+    return unescape(alias || file.replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, ''));
+  });
+}
+
+export class Switcher extends EventEmitter {
+  private states = new Map<string, string>();
+  private socket: net.Socket | null = null;
+  private notifications: WebSocket | null = null;
+  private closed = false;
+  snapshot: SwitcherSnapshot;
+  /** Pause Automation: nothing is sent while it's on. */
+  paused = false;
+
+  /** address is host:port of the web control; the state stream is on statePort (5951 on the TC1). */
+  constructor(address: string, private statePort = 5951) {
+    super();
+    this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, playlist: [], soundTracks: [] };
+  }
+
+  private get base(): string {
+    return `http://${this.snapshot.address}`;
+  }
+
+  private set(patch: Partial<SwitcherSnapshot>): void {
+    Object.assign(this.snapshot, patch);
+    this.emit('change');
+  }
+
+  async connect(): Promise<void> {
+    this.set({ status: 'connecting', error: null });
+    try {
+      const version = await (await fetch(`${this.base}/v1/version`, { signal: AbortSignal.timeout(4000) })).text();
+      const product = /<product_name>([^<]*)<\/product_name>/.exec(version)?.[1] ?? '';
+      if (product !== SIMULATOR_NAME) {
+        // The lock: this is simulator mode, and that's not the simulator.
+        this.set({ status: 'refused', error: `That switcher calls itself “${product || 'unknown'}”, not the TSTV simulator, so the app won’t send it anything. Live mode for the real TC1 comes in Phase 5.` });
+        return;
+      }
+    } catch (e) {
+      this.set({ status: 'error', error: `Couldn’t reach the simulator at ${this.snapshot.address}. Is it running? (npm run simulator)` });
+      return;
+    }
+    this.listen();
+    await this.readPlaylists();
+    this.set({ status: 'connected', error: null });
+  }
+
+  /** The state stream (port 5951) and change notifications, which report everything the switcher does. */
+  private listen(): void {
+    const [host] = this.snapshot.address.split(':');
+    const socket = net.connect({ host, port: this.statePort });
+    this.socket = socket;
+    let buffer = '';
+    socket.setEncoding('utf8');
+    socket.on('connect', () => socket.write('<register name="NTK_states"/>\n'));
+    socket.on('data', (chunk: string) => {
+      buffer += chunk;
+      const changed: string[] = [];
+      let match: RegExpExecArray | null;
+      const pattern = /<shortcut_state\b([^>]*?)\/>/g;
+      let last = 0;
+      while ((match = pattern.exec(buffer))) {
+        const name = attr(match[1], 'name');
+        const value = unescape(attr(match[1], 'value') ?? '');
+        if (name && this.states.get(name) !== value) {
+          this.states.set(name, value);
+          changed.push(name);
+        }
+        last = pattern.lastIndex;
+      }
+      buffer = buffer.slice(last);
+      if (changed.length) this.onStates(changed);
+    });
+    socket.on('error', () => undefined);
+    socket.on('close', () => {
+      if (!this.closed) this.set({ status: 'error', error: 'Lost the connection to the switcher.' });
+    });
+
+    const notifications = new WebSocket(`ws://${this.snapshot.address}/v1/change_notifications`);
+    this.notifications = notifications;
+    notifications.on('message', (data) => {
+      const key = String(data).replace(/\0/g, '');
+      if (key === 'ddr_playlist') void this.readPlaylists();
+    });
+    notifications.on('error', () => undefined);
+  }
+
+  private onStates(changed: string[]): void {
+    const was = this.snapshot.ddrPlaying;
+    const input = /^INPUT(\d+)$/i.exec(this.states.get('v1_a_row_named_input') ?? '');
+    const dskOn = this.states.get('main_dsk2_value') === '1' || this.states.get('main_dsk2_take') === 'true';
+    const ddrPlaying = this.states.get('ddr2_play') === 'true';
+    const item = Number.parseInt(this.states.get('ddr2_select_clips') ?? '', 10);
+    this.set({
+      programInput: input ? Number(input[1]) : null,
+      dskOn,
+      ddrPlaying,
+      ddrItem: Number.isInteger(item) ? item : null,
+      musicPlaying: this.states.get('sound_play') === 'true',
+    });
+    // DDR 2 stopped by itself at the end of a clip, with DSK 2 still on: the clip ended.
+    if (was && !ddrPlaying && changed.includes('ddr2_play')) void this.checkClipEnd();
+  }
+
+  private async checkClipEnd(): Promise<void> {
+    try {
+      const xml = await (await fetch(`${this.base}/v1/dictionary?key=ddr_timecode`)).text();
+      const ddr2 = /<ddr2\b([^>]*)\/?>/.exec(xml)?.[1] ?? '';
+      const remaining = Number(attr(ddr2, 'clip_seconds_remaining'));
+      this.set({ ddrRemaining: Number.isFinite(remaining) ? remaining : null });
+      if (Number.isFinite(remaining) && remaining <= 0.5 && this.snapshot.dskOn) this.emit('clipEnded');
+    } catch {
+      // The next state change tries again.
+    }
+  }
+
+  async readPlaylists(): Promise<void> {
+    try {
+      const xml = await (await fetch(`${this.base}/v1/dictionary?key=ddr_playlist`)).text();
+      this.set({ playlist: playlistNames(xml, 'ddr2'), soundTracks: playlistNames(xml, 'sound') });
+    } catch {
+      // Kept as it was; it's read again when the playlist changes.
+    }
+  }
+
+  /** Sends one TC1 command, like v1_a_row=INPUT2. Nothing goes out while paused or to anything but the simulator. */
+  async send(name: string, value?: string): Promise<boolean> {
+    if (this.paused || this.snapshot.status !== 'connected') return false;
+    const query = new URLSearchParams({ name, ...(value === undefined ? {} : { value }) });
+    try {
+      const response = await fetch(`${this.base}/v1/shortcut?${query}`, { signal: AbortSignal.timeout(2000) });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * The cue engine's commands, as TC1 commands. Cameras switch on M/E 1's A row, clips play from DDR 2
+   * through DSK 2, and music from the Sound player (docs/TC1-FINDINGS.md). The DDR and Sound player
+   * command names get confirmed on the real TC1 in Phase 5.
+   */
+  async run(commands: SwitcherCommand[]): Promise<void> {
+    for (const c of commands) {
+      if (c.kind === 'camera') await this.send('v1_a_row', `INPUT${c.input}`);
+      else if (c.kind === 'cueClip') await this.send('ddr2_select_clips', String(c.item));
+      else if (c.kind === 'dsk') await this.send('main_dsk2_value', c.on ? '1' : '0');
+      else if (c.kind === 'music') {
+        if (c.play) {
+          await this.send('sound_select_clips', String(c.track ?? 0));
+          await this.send('sound_play');
+        } else {
+          await this.send('sound_stop');
+        }
+      }
+    }
+  }
+
+  /** The simulator only: loads DDR 2 with the show's clips, standing in for Send to TriCaster (Phase 5). */
+  async loadSimulatorPlaylist(clips: { name: string; durationMs: number }[]): Promise<void> {
+    if (this.snapshot.status !== 'connected') throw new Error('Connect to the simulator first.');
+    await fetch(`${this.base}/sim/api/playlist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player: 'ddr2', clips }) });
+    await this.readPlaylists();
+  }
+
+  close(): void {
+    this.closed = true;
+    this.socket?.destroy();
+    this.notifications?.close();
+    this.set({ status: 'off' });
+  }
+}

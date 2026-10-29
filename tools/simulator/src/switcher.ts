@@ -81,7 +81,7 @@ export interface ChangeEvent {
 
 const SOURCES = Object.keys(SOURCE_INDEX);
 const NAME_BY_INDEX = new Map(Object.entries(SOURCE_INDEX).map(([name, index]) => [index, name]));
-const MEDIA_STATE = /^(ddr\d|gfx\d|media)_(play|stop)$/;
+const MEDIA_STATE = /^(ddr\d|gfx\d|sound|media)_(play|stop)$/;
 
 /** Row values the TC1 reports in upper case ("INPUT2", "V1"); black is "Black". */
 export function rowName(source: string): string {
@@ -225,7 +225,7 @@ export class Switcher extends EventEmitter {
       this.setDsk(id, on);
       return { result: 'ok', note: action === 'auto' ? 'Transition shown as a cut in the simulator' : undefined };
     }
-    if ((m = name.match(/^(ddr\d|gfx\d)_(play|stop|play_toggle|back|forward|select_index|select_clips|autoplay_mode_toggle|single_mode_toggle)$/))) {
+    if ((m = name.match(/^(ddr\d|gfx\d|sound)_(play|stop|play_toggle|back|forward|select_index|select_clips|autoplay_mode_toggle|single_mode_toggle)$/))) {
       const player = this.players[m[1]];
       if (!player) return { result: 'rejected', note: `No player ${m[1]}` };
       return this.applyPlayer(player, m[2], value);

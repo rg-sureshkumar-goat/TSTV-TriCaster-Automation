@@ -1,7 +1,7 @@
 // The TSTV website's server. It serves the pages, handles sign-in, and offers a small API for shows,
 // episodes, search and the admin page. Live editing goes through /parties/episode-room/<episode id>,
 // which checks sign-in and then hands the connection to that episode's room.
-import { Hono, type MiddlewareHandler } from 'hono';
+import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { getServerByName, routePartykitRequest } from 'partyserver';
 import { DEFAULT_SHOW_SETTINGS, normalizeShowSettings } from '@tstv/shared';
 import { authRoutes, getSessionUser } from './auth.ts';
@@ -36,6 +36,29 @@ const adminOnly: MiddlewareHandler<App> = async (c, next) => {
 
 app.use('*', sameOriginOnly);
 app.route('/auth', authRoutes);
+
+// ---- The show app (Phase 4): it signs in with an episode's key instead of a Google account ----
+
+/** The episode an app key belongs to, or null. */
+async function episodeForKey(env: Env, key: string | null | undefined): Promise<Record<string, unknown> | null> {
+  if (!key || !/^tstv-[A-Za-z0-9_-]{20,}$/.test(key)) return null;
+  return env.DB.prepare(
+    `SELECT e.*, s.name AS show_name, s.settings AS show_settings FROM episodes e JOIN shows s ON s.id = e.show_id WHERE e.app_key = ?`,
+  )
+    .bind(key)
+    .first<Record<string, unknown>>();
+}
+
+app.get('/app/episode', async (c) => {
+  const key = c.req.header('Authorization')?.replace(/^Bearer\s+/i, '');
+  const row = await episodeForKey(c.env, key);
+  if (!row) return c.json({ error: 'That key doesn’t match an episode. Copy it again from the episode’s page on the website.' }, 401);
+  return c.json({
+    episode: episodeJson(row),
+    show: { id: row.show_id, name: row.show_name, settings: normalizeShowSettings(JSON.parse(String(row.show_settings))) },
+  });
+});
+
 app.use('*', signedIn);
 
 const now = () => Date.now();
@@ -245,6 +268,29 @@ app.post('/episodes/:id/unpublish', async (c) => {
   return c.json({ ok: true });
 });
 
+// The episode's key for the show app: the producer who created the episode and admins can see it, and
+// make a new one (which cuts off any app using the old one).
+function newAppKey(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return `tstv-${btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+}
+
+async function appKeyFor(c: Context<App, '/episodes/:id/app-key'>, renew: boolean) {
+  const user = c.get('user');
+  const row = await visibleEpisode(c.env, user, c.req.param('id'));
+  if (!row) return c.json({ error: 'Episode not found.' }, 404);
+  if (row.created_by !== user.id && !user.isAdmin) return c.json({ error: 'Only the producer who created this episode, or an admin, can get its show app key.' }, 403);
+  let key = row.app_key ? String(row.app_key) : null;
+  if (!key || renew) {
+    key = newAppKey();
+    await c.env.DB.prepare('UPDATE episodes SET app_key = ? WHERE id = ?').bind(key, row.id).run();
+  }
+  return c.json({ key });
+}
+
+app.get('/episodes/:id/app-key', (c) => appKeyFor(c, false));
+app.post('/episodes/:id/app-key', (c) => appKeyFor(c, true));
+
 app.post('/episodes/:id/archive', async (c) => {
   const id = c.req.param('id');
   if (!(await visibleEpisode(c.env, c.get('user'), id))) return c.json({ error: 'Episode not found.' }, 404);
@@ -348,6 +394,17 @@ export default {
       const response = await routePartykitRequest(request, env as unknown as Cloudflare.Env, {
         // Live connections: only signed-in people, and archived episodes are read-only.
         onBeforeConnect: async (req, lobby) => {
+          // The show app connects with the episode's key: it can follow the episode, but not edit it.
+          const key = new URL(req.url).searchParams.get('key');
+          if (key) {
+            const episode = await episodeForKey(env, key);
+            if (!episode || episode.id !== lobby.name) return new Response('That key doesn’t match this episode.', { status: 401 });
+            const headers = new Headers(req.headers);
+            headers.set('x-tstv-user', JSON.stringify({ id: 'show-app', name: 'Show app' }));
+            headers.set('x-tstv-readonly', '1');
+            headers.set('x-tstv-app', '1');
+            return new Request(req, { headers });
+          }
           const user = await getSessionUser(req, env);
           if (!user) return new Response('Please sign in.', { status: 401 });
           const episode = await env.DB.prepare(`SELECT e.status FROM episodes e WHERE e.id = ? AND ${VISIBLE}`)

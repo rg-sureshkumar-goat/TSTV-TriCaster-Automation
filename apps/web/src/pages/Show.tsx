@@ -215,14 +215,55 @@ function ShowSettingsForm({ showId, name, logo, settings, onSaved }: { showId: s
           ))}
         </select>
       </label>
+      <fieldset>
+        <legend>TriCaster inputs</legend>
+        <p className="muted small">Which TriCaster input each camera is, for the show app. TSTV’s TC1 has cameras on inputs 1 to 3.</p>
+        <div className="row wrap">
+          {draft.cameras.map((camera) => (
+            <label key={camera}>
+              {camera}
+              <select
+                value={draft.cameraInputs[camera] ?? 1}
+                onChange={(e) => setDraft({ ...draft, cameraInputs: { ...draft.cameraInputs, [camera]: Number(e.target.value) } })}
+              >
+                {Array.from({ length: 16 }, (_, i) => (
+                  <option key={i} value={i + 1}>
+                    Input {i + 1}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <TalentEditor talent={draft.talent} onChange={(talent) => setDraft({ ...draft, talent })} />
       <ListEditor label="Story types" hint="Choices for the rundown's Story Type column." items={draft.segmentTypes} onChange={(segmentTypes) => setDraft({ ...draft, segmentTypes })} />
       <ListEditor
         label="Permanent graphics"
         hint="Graphics used in every episode, like the Station ID and Show Intro. They're loaded on the TriCaster before every show, and the rundown's Graphics column can pick them."
         items={draft.permanentGraphics}
-        onChange={(permanentGraphics) => setDraft({ ...draft, permanentGraphics })}
+        onChange={(permanentGraphics) => setDraft({ ...draft, permanentGraphics, permanentWithSound: draft.permanentWithSound.filter((g) => permanentGraphics.includes(g)) })}
       />
+      {draft.permanentGraphics.length > 0 && (
+        <fieldset>
+          <legend>Permanent graphics with their own audio</legend>
+          <p className="muted small">Tick the ones that are clips with sound, like the Show Intro: they play to their end, then back to the anchors. The rest are lower thirds.</p>
+          <div className="row wrap">
+            {draft.permanentGraphics.map((g) => (
+              <label key={g} className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={draft.permanentWithSound.includes(g)}
+                  onChange={(e) =>
+                    setDraft({ ...draft, permanentWithSound: e.target.checked ? [...draft.permanentWithSound, g] : draft.permanentWithSound.filter((x) => x !== g) })
+                  }
+                />
+                {g}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <div className="row">
         <button className="primary" type="submit">
           Save settings

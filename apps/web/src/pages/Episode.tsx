@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { breakGraphic, computeRundown, cueLabel, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type RundownTiming, type ShowSettings } from '@tstv/shared';
+import { breakGraphic, clipSecondsBySection, computeRundown, cueLabel, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type RundownTiming, type ShowSettings } from '@tstv/shared';
 import { TalentPanel } from '../rundown/TalentPanel.tsx';
 import { api, useLoad, type User } from '../lib/api.ts';
 import { Link, navigate } from '../lib/router.tsx';
@@ -8,6 +8,7 @@ import { RundownGrid } from '../rundown/RundownGrid.tsx';
 import { useEpisodeDoc, type CueEvent, type Presence } from '../rundown/useEpisodeDoc.ts';
 import { exportCsv, exportPdf } from '../rundown/export.ts';
 import { ConnectionBadge, PresenceList } from '../components/RoomStatus.tsx';
+import { Popover } from '../components/Popover.tsx';
 import type { EpisodeListItem } from './Show.tsx';
 
 // The script editor is large, so it loads only when someone opens a script.
@@ -31,8 +32,8 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
   const readOnly = episode.status === 'archived';
   const room = useEpisodeDoc(episode.id, user, reload);
   const timing = useMemo(
-    () => computeRundown(room.rows, show.settings.targetSeconds, sectionSecondsFrom(room.scriptWords), show.settings.breakSeconds),
-    [room.rows, room.scriptWords, show.settings.targetSeconds, show.settings.breakSeconds],
+    () => computeRundown(room.rows, show.settings.targetSeconds, sectionSecondsFrom(room.scriptWords, clipSecondsBySection(room.rows, room.media)), show.settings.breakSeconds),
+    [room.rows, room.scriptWords, room.media, show.settings.targetSeconds, show.settings.breakSeconds],
   );
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -137,6 +138,7 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
           <button onClick={() => window.open(`/prompter/${episode.id}`, '_blank')} title="Opens the prompter in a new window, for the prompter computer">
             Open prompter
           </button>
+          {(canPublish || user.isAdmin) && <AppKeyButton episodeId={episode.id} />}
           <button onClick={() => exportCsv(timing, exportInfo)}>Export CSV</button>
           <button onClick={() => exportPdf(timing, exportInfo)}>Export PDF</button>
           {!readOnly && <button onClick={archive}>Archive</button>}
@@ -174,7 +176,7 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
       {!room.synced || !room.doc ? (
         <p className="muted">Loading the rundown…</p>
       ) : (
-        <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} talent={room.talent} cued={room.cued} airTime={episode.airTime} me={me} readOnly={readOnly} isAdmin={user.isAdmin} others={room.others} setFocus={room.setFocus} />
+        <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} talent={room.talent} cued={room.cued} media={room.media} airTime={episode.airTime} me={me} readOnly={readOnly} isAdmin={user.isAdmin} others={room.others} setFocus={room.setFocus} />
       )}
 
       {sectionId && (
@@ -195,10 +197,65 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
   );
 }
 
-/** Where the prompter is, and the last cue it fired, while a prompter has this episode open. */
+/**
+ * The episode's key for the show app (Phase 4): copy it into the app to connect the app to this episode.
+ * Making a new key cuts off any app still using the old one.
+ */
+function AppKeyButton({ episodeId }: { episodeId: string }) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [key, setKey] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const load = async (renew = false) => {
+    try {
+      const data = await api<{ key: string }>(`/episodes/${episodeId}/app-key`, renew ? { method: 'POST' } : undefined);
+      setKey(data.key);
+      setNote(renew ? 'New key made. Any show app using the old one is disconnected.' : null);
+    } catch (e) {
+      setNote((e as Error).message);
+    }
+  };
+  return (
+    <>
+      <button
+        onClick={(e) => {
+          setAnchor(anchor ? null : e.currentTarget);
+          if (!key) void load();
+        }}
+        aria-expanded={Boolean(anchor)}
+      >
+        Show app key
+      </button>
+      {anchor && (
+        <Popover anchor={anchor} align="right" onClose={() => setAnchor(null)}>
+          <div className="app-key" role="dialog" aria-label="Show app key">
+            <p className="small">Paste this key into the show app to connect it to this episode. Keep it to the crew: anyone with it can follow the episode.</p>
+            <code aria-label="Key">{key ?? 'Loading…'}</code>
+            <div className="buttons">
+              <button
+                className="primary"
+                disabled={!key}
+                onClick={async () => {
+                  await navigator.clipboard.writeText(key ?? '');
+                  setNote('Copied.');
+                }}
+              >
+                Copy
+              </button>
+              <button onClick={() => confirm('Make a new key? Any show app using the old one will be disconnected.') && void load(true)}>Make a new key</button>
+            </div>
+            {note && <p className="small muted">{note}</p>}
+          </div>
+        </Popover>
+      )}
+    </>
+  );
+}
+
+/** Where the prompter is and the last cue it fired, and whether the show app is connected. */
 function PrompterBar({ others, lastCue, timing }: { others: Presence[]; lastCue: CueEvent | null; timing: RundownTiming }) {
   const prompter = others.find((o) => o.prompter)?.prompter;
-  if (!prompter && !lastCue) return null;
+  const app = others.find((o) => o.app)?.app;
+  if (!prompter && !lastCue && !app) return null;
   const section = (id: string) => timing.rows.find((c) => c.row.id === id);
   const cue = (() => {
     if (!lastCue) return '';
@@ -216,6 +273,13 @@ function PrompterBar({ others, lastCue, timing }: { others: Presence[]; lastCue:
         </span>
       ) : (
         <span className="muted">not open</span>
+      )}
+      {app && (
+        <span>
+          <strong>Show app</strong> {app.mode === 'live' ? 'LIVE on the TC1' : 'on the simulator'}
+          {!app.switcherConnected && ' · switcher not connected'}
+          {app.paused && ' · automation paused'}
+        </span>
       )}
       {lastCue && (
         <span>
