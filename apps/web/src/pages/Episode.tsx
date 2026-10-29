@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { computeRundown, formatDuration, formatOverUnder, type ShowSettings } from '@tstv/shared';
+import { computeRundown, formatDuration, formatOverUnder, sectionSecondsFrom, type ShowSettings } from '@tstv/shared';
 import { api, useLoad, type User } from '../lib/api.ts';
 import { Link } from '../lib/router.tsx';
 import { formatDate, formatTime } from '../lib/format.ts';
@@ -25,7 +25,10 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
   const { episode, show } = data;
   const readOnly = episode.status === 'archived';
   const room = useEpisodeDoc(episode.id, user, reload);
-  const timing = useMemo(() => computeRundown(room.rows, show.settings.targetSeconds), [room.rows, show.settings.targetSeconds]);
+  const timing = useMemo(
+    () => computeRundown(room.rows, show.settings.targetSeconds, sectionSecondsFrom(room.scriptWords)),
+    [room.rows, room.scriptWords, show.settings.targetSeconds],
+  );
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const me = { id: user.id, name: user.name };

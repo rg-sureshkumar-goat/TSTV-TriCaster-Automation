@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import YProvider from 'y-partyserver/provider';
-import { readRows, rowsOf, type Row } from '@tstv/shared';
+import { readRows, rowsOf, scriptsOf, scriptWordCounts, type Row } from '@tstv/shared';
 import type { User } from '../lib/api.ts';
 
 export interface Presence {
@@ -27,6 +27,7 @@ function colorFor(id: string): string {
 export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: () => void) {
   const [room, setRoom] = useState<{ doc: Y.Doc; provider: YProvider } | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const [scriptWords, setScriptWords] = useState<Record<string, number>>({});
   const [synced, setSynced] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [others, setOthers] = useState<Presence[]>([]);
@@ -46,9 +47,15 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
     const updateRows = () => setRows(readRows(doc));
     rowsOf(doc).observeDeep(updateRows);
+    // Script word counts drive the rundown's estimated lengths.
+    const updateWords = () => setScriptWords(scriptWordCounts(doc));
+    scriptsOf(doc).observeDeep(updateWords);
     const onSync = (isSynced: boolean) => {
       setSynced(isSynced);
-      if (isSynced) updateRows();
+      if (isSynced) {
+        updateRows();
+        updateWords();
+      }
     };
     const onStatus = ({ status: s }: { status: ConnectionStatus }) => setStatus(s);
     const onAwareness = () => {
@@ -73,6 +80,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
     return () => {
       rowsOf(doc).unobserveDeep(updateRows);
+      scriptsOf(doc).unobserveDeep(updateWords);
       provider.off('sync', onSync);
       provider.off('status', onStatus);
       provider.off('custom-message', onCustom);
@@ -84,5 +92,5 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
   const setFocus = (focus: string | null) => room?.provider.awareness.setLocalStateField('focus', focus);
 
-  return { doc: room?.doc ?? null, rows, synced: synced && room !== null, status, others, setFocus };
+  return { doc: room?.doc ?? null, rows, scriptWords, synced: synced && room !== null, status, others, setFocus };
 }

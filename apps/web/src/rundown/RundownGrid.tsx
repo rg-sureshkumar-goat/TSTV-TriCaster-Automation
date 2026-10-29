@@ -238,7 +238,7 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, rea
           {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
           {cell('elements', <ElementsCell section={row} label={computed.label} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
           {cell('notes', <TextCell value={row.notes} placeholder="Notes" readOnly={readOnly} onCommit={(notes) => set({ notes })} ariaLabel={`${computed.label} notes`} />, 'notes-col')}
-          {cell('est', <DurationCell value={row.estSeconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
+          {cell('est', <DurationCell value={row.estSeconds} autoSeconds={computed.seconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
           <td className="time-col">{backTime}</td>
           <td className="edited-col" title={row.createdBy ? `Added by ${row.createdBy.name}` : undefined}>
             {row.updatedBy && (
@@ -367,7 +367,11 @@ function SelectCell({ value, options, emptyLabel = '—', readOnly, onChange, ar
 }
 
 /** A length typed as m:ss. Saved when you leave the cell or press Enter. */
-function DurationCell({ value, readOnly, onCommit, ariaLabel }: { value: number | null; readOnly: boolean; onCommit: (value: number | null) => void; ariaLabel: string }) {
+/**
+ * Est.: left empty, it shows the length worked out from the script (in grey). Typing a length overrides
+ * it; clearing the box goes back to the script's length.
+ */
+function DurationCell({ value, autoSeconds, readOnly, onCommit, ariaLabel }: { value: number | null; autoSeconds: number; readOnly: boolean; onCommit: (value: number | null) => void; ariaLabel: string }) {
   const shown = value === null ? '' : formatDuration(value);
   const [draft, setDraft] = useState(shown);
   const [invalid, setInvalid] = useState(false);
@@ -388,9 +392,15 @@ function DurationCell({ value, readOnly, onCommit, ariaLabel }: { value: number 
     <input
       className={`cell-input time${invalid ? ' invalid' : ''}`}
       value={draft}
-      placeholder="0:00"
+      placeholder={formatDuration(value === null ? autoSeconds : 0)}
       aria-label={ariaLabel}
-      title={invalid ? 'Type a length like 1:30' : undefined}
+      title={
+        invalid
+          ? 'Type a length like 1:30'
+          : value === null
+            ? 'From the script’s read time (143–154 words a minute). Type a length to override it.'
+            : 'Typed in by hand. Clear it to use the script’s read time.'
+      }
       disabled={readOnly}
       onFocus={() => (editing.current = true)}
       onBlur={() => {

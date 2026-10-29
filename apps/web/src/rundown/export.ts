@@ -29,7 +29,7 @@ function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
       s.elements.map((e) => (e.name ? `${e.type} ${e.name}` : e.type)).join(', '),
       s.notes,
       s.floated ? 'Floated' : '',
-      s.estSeconds === null ? '' : formatDuration(s.estSeconds),
+      c.seconds > 0 || s.estSeconds !== null ? formatDuration(c.seconds) : '',
       backTime(c.backTimeOffset),
       s.createdBy?.name ?? '',
       s.updatedBy?.name ?? '',

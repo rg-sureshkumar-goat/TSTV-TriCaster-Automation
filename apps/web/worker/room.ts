@@ -4,7 +4,7 @@
 import { YServer } from 'y-partyserver';
 import * as Y from 'yjs';
 import type { Connection, ConnectionContext } from 'partyserver';
-import { allScriptText, computeRundown, ensureScripts, initEpisode, readRows, rowsOf, type Person } from '@tstv/shared';
+import { allScriptText, computeRundown, ensureScripts, scriptWordCounts, sectionSecondsFrom, initEpisode, readRows, rowsOf, type Person } from '@tstv/shared';
 import type { Env } from './env.ts';
 
 interface ConnectionInfo {
@@ -76,7 +76,7 @@ export class EpisodeRoom extends YServer<Env> {
   /** Keeps the episode list's summary and the archive search text up to date. */
   private async saveSummary(): Promise<void> {
     const rows = readRows(this.document);
-    const timing = computeRundown(rows, 0);
+    const timing = computeRundown(rows, 0, sectionSecondsFrom(scriptWordCounts(this.document)));
     const sections = rows.filter((r) => r.kind === 'section');
     const searchText = rows
       .map((r) => (r.kind === 'block' ? r.title : [r.slug, r.type, r.writer, r.talent, r.notes, ...r.elements.map((e) => `${e.type} ${e.name}`)].join(' ')))

@@ -122,6 +122,13 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.goto(episodeUrl);
   await sam.goto(episodeUrl);
 
+  // Est.: A1's typed-in 0:45 wins; cleared, it falls back to the script's read time (11 words, about 0:04).
+  await expect(rg.locator('.timing-bar')).toContainText('Total 0:45');
+  await rg.getByLabel('A1 estimated length').fill('');
+  await rg.getByLabel('A1 estimated length').press('Enter');
+  await expect(rg.getByLabel('A1 estimated length')).toHaveAttribute('placeholder', '0:04');
+  await expect(sam.locator('.timing-bar')).toContainText('Total 0:04');
+
   // Export CSV includes the rows and who wrote them.
   const downloadPromise = rg.waitForEvent('download');
   await rg.getByRole('button', { name: 'Export CSV' }).click();

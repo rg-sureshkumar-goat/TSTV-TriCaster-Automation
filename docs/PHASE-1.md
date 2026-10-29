@@ -20,6 +20,7 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
   - **Live editing:** everyone in the episode sees changes within about a second, plus colored initials for who else is there and a highlight on the cell they're editing.
   - **Authorship:** every row records who created it and who last edited it.
   - Drag the ⋮⋮ handle to reorder rows. The ⋯ menu floats, moves, inserts and deletes rows.
+- **Est. fills in from the script:** each section's length is its script's read time (shown in grey) unless you type a length, which overrides it. Clear the box to go back to the script's time.
 - **Timing:** total, target, over or under, block lengths, and back-times. Back-times are clock times when the episode has a start time.
 - **Archive:** the episode becomes read-only, including for anyone who has it open, but stays searchable. Only an admin can un-archive.
 - **Export** to CSV and PDF, and **Search** across all episodes, archived ones included.

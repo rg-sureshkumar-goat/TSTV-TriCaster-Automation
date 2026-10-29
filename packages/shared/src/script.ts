@@ -70,6 +70,29 @@ export function readTimeRange(words: number): { fastestSeconds: number; slowestS
   };
 }
 
+/**
+ * One number for timing the rundown: the read time at the middle of the 143–154 range (148.5 words a minute).
+ */
+export function estimatedReadSeconds(words: number): number {
+  const mid = (READING_SPEED.minWordsPerMinute + READING_SPEED.maxWordsPerMinute) / 2;
+  return Math.round((words * 60) / mid);
+}
+
+/** Word count of every section's script, by section id. */
+export function scriptWordCounts(doc: Y.Doc): Record<string, number> {
+  const counts: Record<string, number> = {};
+  scriptsOf(doc).forEach((text, id) => (counts[id] = countWords(text.toString())));
+  return counts;
+}
+
+/**
+ * A section's estimated length: a length typed in by hand wins; otherwise the script's read time.
+ * (Phase 4 adds SOT and package clip lengths.)
+ */
+export function sectionSecondsFrom(words: Record<string, number>) {
+  return (row: { id: string; estSeconds: number | null }) => row.estSeconds ?? estimatedReadSeconds(words[row.id] ?? 0);
+}
+
 /** Text of every section's script, for archive search. */
 export function allScriptText(doc: Y.Doc, maxChars = 50_000): string {
   let out = '';

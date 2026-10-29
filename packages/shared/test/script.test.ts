@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { insertSection } from '../src/rundown.ts';
-import { countWords, ensureScripts, noteScriptEdit, readScript, readScriptInfo, readTimeRange, scriptText } from '../src/script.ts';
+import { countWords, ensureScripts, estimatedReadSeconds, sectionSecondsFrom, scriptWordCounts, noteScriptEdit, readScript, readScriptInfo, readTimeRange, scriptText } from '../src/script.ts';
 
 const alex = { id: 'u1', name: 'Alex Producer' };
 const sam = { id: 'u2', name: 'Sam Writer' };
@@ -47,6 +47,18 @@ describe('scripts', () => {
     expect(countWords('')).toBe(0);
     expect(countWords('   ')).toBe(0);
     expect(countWords(' Good evening,\n and welcome  to TSTV News. ')).toBe(7);
+  });
+
+  it('times a section from its script unless a length was typed in', () => {
+    expect(estimatedReadSeconds(148)).toBe(60);
+    const doc = new Y.Doc();
+    const id = insertSection(doc, alex);
+    ensureScripts(doc);
+    scriptText(doc, id)!.insert(0, 'word '.repeat(297));
+    const seconds = sectionSecondsFrom(scriptWordCounts(doc));
+    expect(seconds({ id, estSeconds: null })).toBe(120);
+    expect(seconds({ id, estSeconds: 45 })).toBe(45);
+    expect(seconds({ id: 'no-script', estSeconds: null })).toBe(0);
   });
 
   it('estimates read time at 143 to 154 words a minute', () => {
