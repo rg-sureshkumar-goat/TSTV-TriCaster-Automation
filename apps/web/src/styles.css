@@ -1981,3 +1981,24 @@ button.danger {
   align-items: center;
   gap: 6px;
 }
+
+/* Start live broadcast (Phase 4) */
+
+button.go-live {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+  font-weight: 700;
+}
+
+button.live-on {
+  background: #fff;
+  border: 2px solid #dc2626;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.badge.live {
+  background: #dc2626;
+  color: #fff;
+}

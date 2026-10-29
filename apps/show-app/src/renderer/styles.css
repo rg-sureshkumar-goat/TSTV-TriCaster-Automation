@@ -185,44 +185,6 @@ h3 {
   background: var(--red);
 }
 
-.connect {
-  display: grid;
-  justify-items: center;
-  gap: 16px;
-  padding: 40px 16px;
-}
-
-.card {
-  width: min(520px, 100%);
-  display: grid;
-  gap: 12px;
-  padding: 22px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.card label {
-  display: grid;
-  gap: 6px;
-  font-weight: 600;
-}
-
-.card p {
-  margin: 0;
-}
-
-.small-card {
-  gap: 8px;
-  padding: 14px 16px;
-}
-
-.show {
-  display: grid;
-  gap: 14px;
-  padding: 14px 16px 30px;
-}
-
 .banner {
   padding: 10px 14px;
   border-radius: 8px;
@@ -230,21 +192,17 @@ h3 {
   color: #fef3c7;
   font-weight: 600;
 }
-
 .paused-banner {
   background: #7f1d1d;
 }
-
 .app.paused .topbar {
   border-bottom: 3px solid var(--amber);
 }
-
 .cameras {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
-
 .camera {
   display: grid;
   min-width: 150px;
@@ -252,60 +210,23 @@ h3 {
   text-align: left;
   font-size: 17px;
 }
-
 .camera span {
   font-size: 12px;
   color: var(--muted);
 }
-
 .camera.on-air {
   background: var(--red);
   border-color: var(--red);
 }
-
 .camera.on-air span {
   color: #fee2e2;
 }
-
-.columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(260px, 0.9fr);
-  gap: 14px;
-}
-
-.panel {
-  padding: 14px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.on-air-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
-  padding: 12px;
-  background: var(--panel-2);
-  border-left: 4px solid var(--red);
-  border-radius: 6px;
-}
-
-.tally {
-  padding: 2px 8px;
-  background: var(--red);
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
 .fire {
   margin-left: auto;
   font-size: 15px;
   text-transform: none;
   letter-spacing: 0;
 }
-
 .queue {
   list-style: none;
   margin: 0;
@@ -313,7 +234,6 @@ h3 {
   display: grid;
   gap: 6px;
 }
-
 .queue li {
   display: flex;
   align-items: center;
@@ -322,22 +242,18 @@ h3 {
   background: var(--panel-2);
   border-radius: 6px;
 }
-
 .queue li.first {
   outline: 2px solid var(--blue);
 }
-
 .queue .actions {
   margin-left: auto;
   display: flex;
   gap: 6px;
 }
-
 .queue .actions button {
   padding: 3px 8px;
   font-size: 13px;
 }
-
 .chip {
   padding: 2px 8px;
   border-radius: 4px;
@@ -346,26 +262,21 @@ h3 {
   color: #fff;
   background: var(--blue);
 }
-
 .chip.voiceover,
 .chip.clip {
   background: var(--red);
 }
-
 .chip.music {
   background: var(--purple);
 }
-
 .missing {
   color: #fca5a5;
   font-size: 13px;
 }
-
 .ready {
   color: #4ade80;
   font-weight: 800;
 }
-
 .preview .thumb {
   display: grid;
   place-items: center;
@@ -375,19 +286,11 @@ h3 {
   overflow: hidden;
   color: var(--muted);
 }
-
 .preview .thumb img {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
-
-.side {
-  display: grid;
-  align-content: start;
-  gap: 14px;
-}
-
 .pause {
   padding: 18px;
   border: none;
@@ -396,39 +299,10 @@ h3 {
   font-size: 19px;
   font-weight: 800;
 }
-
 .pause.resume {
   background: var(--green);
   color: #fff;
 }
-
-.clock {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.clock div {
-  display: grid;
-}
-
-.clock strong {
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-}
-
-.clock .over {
-  color: #f87171;
-}
-
-.clock .under {
-  color: #4ade80;
-}
-
-.last-cue {
-  margin: 0;
-}
-
 .latency {
   margin-left: 8px;
   padding: 1px 6px;
@@ -436,34 +310,15 @@ h3 {
   font-weight: 700;
   color: #111;
 }
-
 .latency.fast {
   background: #4ade80;
 }
-
 .latency.ok {
   background: #fbbf24;
 }
-
 .latency.slow {
   background: #f87171;
 }
-
-.log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 220px;
-  overflow: auto;
-  font-size: 13px;
-  display: grid;
-  gap: 4px;
-}
-
-.graphics.dragging {
-  outline: 2px dashed var(--blue);
-}
-
 .problems {
   display: grid;
   gap: 8px;
@@ -472,47 +327,338 @@ h3 {
   background: #3b2a12;
   border-radius: 8px;
 }
-
 .problem {
   display: grid;
   gap: 4px;
 }
-
 .elements {
   width: 100%;
   border-collapse: collapse;
 }
-
 .elements td {
   padding: 5px 8px;
   border-top: 1px solid var(--border);
   vertical-align: middle;
 }
-
 .elements .actions {
   text-align: right;
   white-space: nowrap;
 }
-
 .elements .actions button {
   margin-left: 6px;
   padding: 3px 8px;
   font-size: 13px;
 }
-
 .mini {
   height: 34px;
   border-radius: 3px;
 }
 
+/* The layout from RG's sketch (docs/show-app-sketch.pdf) */
+
+.title {
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.topbar {
+  position: relative;
+}
+
+.light-button {
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 16px;
+  z-index: 20;
+  width: min(420px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+
+.dropdown p {
+  margin: 0;
+}
+
+.dropdown label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.empty {
+  display: grid;
+  place-items: center;
+  height: 60vh;
+  color: var(--muted);
+  font-size: 17px;
+}
+
+.show {
+  display: grid;
+  gap: 12px;
+  padding: 12px 16px 24px;
+}
+
+.banner.quiet {
+  background: var(--panel-2);
+  color: var(--text);
+  font-weight: 400;
+}
+
+/* Top: Program (with the cameras) · Playlist · status. Bottom: preview · permanent · green screen · music. */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.55fr) minmax(0, 0.55fr);
+  grid-template-areas:
+    'program playlist status status'
+    'preview permanent green music';
+  gap: 12px;
+}
+
+.program-cell {
+  grid-area: program;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.playlist {
+  grid-area: playlist;
+}
+
+.status {
+  grid-area: status;
+}
+
+.preview {
+  grid-area: preview;
+}
+
+.permanent {
+  grid-area: permanent;
+}
+
+.green {
+  grid-area: green;
+}
+
+.music {
+  grid-area: music;
+}
+
+.panel {
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+h3 {
+  display: flex;
+  align-items: center;
+  margin: 12px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.program {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.live-dot {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.live-dot.on {
+  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.program-note {
+  max-width: 70%;
+  text-align: center;
+  color: #555;
+  font-size: 13px;
+}
+
+.program-caption {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  font-size: 15px;
+}
+
+.cameras .camera {
+  flex: 1;
+}
+
+.on-air {
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border-left: 4px solid var(--red);
+  border-radius: 6px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.status {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.status dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 0;
+}
+
+.status dt {
+  color: var(--muted);
+}
+
+.status dd {
+  margin: 0;
+  min-width: 86px;
+  padding: 6px 10px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.last-cue {
+  margin: 0;
+}
+
+.drop.over {
+  outline: 2px dashed var(--blue);
+}
+
+.perm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.perm-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.perm-list li > span:first-child {
+  flex: 1;
+}
+
+.small-button {
+  padding: 2px 8px;
+  font-size: 13px;
+}
+
+.thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .music label {
   display: grid;
   gap: 4px;
+  margin-bottom: 10px;
+  font-size: 13px;
 }
 
-.footer-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
+.music select {
+  width: 100%;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.window {
+  width: min(1000px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  overflow: auto;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* Keep the bottom row short, so the whole screen fits on a laptop without scrolling. */
+.preview .thumb {
+  height: 170px;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.small-thumb {
+  height: 100px;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.preview p {
+  margin: 8px 0 0;
 }

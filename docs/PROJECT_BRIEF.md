@@ -161,6 +161,9 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 **Producer screen**
 
+- **Layout (decided Oct 29, 2026, from RG's sketch in `docs/show-app-sketch.pdf`):** across the top, the Program box (a placeholder for live video, with the ● LIVE dot) with the camera buttons under it, the Playlist (on air and up next, with Import graphics), and Pause Automation with Section, Elapsed and Time left on the current graphic. Across the bottom, the Up next preview, the Permanent graphics drop box, the Green screen drop box and Music. The episode key and the status lights are at the top right. Import graphics opens a window that shows which file is on which cue, with the files to place by hand.
+- **Start live broadcast (decided Oct 29, 2026):** a button on the episode's page, for the producer who created it and admins, pressed when the show goes on air. The app's automation follows the prompter only while the show is live; before that it does only what the producer does by hand. The same button ends it (**End live broadcast**). It doesn't start recording.
+
 - **Camera buttons:** one per camera, with names the producer sets (Anchor Camera, Weather Camera, Guest Camera). One click takes that camera to air. Input numbers are mapped once in settings.
 - **On air / Up next:** what's on air now, and the queue of upcoming cues. The producer can skip an element, pick a different one to play next, or fire the next cue by hand, all without touching the TriCaster.
 - **Preview:** a still image of the next element with the name of the camera it will play over. A live video preview from the TriCaster is a possible later upgrade.

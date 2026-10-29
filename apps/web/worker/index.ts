@@ -291,6 +291,22 @@ async function appKeyFor(c: Context<App, '/episodes/:id/app-key'>, renew: boolea
 app.get('/episodes/:id/app-key', (c) => appKeyFor(c, false));
 app.post('/episodes/:id/app-key', (c) => appKeyFor(c, true));
 
+// Start or End live broadcast (RG, Oct 29, 2026): the producer who created the episode, or an admin.
+// While it's live, the show app's automation follows the prompter.
+app.post('/episodes/:id/live', async (c) => {
+  const user = c.get('user');
+  const row = await visibleEpisode(c.env, user, c.req.param('id'));
+  if (!row) return c.json({ error: 'Episode not found.' }, 404);
+  if (row.created_by !== user.id && !user.isAdmin) return c.json({ error: 'Only the producer who created this episode, or an admin, can start or end the live broadcast.' }, 403);
+  const { live } = await c.req.json<{ live?: boolean }>();
+  if (live && row.status === 'archived') return c.json({ error: 'This episode is archived, so it can’t go live.' }, 409);
+  const room = await getServerByName(c.env.EpisodeRoom, String(row.id));
+  const response = await room.fetch(
+    new Request(`https://room/parties/episode-room/${row.id}/live`, { method: 'POST', body: JSON.stringify({ live: Boolean(live), by: { id: user.id, name: user.name } }) }),
+  );
+  return c.json(await response.json());
+});
+
 app.post('/episodes/:id/archive', async (c) => {
   const id = c.req.param('id');
   if (!(await visibleEpisode(c.env, c.get('user'), id))) return c.json({ error: 'Episode not found.' }, 404);

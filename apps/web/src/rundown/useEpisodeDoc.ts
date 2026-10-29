@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import YProvider from 'y-partyserver/provider';
-import { cuedElementIds, mediaOf, readEpisodeTalent, readMedia, readRows, rowsOf, scriptBodiesOf, scriptWordCounts, type EpisodeTalent, type MediaStatus, type Row } from '@tstv/shared';
+import { cuedElementIds, mediaOf, observeBroadcast, readBroadcast, readEpisodeTalent, readMedia, readRows, rowsOf, scriptBodiesOf, scriptWordCounts, type Broadcast, type EpisodeTalent, type MediaStatus, type Row } from '@tstv/shared';
 import type { User } from '../lib/api.ts';
 
 export interface Presence {
@@ -61,6 +61,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
   const [scriptWords, setScriptWords] = useState<Record<string, number>>({});
   const [cued, setCued] = useState<Set<string>>(() => new Set());
   const [media, setMedia] = useState<Record<string, MediaStatus>>({});
+  const [broadcast, setBroadcast] = useState<Broadcast>({ live: false, startedAt: null, endedAt: null, by: null });
   const [talent, setTalent] = useState<EpisodeTalent[]>([]);
   const [synced, setSynced] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -92,6 +93,8 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
     doc.getArray('talent').observe(updateTalent);
     const updateMedia = () => setMedia(readMedia(doc));
     mediaOf(doc).observe(updateMedia);
+    const updateBroadcast = () => setBroadcast(readBroadcast(doc));
+    const stopBroadcast = observeBroadcast(doc, updateBroadcast);
     const onSync = (isSynced: boolean) => {
       setSynced(isSynced);
       if (isSynced) {
@@ -99,6 +102,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
         updateWords();
         updateTalent();
         updateMedia();
+        updateBroadcast();
       }
     };
     const onStatus = ({ status: s }: { status: ConnectionStatus }) => setStatus(s);
@@ -137,6 +141,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
       scriptBodiesOf(doc).unobserveDeep(updateWords);
       doc.getArray('talent').unobserve(updateTalent);
       mediaOf(doc).unobserve(updateMedia);
+      stopBroadcast();
       provider.off('sync', onSync);
       provider.off('status', onStatus);
       provider.off('custom-message', onCustom);
@@ -148,7 +153,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
   const setFocus = (focus: string | null) => room?.provider.awareness.setLocalStateField('focus', focus);
 
-  return { doc: room?.doc ?? null, provider: room?.provider ?? null, rows, scriptWords, cued, media, talent, synced: synced && room !== null, status, others, setFocus, lastCue };
+  return { doc: room?.doc ?? null, provider: room?.provider ?? null, rows, scriptWords, cued, media, broadcast, talent, synced: synced && room !== null, status, others, setFocus, lastCue };
 }
 
 /** An episode's live room, as the rundown page and its script window see it. */

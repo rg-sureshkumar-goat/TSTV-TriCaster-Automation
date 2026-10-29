@@ -12,6 +12,7 @@ import {
   defaultMusicPoints,
   matchMedia,
   readRows,
+  type Broadcast,
   type CuePoint,
   type MediaProblem,
   type RundownTiming,
@@ -48,6 +49,7 @@ export class Runtime extends EventEmitter {
   private lastCue: AppState['lastCue'] = null;
   private log: AppState['log'] = [];
   private clock: AppState['clock'] = { startedAt: null, sectionLabel: null, overUnderSeconds: null };
+  private greenScreen: FileInfo | null = null;
 
   constructor(private deps: RuntimeDeps) {
     super();
@@ -58,6 +60,23 @@ export class Runtime extends EventEmitter {
       this.sendMedia();
     });
     this.website.on('cue', (event: CueEvent) => void this.onCue(event));
+    this.website.on('broadcast', (broadcast: Broadcast) => this.onBroadcast(broadcast));
+  }
+
+  /**
+   * Start live broadcast: automation starts following the prompter, from a clean slate, and the clock
+   * starts. End live broadcast: it stops (the producer's own buttons keep working).
+   */
+  private onBroadcast(broadcast: Broadcast): void {
+    if (broadcast.live) {
+      if (this.plan) this.engine = new CueEngine(this.plan);
+      this.clock = { startedAt: broadcast.startedAt ?? Date.now(), sectionLabel: null, overUnderSeconds: null };
+      this.note('Live: automation is following the prompter');
+    } else {
+      this.note('Live broadcast ended: automation stopped');
+    }
+    this.reportStatus();
+    this.changed();
   }
 
   /** Starts up with what was remembered: the simulator, and the last episode's key. */
@@ -144,6 +163,9 @@ export class Runtime extends EventEmitter {
 
   private async onCue(event: CueEvent): Promise<void> {
     if (!this.engine || !this.plan) return;
+    // Before Start live broadcast (and after End), prompter cues are ignored: the app does only what the
+    // producer does by hand.
+    if (!this.website.broadcast().live) return;
     const latencyMs = Date.now() - event.at;
     let label: string;
     let commands: SwitcherCommand[];
@@ -153,7 +175,7 @@ export class Runtime extends EventEmitter {
       label = `${section.label} started`;
       commands = this.engine.sectionStarted(section.id);
       const now = Date.now();
-      this.clock.startedAt ??= now;
+      this.clock.startedAt ??= this.website.broadcast().startedAt ?? now;
       const planned = this.timing?.rows.find((c) => c.row.id === section.id)?.startOffset ?? null;
       this.clock = { startedAt: this.clock.startedAt, sectionLabel: section.label, overUnderSeconds: planned === null ? null : Math.round((now - this.clock.startedAt) / 1000 - planned) };
     } else {
@@ -231,7 +253,65 @@ export class Runtime extends EventEmitter {
     return this.plan?.sections.flatMap((s) => s.elements).find((e) => e.id === id);
   }
 
+  /** The show's permanent graphic called this, as written in the show's settings. */
+  private permanentName(name: string): string | undefined {
+    return this.website.show?.settings.permanentGraphics.find((g) => g.toLowerCase() === name.trim().toLowerCase());
+  }
+
+  /**
+   * Files dropped on the permanent graphics box: each goes to the permanent graphic its name contains
+   * ("PrimeTime Show Intro.mov" → Show Intro). The rest are asked about.
+   */
+  private async addPermanent(paths: string[]): Promise<void> {
+    const show = this.website.show;
+    if (!show) return;
+    const simple = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const asked: FileProblem[] = [];
+    let placed = 0;
+    for (const file of await collectFiles(paths)) {
+      const base = simple(path.basename(file).replace(/\.[^.]+$/, ''));
+      const found = show.settings.permanentGraphics.filter((g) => simple(g) && (base.includes(simple(g)) || simple(g).includes(base)));
+      if (found.length === 1) {
+        this.permanent[found[0].toLowerCase()] = await readFile(file);
+        placed++;
+      } else {
+        asked.push({
+          path: file,
+          name: path.basename(file),
+          reason: found.length ? 'Its name could be more than one permanent graphic.' : 'Its name doesn’t match any of the show’s permanent graphics.',
+          candidates: (found.length ? found : show.settings.permanentGraphics).map((g) => ({ id: `perm:${g}`, label: `★ ${g}` })),
+        });
+      }
+    }
+    const known = new Set(asked.map((p) => p.path));
+    this.problems = [...this.problems.filter((p) => !known.has(p.path)), ...asked];
+    this.note(`Added ${placed} permanent graphic file(s)`);
+    await this.saveFiles();
+  }
+
+  private async setGreenScreen(file: string | null): Promise<void> {
+    const show = this.website.show;
+    if (!show) return;
+    this.greenScreen = file ? await readFile(file) : null;
+    await this.deps.store.saveGreenScreen(show.id, this.greenScreen);
+    // On the simulator, a still goes in GFX 1 and a clip in DDR 1 (on the real TC1, Phase 5 sends it).
+    if (this.greenScreen && this.switcher.snapshot.status === 'connected') {
+      const name = path.basename(this.greenScreen.path).replace(/\.[^.]+$/, '');
+      const seconds = this.greenScreen.seconds;
+      await this.switcher.loadSimulatorPlaylist([{ name, durationMs: seconds ? Math.round(seconds * 1000) : 0 }], seconds ? 'ddr1' : 'gfx1');
+    }
+    this.note(this.greenScreen ? `Green screen: ${path.basename(this.greenScreen.path)}` : 'Green screen removed');
+    this.changed();
+  }
+
   private async assign(file: string, elementId: string): Promise<void> {
+    if (elementId.startsWith('perm:')) {
+      const name = this.permanentName(elementId.slice(5));
+      if (!name) return;
+      this.permanent[name.toLowerCase()] = await readFile(file);
+      this.problems = this.problems.filter((p) => p.path !== file);
+      return this.saveFiles();
+    }
     const element = this.element(elementId);
     if (!element) return;
     const info = await readFile(file);
@@ -283,8 +363,16 @@ export class Runtime extends EventEmitter {
         ]
       : [];
     const p = this.website.prompter;
+    const broadcast = this.website.broadcast();
     return {
       website: { status: this.website.status, error: this.website.error, siteUrl: this.settings.siteUrl, key: this.settings.key },
+      live: { on: broadcast.live, startedAt: broadcast.live ? broadcast.startedAt : null },
+      permanent:
+        show?.settings.permanentGraphics.map((name) => {
+          const file = this.permanent[name.toLowerCase()];
+          return { name, withSound: show.settings.permanentWithSound.includes(name), file: file ? path.basename(file.path) : null, seconds: file?.seconds ?? null, thumbnail: file?.thumbnail ?? null };
+        }) ?? [],
+      greenScreen: this.greenScreen ? { file: path.basename(this.greenScreen.path), seconds: this.greenScreen.seconds, thumbnail: this.greenScreen.thumbnail } : null,
       episode: this.website.episode ? { id: this.website.episode.id, title: this.website.episode.title, showName: show?.name ?? '', airDate: this.website.episode.airDate, airTime: this.website.episode.airTime } : null,
       cameras: show ? show.settings.cameras.map((name) => ({ name, input: show.settings.cameraInputs[name] ?? 1 })) : [],
       switcher: { ...this.switcher.snapshot },
@@ -326,7 +414,12 @@ export class Runtime extends EventEmitter {
     this.clock = { startedAt: null, sectionLabel: null, overUnderSeconds: null };
     await this.website.connect(this.settings.siteUrl, this.settings.key);
     if (this.website.episode) this.files = await this.deps.store.episodeFiles(this.website.episode.id);
-    if (this.website.show) this.permanent = await this.deps.store.permanentFiles(this.website.show.id);
+    if (this.website.show) {
+      this.permanent = await this.deps.store.permanentFiles(this.website.show.id);
+      this.greenScreen = await this.deps.store.greenScreen(this.website.show.id);
+    }
+    const broadcast = this.website.broadcast();
+    if (broadcast.live) this.clock = { startedAt: broadcast.startedAt, sectionLabel: null, overUnderSeconds: null };
     this.reportStatus();
     this.rebuild();
   }
@@ -397,6 +490,25 @@ export class Runtime extends EventEmitter {
         return this.changed();
       case 'loadSimulator':
         return this.loadSimulator();
+      case 'addPermanent':
+        return this.addPermanent(action.paths);
+      case 'choosePermanent': {
+        const file = await this.deps.pickFile();
+        if (file) await this.assign(file, `perm:${action.name}`);
+        return;
+      }
+      case 'clearPermanent':
+        delete this.permanent[action.name.toLowerCase()];
+        return this.saveFiles();
+      case 'setGreenScreen':
+        return this.setGreenScreen(action.path);
+      case 'chooseGreenScreen': {
+        const file = await this.deps.pickFile();
+        if (file) await this.setGreenScreen(file);
+        return;
+      }
+      case 'clearGreenScreen':
+        return this.setGreenScreen(null);
       case 'setMusic': {
         const showId = this.website.show?.id;
         if (!showId) return;

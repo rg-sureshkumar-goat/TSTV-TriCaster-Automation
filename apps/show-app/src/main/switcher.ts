@@ -44,6 +44,7 @@ export class Switcher extends EventEmitter {
   private socket: net.Socket | null = null;
   private notifications: WebSocket | null = null;
   private closed = false;
+  private timecodeTimer: ReturnType<typeof setInterval> | null = null;
   snapshot: SwitcherSnapshot;
   /** Pause Automation: nothing is sent while it's on. */
   paused = false;
@@ -137,18 +138,30 @@ export class Switcher extends EventEmitter {
     });
     // DDR 2 stopped by itself at the end of a clip, with DSK 2 still on: the clip ended.
     if (was && !ddrPlaying && changed.includes('ddr2_play')) void this.checkClipEnd();
+    // While a clip plays, its time left is read twice a second, for the producer's screen.
+    if (ddrPlaying && !this.timecodeTimer) this.timecodeTimer = setInterval(() => void this.readTimecode(), 500);
+    if (!ddrPlaying && this.timecodeTimer) {
+      clearInterval(this.timecodeTimer);
+      this.timecodeTimer = null;
+    }
+  }
+
+  /** Seconds left in DDR 2's clip. */
+  private async readTimecode(): Promise<number | null> {
+    try {
+      const xml = await (await fetch(`${this.base}/v1/dictionary?key=ddr_timecode`)).text();
+      const remaining = Number(attr(/<ddr2\b([^>]*)\/?>/.exec(xml)?.[1] ?? '', 'clip_seconds_remaining'));
+      const value = Number.isFinite(remaining) ? remaining : null;
+      this.set({ ddrRemaining: value });
+      return value;
+    } catch {
+      return null;
+    }
   }
 
   private async checkClipEnd(): Promise<void> {
-    try {
-      const xml = await (await fetch(`${this.base}/v1/dictionary?key=ddr_timecode`)).text();
-      const ddr2 = /<ddr2\b([^>]*)\/?>/.exec(xml)?.[1] ?? '';
-      const remaining = Number(attr(ddr2, 'clip_seconds_remaining'));
-      this.set({ ddrRemaining: Number.isFinite(remaining) ? remaining : null });
-      if (Number.isFinite(remaining) && remaining <= 0.5 && this.snapshot.dskOn) this.emit('clipEnded');
-    } catch {
-      // The next state change tries again.
-    }
+    const remaining = await this.readTimecode();
+    if (remaining !== null && remaining <= 0.5 && this.snapshot.dskOn) this.emit('clipEnded');
   }
 
   async readPlaylists(): Promise<void> {
@@ -193,15 +206,19 @@ export class Switcher extends EventEmitter {
     }
   }
 
-  /** The simulator only: loads DDR 2 with the show's clips, standing in for Send to TriCaster (Phase 5). */
-  async loadSimulatorPlaylist(clips: { name: string; durationMs: number }[]): Promise<void> {
+  /**
+   * The simulator only: loads a player's playlist, standing in for Send to TriCaster (Phase 5). DDR 2
+   * gets the show's clips; GFX 1 or DDR 1 gets the green-screen background.
+   */
+  async loadSimulatorPlaylist(clips: { name: string; durationMs: number }[], player = 'ddr2'): Promise<void> {
     if (this.snapshot.status !== 'connected') throw new Error('Connect to the simulator first.');
-    await fetch(`${this.base}/sim/api/playlist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player: 'ddr2', clips }) });
+    await fetch(`${this.base}/sim/api/playlist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player, clips }) });
     await this.readPlaylists();
   }
 
   close(): void {
     this.closed = true;
+    if (this.timecodeTimer) clearInterval(this.timecodeTimer);
     this.socket?.destroy();
     this.notifications?.close();
     this.set({ status: 'off' });

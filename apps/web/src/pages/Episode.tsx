@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { breakGraphic, clipSecondsBySection, computeRundown, cueLabel, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type RundownTiming, type ShowSettings } from '@tstv/shared';
+import { breakGraphic, clipSecondsBySection, computeRundown, cueLabel, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type Broadcast, type RundownTiming, type ShowSettings } from '@tstv/shared';
 import { TalentPanel } from '../rundown/TalentPanel.tsx';
 import { api, useLoad, type User } from '../lib/api.ts';
 import { Link, navigate } from '../lib/router.tsx';
@@ -139,6 +139,8 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
             Open prompter
           </button>
           {(canPublish || user.isAdmin) && <AppKeyButton episodeId={episode.id} />}
+          {canPublish && !readOnly && <LiveButton episodeId={episode.id} live={room.broadcast.live} onError={setMessage} />}
+          {!canPublish && room.broadcast.live && <span className="badge live">● Live</span>}
           <button onClick={() => exportCsv(timing, exportInfo)}>Export CSV</button>
           <button onClick={() => exportPdf(timing, exportInfo)}>Export PDF</button>
           {!readOnly && <button onClick={archive}>Archive</button>}
@@ -152,7 +154,7 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
       </div>
       {message && <p className="error">{message}</p>}
 
-      <PrompterBar others={room.others} lastCue={room.lastCue} timing={timing} />
+      <PrompterBar others={room.others} lastCue={room.lastCue} timing={timing} live={room.broadcast} />
 
       {room.synced && room.doc && <TalentPanel doc={room.doc} talent={room.talent} colors={settings.talent} readOnly={readOnly} />}
 
@@ -194,6 +196,33 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
         </Suspense>
       )}
     </div>
+  );
+}
+
+/**
+ * Start live broadcast (RG, Oct 29, 2026): pressed when the show goes on air. From then until End live
+ * broadcast, the show app's automation follows the prompter.
+ */
+function LiveButton({ episodeId, live, onError }: { episodeId: string; live: boolean; onError: (message: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    const question = live
+      ? 'End the live broadcast? The show app stops following the prompter.'
+      : 'Start the live broadcast? The show app’s automation will follow the prompter from now on.';
+    if (!confirm(question)) return;
+    setBusy(true);
+    try {
+      await api(`/episodes/${episodeId}/live`, { body: { live: !live } });
+    } catch (e) {
+      onError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button className={live ? 'live-on' : 'go-live'} disabled={busy} onClick={toggle}>
+      {live ? '● Live · End live broadcast' : 'Start live broadcast'}
+    </button>
   );
 }
 
@@ -252,10 +281,10 @@ function AppKeyButton({ episodeId }: { episodeId: string }) {
 }
 
 /** Where the prompter is and the last cue it fired, and whether the show app is connected. */
-function PrompterBar({ others, lastCue, timing }: { others: Presence[]; lastCue: CueEvent | null; timing: RundownTiming }) {
+function PrompterBar({ others, lastCue, timing, live }: { others: Presence[]; lastCue: CueEvent | null; timing: RundownTiming; live: Broadcast }) {
   const prompter = others.find((o) => o.prompter)?.prompter;
   const app = others.find((o) => o.app)?.app;
-  if (!prompter && !lastCue && !app) return null;
+  if (!prompter && !lastCue && !app && !live.live) return null;
   const section = (id: string) => timing.rows.find((c) => c.row.id === id);
   const cue = (() => {
     if (!lastCue) return '';
@@ -266,6 +295,11 @@ function PrompterBar({ others, lastCue, timing }: { others: Presence[]; lastCue:
   })();
   return (
     <div className="prompter-bar" role="status" aria-label="Prompter">
+      {live.live && (
+        <span className="badge live" title={live.by ? `Started by ${live.by.name}` : undefined}>
+          ● Live since {new Date(live.startedAt ?? Date.now()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+        </span>
+      )}
       <strong>Prompter</strong>
       {prompter ? (
         <span>

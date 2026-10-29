@@ -5,3 +5,4 @@ export * from './talent.ts';
 export * from './prompter.ts';
 export * from './media.ts';
 export * from './engine.ts';
+export * from './broadcast.ts';

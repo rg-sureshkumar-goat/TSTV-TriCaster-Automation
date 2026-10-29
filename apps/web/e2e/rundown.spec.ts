@@ -401,6 +401,19 @@ test('admins manage people, shows, episodes and commercial breaks', async ({ bro
   expect((await sam.request.get(`/api/episodes/${episodeUrl.split('/').pop()}/app-key`)).status()).toBe(403);
   await rg.keyboard.press('Escape');
 
+  // Start live broadcast: the producer (or an admin) presses it when the show goes on air; everyone sees
+  // it's live, and the same button ends it.
+  rg.once('dialog', (dialog) => dialog.accept());
+  await rg.getByRole('button', { name: 'Start live broadcast' }).click();
+  await expect(rg.getByRole('button', { name: '● Live · End live broadcast' })).toBeVisible();
+  await expect(sam.locator('.episode-actions .badge.live')).toHaveText('● Live');
+  await expect(sam.getByRole('status', { name: 'Prompter' })).toContainText('● Live since');
+  await expect(sam.getByRole('button', { name: 'Start live broadcast' })).toHaveCount(0);
+  expect((await sam.request.post(`/api/episodes/${episodeUrl.split('/').pop()}/live`, { data: { live: false } })).status()).toBe(403);
+  rg.once('dialog', (dialog) => dialog.accept());
+  await rg.getByRole('button', { name: '● Live · End live broadcast' }).click();
+  await expect(rg.getByRole('button', { name: 'Start live broadcast' })).toBeVisible();
+
   // Deleting an episode, for admins only, erases it for good.
   rg.once('dialog', (dialog) => dialog.accept());
   await rg.getByRole('button', { name: 'Delete', exact: true }).click();

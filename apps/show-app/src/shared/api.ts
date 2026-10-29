@@ -34,12 +34,26 @@ export interface FileProblem {
   name: string;
   /** Why the app couldn't place it, in plain words. */
   reason: string;
-  /** The elements it could go on. */
+  /** Where it could go: element ids, or "perm:<name>" for a permanent graphic. */
   candidates: { id: string; label: string }[];
+}
+
+/** One of the show's permanent graphics, with its file on this laptop. */
+export interface PermanentView {
+  name: string;
+  withSound: boolean;
+  file: string | null;
+  seconds: number | null;
+  thumbnail: string | null;
 }
 
 export interface AppState {
   website: { status: LinkStatus; error: string | null; siteUrl: string; key: string };
+  /** Start live broadcast on the website: automation follows the prompter only while it's on. */
+  live: { on: boolean; startedAt: number | null };
+  permanent: PermanentView[];
+  /** The show's green-screen background. */
+  greenScreen: { file: string; seconds: number | null; thumbnail: string | null } | null;
   episode: { id: string; title: string; showName: string; airDate: string; airTime: string } | null;
   cameras: { name: string; input: number }[];
   switcher: {
@@ -90,4 +104,10 @@ export type Action =
   | { kind: 'clearFile'; elementId: string }
   | { kind: 'dismissProblem'; path: string }
   | { kind: 'loadSimulator' }
+  | { kind: 'addPermanent'; paths: string[] }
+  | { kind: 'choosePermanent'; name: string }
+  | { kind: 'clearPermanent'; name: string }
+  | { kind: 'setGreenScreen'; path: string }
+  | { kind: 'chooseGreenScreen' }
+  | { kind: 'clearGreenScreen' }
   | { kind: 'setMusic'; in: string; out: string };

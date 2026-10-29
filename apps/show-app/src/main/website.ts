@@ -5,7 +5,7 @@ import { EventEmitter } from 'node:events';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
 import YProvider from 'y-partyserver/provider';
-import { normalizeShowSettings, rowsOf, type ShowSettings } from '@tstv/shared';
+import { normalizeShowSettings, observeBroadcast, readBroadcast, rowsOf, type Broadcast, type ShowSettings } from '@tstv/shared';
 
 export interface EpisodeInfo {
   id: string;
@@ -109,7 +109,13 @@ export class WebsiteLink extends EventEmitter {
       this.emit('change');
     });
     rowsOf(doc).observeDeep(() => this.emit('rundown'));
+    observeBroadcast(doc, () => this.emit('broadcast', readBroadcast(doc)));
     doc.getMap('media').observe(() => this.emit('rundown'));
+  }
+
+  /** Whether the show is live (Start live broadcast on the website). */
+  broadcast(): Broadcast {
+    return this.doc ? readBroadcast(this.doc) : { live: false, startedAt: null, endedAt: null, by: null };
   }
 
   /** Tells everyone (the rundown page) how the app is doing. */

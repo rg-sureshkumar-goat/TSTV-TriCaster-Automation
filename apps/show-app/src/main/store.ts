@@ -61,4 +61,13 @@ export class Store {
   savePermanentFiles(showId: string, files: Record<string, FileInfo>): Promise<void> {
     return this.write(`shows/${showId}.json`, files);
   }
+
+  /** A show's green-screen background (one for the whole show). */
+  async greenScreen(showId: string): Promise<FileInfo | null> {
+    return (await this.read<{ file: FileInfo | null }>(`green-screen/${showId}.json`, { file: null })).file;
+  }
+
+  saveGreenScreen(showId: string, file: FileInfo | null): Promise<void> {
+    return this.write(`green-screen/${showId}.json`, { file });
+  }
 }

@@ -4,7 +4,7 @@
 import { YServer } from 'y-partyserver';
 import * as Y from 'yjs';
 import type { Connection, ConnectionContext } from 'partyserver';
-import { allScriptText, clipSecondsBySection, computeRundown, ensureScripts, readMedia, scriptWordCounts, sectionSecondsFrom, initEpisode, readRows, rowsOf, setMedia, tagReaders, upgradeScripts, type Person } from '@tstv/shared';
+import { allScriptText, clipSecondsBySection, computeRundown, ensureScripts, readMedia, scriptWordCounts, sectionSecondsFrom, initEpisode, readBroadcast, readRows, rowsOf, setBroadcast, setMedia, tagReaders, upgradeScripts, type Person } from '@tstv/shared';
 import type { Env } from './env.ts';
 
 interface ConnectionInfo {
@@ -165,6 +165,12 @@ export class EpisodeRoom extends YServer<Env> {
       // Tell every open page, so nobody keeps typing into an episode that just became read-only.
       this.broadcastCustomMessage(JSON.stringify({ type: 'archived', archived }));
       return Response.json({ ok: true });
+    }
+    if (request.method === 'POST' && url.pathname.endsWith('/live')) {
+      // Start or End live broadcast, from the episode's page (the Worker checked who's asking).
+      const { live, by } = await request.json<{ live: boolean; by: Person }>();
+      if (setBroadcast(this.document, live, by)) await this.saveNow();
+      return Response.json({ ok: true, broadcast: readBroadcast(this.document) });
     }
     if (request.method === 'POST' && url.pathname.endsWith('/delete')) {
       // The episode was deleted: erase everything this room saved, and send everyone back.

@@ -1,6 +1,9 @@
-// The producer screen (Phase 4): camera buttons, what's on air and up next, a preview, Pause Automation,
-// the show clock, and the episode's graphics and music. Keys: Space fires the next cue, P pauses.
-import { useEffect, useState, type DragEvent } from 'react';
+// The producer screen, laid out from RG's sketch (docs/show-app-sketch.pdf, Oct 29, 2026):
+//   top:    Program with the cameras under it · the Playlist (on air, up next) · Pause, section, elapsed, time left
+//   bottom: Up next preview · Permanent graphics drop box · Green screen drop box · Music
+// The episode key is at the top right. Import graphics opens a window that matches files to cues.
+// Keys: Space fires the next cue, P pauses.
+import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
 
 declare global {
@@ -16,7 +19,7 @@ declare global {
 const act = (action: Action) => window.showApp.act(action);
 
 function duration(seconds: number | null): string {
-  if (seconds === null) return '';
+  if (seconds === null) return '—';
   const s = Math.max(0, Math.round(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
@@ -30,14 +33,21 @@ function useNow(): number {
   return now;
 }
 
+/** Paths of files dropped on the window. */
+const droppedPaths = (e: DragEvent) =>
+  Array.from(e.dataTransfer.files)
+    .map((f) => window.showApp.pathOf(f))
+    .filter(Boolean);
+
 export function App() {
   const [state, setState] = useState<AppState | null>(null);
+  const [graphicsOpen, setGraphicsOpen] = useState(false);
   useEffect(() => window.showApp.onState(setState), []);
 
-  // Space fires the next cue; P pauses and resumes. Not while typing in a box.
+  // Space fires the next cue; P pauses and resumes. Not while typing in a box or with a window open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest('input, select, textarea') || !state?.episode) return;
+      if ((e.target as HTMLElement).closest('input, select, textarea') || !state?.episode || graphicsOpen) return;
       if (e.key === ' ') {
         e.preventDefault();
         void act({ kind: 'fireNext' });
@@ -48,14 +58,63 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [state]);
+  }, [state, graphicsOpen]);
+
+  // Files to place by hand show up in the graphics window.
+  const problems = state?.problems.length ?? 0;
+  useEffect(() => {
+    if (problems > 0) setGraphicsOpen(true);
+  }, [problems]);
 
   if (!state) return <div className="loading">Starting…</div>;
+  const importGraphics = async () => {
+    await act({ kind: 'importFiles' });
+    setGraphicsOpen(true);
+  };
   return (
     <div className={`app${state.automation.paused ? ' paused' : ''}`}>
-      <TopBar state={state} />
-      {!state.episode ? <Connect state={state} /> : <Show state={state} />}
+      <Header state={state} />
+      {!state.episode ? (
+        <main className="empty">
+          <p>
+            Click <strong>Episode key</strong> at the top right, and paste the key from the episode’s <strong>Show app key</strong> button on the website.
+          </p>
+        </main>
+      ) : (
+        <Show state={state} onImport={importGraphics} onReview={() => setGraphicsOpen(true)} />
+      )}
+      {graphicsOpen && state.episode && <GraphicsWindow state={state} onClose={() => setGraphicsOpen(false)} onImport={importGraphics} />}
     </div>
+  );
+}
+
+// ---- Header: show and episode at the left; status lights and the episode key at the right ----
+
+function Header({ state }: { state: AppState }) {
+  const { website, switcher, prompter, episode } = state;
+  const [open, setOpen] = useState<'key' | 'simulator' | null>(episode ? null : 'key');
+  useEffect(() => {
+    if (episode) setOpen(null);
+  }, [episode?.id]);
+  return (
+    <header className="topbar">
+      <span className="title">{episode ? `${episode.showName} · ${episode.title}` : 'TSTV Show App'}</span>
+      <span className="mode" title="Phase 4 runs the simulator only. Live mode for the real TC1 comes in Phase 5.">
+        SIMULATOR
+      </span>
+      <span className="lights">
+        <Light on={website.status === 'connected'} warn={website.status === 'connecting'} label="Website" detail={website.error ?? website.status} />
+        <Light on={prompter.connected} label="Prompter" detail={prompter.connected ? `On ${prompter.label || 'the top'}` : 'The prompter isn’t open on this episode'} />
+        <button className="light-button" onClick={() => setOpen(open === 'simulator' ? null : 'simulator')} title="Click to change the simulator’s address">
+          <Light on={switcher.status === 'connected'} warn={switcher.status === 'connecting'} label="Simulator" detail={switcher.error ?? `${switcher.address}: ${switcher.status}`} />
+        </button>
+      </span>
+      <button className={episode ? '' : 'primary'} onClick={() => setOpen(open === 'key' ? null : 'key')} aria-expanded={open === 'key'}>
+        Episode key
+      </button>
+      {open === 'key' && <KeyPanel state={state} onDone={() => setOpen(null)} />}
+      {open === 'simulator' && <SimulatorPanel state={state} />}
+    </header>
   );
 }
 
@@ -67,72 +126,54 @@ function Light({ on, warn, label, detail }: { on: boolean; warn?: boolean; label
   );
 }
 
-function TopBar({ state }: { state: AppState }) {
-  const { website, switcher, prompter, episode } = state;
-  return (
-    <header className="topbar">
-      <strong className="brand">TSTV Show App</strong>
-      <span className="mode" title="Phase 4 runs the simulator only. Live mode for the real TC1 comes in Phase 5.">
-        SIMULATOR
-      </span>
-      {episode && (
-        <span className="episode">
-          {episode.showName} · <strong>{episode.title}</strong>
-        </span>
-      )}
-      <span className="lights">
-        <Light on={website.status === 'connected'} warn={website.status === 'connecting'} label="Website" detail={website.error ?? website.status} />
-        <Light on={prompter.connected} label="Prompter" detail={prompter.connected ? `On ${prompter.label || 'the top'}` : 'The prompter isn’t open on this episode'} />
-        <Light on={switcher.status === 'connected'} warn={switcher.status === 'connecting'} label="Simulator" detail={switcher.error ?? `${switcher.address}: ${switcher.status}`} />
-      </span>
-    </header>
-  );
-}
-
-function Connect({ state }: { state: AppState }) {
+function KeyPanel({ state, onDone }: { state: AppState; onDone: () => void }) {
   const [key, setKey] = useState(state.website.key);
   const [siteUrl, setSiteUrl] = useState(state.website.siteUrl);
   return (
-    <main className="connect">
-      <form
-        className="card"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void act({ kind: 'connect', siteUrl, key });
-        }}
-      >
-        <h1>Connect to an episode</h1>
-        <p>On the website, open the episode, click <strong>Show app key</strong>, copy the key and paste it here.</p>
-        <label>
-          Episode key
-          <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="tstv-…" autoFocus required />
-        </label>
-        <details>
-          <summary>Website address</summary>
-          <input value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} />
-        </details>
-        {state.website.error && <p className="error">{state.website.error}</p>}
+    <form
+      className="dropdown"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void act({ kind: 'connect', siteUrl, key });
+      }}
+    >
+      <p>On the website, open the episode, click <strong>Show app key</strong> and <strong>Copy</strong>, then paste it here.</p>
+      <label>
+        Episode key
+        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="tstv-…" autoFocus required />
+      </label>
+      <details>
+        <summary>Website address</summary>
+        <input value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} aria-label="Website address" />
+      </details>
+      {state.website.error && <p className="error">{state.website.error}</p>}
+      <div className="row">
         <button className="primary" type="submit" disabled={state.website.status === 'connecting'}>
           {state.website.status === 'connecting' ? 'Connecting…' : 'Connect'}
         </button>
-      </form>
-      <SimulatorBox state={state} />
-    </main>
+        {state.episode && (
+          <button type="button" onClick={onDone}>
+            Close
+          </button>
+        )}
+      </div>
+    </form>
   );
 }
 
-function SimulatorBox({ state }: { state: AppState }) {
+function SimulatorPanel({ state }: { state: AppState }) {
   const [address, setAddress] = useState(state.switcher.address);
   return (
     <form
-      className="card small-card"
+      className="dropdown"
       onSubmit={(e) => {
         e.preventDefault();
         void act({ kind: 'connectSwitcher', address });
       }}
     >
-      <h2>Simulator</h2>
-      <p className="muted">Start it with <code>npm run simulator</code>. The app only talks to the simulator in Phase 4.</p>
+      <p>
+        The simulator runs on this laptop: start it with <code>npm run simulator</code>. Phase 4 only ever talks to the simulator.
+      </p>
       <div className="row">
         <input value={address} onChange={(e) => setAddress(e.target.value)} aria-label="Simulator address" />
         <button type="submit">{state.switcher.status === 'connected' ? 'Reconnect' : 'Connect'}</button>
@@ -142,123 +183,136 @@ function SimulatorBox({ state }: { state: AppState }) {
   );
 }
 
-function Show({ state }: { state: AppState }) {
-  const { automation, switcher, cameras, prompter, website } = state;
-  const next = automation.upNext[0];
-  const nextSection = state.sections.find((s) => s.id === next?.sectionId);
+// ---- The show ----
+
+function Show({ state, onImport, onReview }: { state: AppState; onImport: () => void; onReview: () => void }) {
+  const { automation, website, prompter, live } = state;
   return (
     <main className="show">
-      {website.status === 'connected' && !prompter.connected && (
-        <div className="banner" role="alert">
-          The prompter isn’t connected. Keep the show going by firing each cue with the <kbd>Space</kbd> bar.
-        </div>
-      )}
-      {automation.paused && (
+      {automation.paused ? (
         <div className="banner paused-banner" role="alert">
-          Automation is paused. The app sends nothing; the TD runs the switcher. Press <kbd>P</kbd> or Resume to pick up from the prompter.
+          Automation is paused: the app sends nothing, and the TD runs the switcher. Press <kbd>P</kbd> to resume from the prompter’s place.
         </div>
+      ) : !live.on ? (
+        <div className="banner quiet" role="status">
+          Not live yet. The app follows the prompter once the producer presses <strong>Start live broadcast</strong> on the website. Until then, the cameras and Fire next work by hand.
+        </div>
+      ) : (
+        website.status === 'connected' &&
+        !prompter.connected && (
+          <div className="banner" role="alert">
+            The prompter isn’t connected. Keep the show going by firing each cue with the <kbd>Space</kbd> bar.
+          </div>
+        )
       )}
-      <section className="cameras" aria-label="Cameras">
-        {cameras.map((c) => (
-          <button key={c.name} className={`camera${switcher.programInput === c.input ? ' on-air' : ''}`} onClick={() => act({ kind: 'takeCamera', input: c.input })} disabled={automation.paused}>
-            <strong>{c.name}</strong>
-            <span>Input {c.input}</span>
-          </button>
-        ))}
-      </section>
-
-      <div className="columns">
-        <section className="panel">
-          <h2>On air</h2>
-          <OnAir element={automation.onAir} state={state} />
-          <h2>
-            Up next
-            <button className="primary fire" onClick={() => act({ kind: 'fireNext' })} disabled={!next || automation.paused}>
-              Fire next <kbd>Space</kbd>
-            </button>
-          </h2>
-          <ol className="queue">
-            {automation.upNext.map((e, i) => (
-              <li key={e.id} className={i === 0 ? 'first' : ''}>
-                <span className={`chip ${e.behavior}`}>{e.label}</span>
-                <span className="muted">{e.sectionLabel}</span>
-                {e.ddrItem === null && e.behavior !== 'music' && <span className="missing">no file in DDR 2</span>}
-                <span className="actions">
-                  {i > 0 && <button onClick={() => act({ kind: 'chooseNext', elementId: e.id })}>Play next</button>}
-                  {automation.nextChoice === e.id && <button onClick={() => act({ kind: 'chooseNext', elementId: null })}>Back in order</button>}
-                  <button onClick={() => act({ kind: 'skip', elementId: e.id, skipped: true })}>Skip</button>
-                </span>
-              </li>
-            ))}
-            {automation.upNext.length === 0 && <li className="muted">Nothing left to fire.</li>}
-          </ol>
-          <Skipped state={state} />
-        </section>
-
-        <section className="panel preview">
-          <h2>Preview</h2>
-          {next ? (
-            <>
-              <div className="thumb">{next.thumbnail ? <img src={next.thumbnail} alt="" /> : <span>{next.file ?? 'No file yet'}</span>}</div>
-              <p>
-                <strong>{next.label}</strong> ({next.sectionLabel})
-                <br />
-                <span className="muted">over {nextSection?.camera ?? 'the section’s camera'}</span>
-              </p>
-            </>
-          ) : (
-            <p className="muted">Nothing up next.</p>
-          )}
-        </section>
-
-        <section className="panel side">
-          <button className={`pause${automation.paused ? ' resume' : ''}`} onClick={() => act({ kind: 'pause', paused: !automation.paused })}>
-            {automation.paused ? 'Resume automation' : 'Pause automation'} <kbd>P</kbd>
-          </button>
-          <Clock state={state} />
-          <LastCue state={state} />
-          <h2>Activity</h2>
-          <ul className="log">
-            {state.log.map((l) => (
-              <li key={`${l.at}-${l.text}`}>
-                <span className="muted">{new Date(l.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span> {l.text}
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-
-      <Graphics state={state} />
-      <Music state={state} />
-      <div className="footer-row">
-        <SimulatorBox state={state} />
-        <button className="link" onClick={() => act({ kind: 'disconnect' })}>
-          Connect to a different episode
-        </button>
+      <div className="grid">
+        <div className="cell program-cell">
+          <Program state={state} />
+          <Cameras state={state} />
+        </div>
+        <Playlist state={state} onImport={onImport} onReview={onReview} />
+        <Status state={state} />
+        <Preview state={state} />
+        <PermanentBox state={state} />
+        <GreenScreenBox state={state} />
+        <Music state={state} />
       </div>
     </main>
   );
 }
 
-function OnAir({ element, state }: { element: ElementView | null; state: AppState }) {
+function Program({ state }: { state: AppState }) {
   const camera = state.cameras.find((c) => c.input === state.switcher.programInput);
+  const onAir = state.automation.onAir;
   return (
-    <div className="on-air-card">
-      <span className="tally">ON AIR</span>
-      <span>
+    <div className="program" aria-label="Program">
+      <span className={`live-dot${state.live.on ? ' on' : ''}`}>{state.live.on ? '● LIVE' : '○ Not live'}</span>
+      <span className="program-note">Live video from the TriCaster will show here in a later version.</span>
+      <span className="program-caption">
         <strong>{camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera')}</strong>
-        {element ? (
-          <>
-            {' '}
-            + <span className={`chip ${element.behavior}`}>{element.label}</span> <span className="muted">{element.sectionLabel}</span>
-            {state.switcher.ddrPlaying && element.behavior !== 'graphic' && <span className="muted"> · playing</span>}
-          </>
-        ) : (
-          <span className="muted"> · nothing on DSK 2</span>
-        )}
-        {state.switcher.musicPlaying && <span className="chip music"> ♪ music</span>}
+        {onAir && <> + {onAir.label}</>}
+        {state.switcher.musicPlaying && <> + ♪ music</>}
       </span>
     </div>
+  );
+}
+
+function Cameras({ state }: { state: AppState }) {
+  return (
+    <div className="cameras" aria-label="Cameras">
+      {state.cameras.map((c) => (
+        <button key={c.name} className={`camera${state.switcher.programInput === c.input ? ' on-air' : ''}`} onClick={() => act({ kind: 'takeCamera', input: c.input })} disabled={state.automation.paused}>
+          <strong>{c.name}</strong>
+          <span>Input {c.input}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Panel({ title, actions, className = '', children }: { title: string; actions?: ReactNode; className?: string; children: ReactNode }) {
+  return (
+    <section className={`cell panel ${className}`}>
+      <h2>
+        {title}
+        {actions && <span className="actions">{actions}</span>}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Playlist({ state, onImport, onReview }: { state: AppState; onImport: () => void; onReview: () => void }) {
+  const { automation } = state;
+  const missing = state.sections.flatMap((s) => s.elements).filter((e) => e.behavior !== 'music' && !e.file).length;
+  return (
+    <Panel
+      title="Playlist"
+      className="playlist"
+      actions={
+        <>
+          <button className="primary" onClick={onImport}>
+            Import graphics
+          </button>
+          <button onClick={onReview} title="See which file is on which cue">
+            {missing ? `${missing} missing` : 'All files ✓'}
+          </button>
+        </>
+      }
+    >
+      <h3>On air</h3>
+      <div className="on-air">{automation.onAir ? <Item element={automation.onAir} /> : <span className="muted">Nothing on DSK 2</span>}</div>
+      <h3>
+        Up next
+        <button className="fire" onClick={() => act({ kind: 'fireNext' })} disabled={automation.upNext.length === 0 || automation.paused}>
+          Fire next <kbd>Space</kbd>
+        </button>
+      </h3>
+      <ol className="queue">
+        {automation.upNext.map((e, i) => (
+          <li key={e.id} className={i === 0 ? 'first' : ''}>
+            <Item element={e} />
+            <span className="actions">
+              {i > 0 && <button onClick={() => act({ kind: 'chooseNext', elementId: e.id })}>Play next</button>}
+              {automation.nextChoice === e.id && <button onClick={() => act({ kind: 'chooseNext', elementId: null })}>Back in order</button>}
+              <button onClick={() => act({ kind: 'skip', elementId: e.id, skipped: true })}>Skip</button>
+            </span>
+          </li>
+        ))}
+        {automation.upNext.length === 0 && <li className="muted">Nothing left to fire.</li>}
+      </ol>
+      <Skipped state={state} />
+    </Panel>
+  );
+}
+
+function Item({ element }: { element: ElementView }) {
+  return (
+    <span className="item">
+      <span className={`chip ${element.behavior}`}>{element.label}</span>
+      <span className="muted">{element.sectionLabel}</span>
+      {element.ddrItem === null && element.behavior !== 'music' && <span className="missing">no file</span>}
+    </span>
   );
 }
 
@@ -277,117 +331,224 @@ function Skipped({ state }: { state: AppState }) {
   );
 }
 
-function Clock({ state }: { state: AppState }) {
+function Status({ state }: { state: AppState }) {
   const now = useNow();
-  const { clock, automation } = state;
-  const over = clock.overUnderSeconds;
+  const { automation, clock, switcher, lastCue } = state;
+  const playing = automation.onAir && automation.onAir.behavior !== 'graphic' && switcher.ddrPlaying;
+  const ms = lastCue?.latencyMs ?? null;
   return (
-    <div className="clock">
-      <div>
-        <span className="muted">Elapsed</span>
-        <strong>{clock.startedAt ? duration((now - clock.startedAt) / 1000) : '0:00'}</strong>
-      </div>
-      <div>
-        <span className="muted">Section</span>
-        <strong>{automation.sectionLabel ?? '—'}</strong>
-      </div>
-      <div>
-        <span className="muted">Over/under</span>
-        <strong className={over === null ? '' : over > 0 ? 'over' : 'under'}>{over === null ? '—' : `${over > 0 ? '+' : over < 0 ? '−' : ''}${duration(Math.abs(over))}`}</strong>
-      </div>
-    </div>
-  );
-}
-
-function LastCue({ state }: { state: AppState }) {
-  const cue = state.lastCue;
-  if (!cue) return <p className="muted small">No cues yet.</p>;
-  const ms = cue.latencyMs;
-  const speed = ms === null ? '' : ms < 300 ? 'fast' : ms < 500 ? 'ok' : 'slow';
-  return (
-    <p className="last-cue">
-      Last cue: <strong>{cue.label}</strong>
-      {ms !== null && (
-        <span className={`latency ${speed}`} title="From the prompter’s reading line to the switcher command (green under 0.3 s, amber up to 0.5 s)">
-          {(ms / 1000).toFixed(2)} s
-        </span>
+    <section className="cell panel status">
+      <button className={`pause${automation.paused ? ' resume' : ''}`} onClick={() => act({ kind: 'pause', paused: !automation.paused })}>
+        {automation.paused ? 'Resume automation' : 'Pause automation'} <kbd>P</kbd>
+      </button>
+      <dl>
+        <dt>Section</dt>
+        <dd>{automation.sectionLabel ?? '—'}</dd>
+        <dt>Elapsed</dt>
+        <dd>{clock.startedAt ? duration((now - clock.startedAt) / 1000) : '0:00'}</dd>
+        <dt>Time left on current GFX</dt>
+        <dd>{playing ? duration(switcher.ddrRemaining) : '—'}</dd>
+      </dl>
+      {lastCue && (
+        <p className="small muted last-cue">
+          Last cue: {lastCue.label}
+          {ms !== null && (
+            <span className={`latency ${ms < 300 ? 'fast' : ms < 500 ? 'ok' : 'slow'}`} title="From the prompter’s reading line to the switcher (green under 0.3 s, amber up to 0.5 s)">
+              {(ms / 1000).toFixed(2)} s
+            </span>
+          )}
+        </p>
       )}
-    </p>
+    </section>
   );
 }
 
-function Graphics({ state }: { state: AppState }) {
-  const [dragging, setDragging] = useState(false);
-  const onDrop = (e: DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const paths = Array.from(e.dataTransfer.files).map((f) => window.showApp.pathOf(f)).filter(Boolean);
-    if (paths.length) void act({ kind: 'addFiles', paths });
-  };
-  const missing = state.sections.flatMap((s) => s.elements).filter((e) => e.behavior !== 'music' && !e.file).length;
+function Preview({ state }: { state: AppState }) {
+  const next = state.automation.upNext[0];
+  const section = state.sections.find((s) => s.id === next?.sectionId);
+  return (
+    <Panel title="Up next preview" className="preview">
+      <div className="thumb">{next?.thumbnail ? <img src={next.thumbnail} alt="" /> : <span>{next ? (next.file ?? 'No file yet') : 'Nothing up next'}</span>}</div>
+      {next && (
+        <p>
+          <strong>{next.label}</strong> ({next.sectionLabel}) <span className="muted">over {section?.camera ?? 'the section’s camera'}</span>
+        </p>
+      )}
+    </Panel>
+  );
+}
+
+/** A panel that takes dropped files. */
+function DropPanel({ title, className, onFiles, children }: { title: string; className: string; onFiles: (paths: string[]) => void; children: ReactNode }) {
+  const [over, setOver] = useState(false);
   return (
     <section
-      className={`panel graphics${dragging ? ' dragging' : ''}`}
+      className={`cell panel drop ${className}${over ? ' over' : ''}`}
       onDragOver={(e) => {
         e.preventDefault();
-        setDragging(true);
+        setOver(true);
       }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={onDrop}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        const paths = droppedPaths(e);
+        if (paths.length) onFiles(paths);
+      }}
     >
-      <h2>
-        Graphics
-        <span className="muted small">{missing === 0 ? 'Every element has its file.' : `${missing} element${missing === 1 ? '' : 's'} still need a file.`}</span>
-        <span className="actions">
-          <button className="primary" onClick={() => act({ kind: 'importFiles' })}>
-            Import graphics
-          </button>
-          <button onClick={() => act({ kind: 'loadSimulator' })} title="Puts the show’s files in the simulator’s DDR 2, in rundown order (Send to TriCaster does this on the real TC1 in Phase 5)">
-            Load into the simulator
-          </button>
-        </span>
-      </h2>
-      <p className="muted small">Import picks files or a folder, like the graphics team’s USB drive, and matches names like B5_VO_Basketball to the rundown. You can also drop files here.</p>
-      {state.problems.length > 0 && (
-        <div className="problems">
-          <h3>Files to place by hand</h3>
-          {state.problems.map((p) => (
-            <Problem key={p.path} problem={p} />
-          ))}
-        </div>
-      )}
-      <table className="elements">
-        <tbody>
-          {state.sections.map((s) =>
-            s.elements
-              .filter((e) => e.behavior !== 'music')
-              .map((e, i) => (
-                <tr key={e.id}>
-                  <td className="muted">{i === 0 ? `${s.label} ${s.slug}` : ''}</td>
-                  <td>
-                    <span className={`chip ${e.behavior}`}>{e.label}</span>
-                  </td>
-                  <td>{e.thumbnail ? <img className="mini" src={e.thumbnail} alt="" /> : null}</td>
-                  <td>
-                    {e.file ? (
-                      <>
-                        <span className="ready">✓</span> {e.file} <span className="muted">{duration(e.seconds)}</span>
-                        {e.ddrItem === null && <span className="missing"> not in DDR 2</span>}
-                      </>
-                    ) : (
-                      <span className="missing">Missing</span>
-                    )}
-                  </td>
-                  <td className="actions">
-                    <button onClick={() => act({ kind: 'chooseFile', elementId: e.id })}>{e.file ? 'Change' : 'Choose file'}</button>
-                    {e.file && <button onClick={() => act({ kind: 'clearFile', elementId: e.id })}>Remove</button>}
-                  </td>
-                </tr>
-              )),
-          )}
-        </tbody>
-      </table>
+      <h2>{title}</h2>
+      {children}
     </section>
+  );
+}
+
+function PermanentBox({ state }: { state: AppState }) {
+  return (
+    <DropPanel title="Permanent graphics" className="permanent" onFiles={(paths) => act({ kind: 'addPermanent', paths })}>
+      <p className="muted small">Drop the show’s permanent graphics here once; every episode uses them.</p>
+      <ul className="perm-list">
+        {state.permanent.map((g) => (
+          <li key={g.name}>
+            <span>★ {g.name}</span>
+            {g.file ? (
+              <span className="ready" title={`${g.file} ${g.seconds ? duration(g.seconds) : ''}`}>
+                ✓
+              </span>
+            ) : (
+              <span className="missing">missing</span>
+            )}
+            <button className="small-button" onClick={() => act({ kind: 'choosePermanent', name: g.name })}>
+              {g.file ? 'Change' : 'Choose'}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </DropPanel>
+  );
+}
+
+function GreenScreenBox({ state }: { state: AppState }) {
+  const g = state.greenScreen;
+  return (
+    <DropPanel title="Green screen" className="green" onFiles={(paths) => act({ kind: 'setGreenScreen', path: paths[0] })}>
+      <div className="thumb small-thumb">{g?.thumbnail ? <img src={g.thumbnail} alt="" /> : <span>{g ? g.file : 'Drop the background here'}</span>}</div>
+      {g && <p className="small">{g.file}</p>}
+      <div className="row">
+        <button className="small-button" onClick={() => act({ kind: 'chooseGreenScreen' })}>
+          {g ? 'Change' : 'Choose'}
+        </button>
+        {g && (
+          <button className="small-button" onClick={() => act({ kind: 'clearGreenScreen' })}>
+            Remove
+          </button>
+        )}
+      </div>
+    </DropPanel>
+  );
+}
+
+function Music({ state }: { state: AppState }) {
+  const { music } = state;
+  const inOptions = [{ id: 'default', label: `Default: ${music.defaults.in}` }, { id: 'none', label: 'Never by itself' }, ...music.points];
+  const outOptions = [{ id: 'default', label: `Default: ${music.defaults.out}` }, ...inOptions.slice(1)];
+  return (
+    <Panel title="Music" className="music">
+      <label>
+        Music in
+        <select value={music.in} onChange={(e) => act({ kind: 'setMusic', in: e.target.value, out: music.out })}>
+          {inOptions.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Music out (just before)
+        <select value={music.out} onChange={(e) => act({ kind: 'setMusic', in: music.in, out: e.target.value })}>
+          {outOptions.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    </Panel>
+  );
+}
+
+// ---- The graphics window: which file is on which cue ----
+
+function GraphicsWindow({ state, onClose, onImport }: { state: AppState; onClose: () => void; onImport: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="overlay" role="dialog" aria-label="Graphics" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        className="window"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          const paths = droppedPaths(e);
+          if (paths.length) void act({ kind: 'addFiles', paths });
+        }}
+      >
+        <h2>
+          Graphics
+          <span className="actions">
+            <button onClick={onImport}>Import more</button>
+            <button onClick={() => act({ kind: 'loadSimulator' })} title="Puts the show’s files in the simulator’s DDR 2, in rundown order (Send to TriCaster does this on the real TC1 in Phase 5)">
+              Load into the simulator
+            </button>
+            <button className="primary" onClick={onClose}>
+              Done
+            </button>
+          </span>
+        </h2>
+        {state.problems.length > 0 && (
+          <div className="problems">
+            <h3>Files to place by hand</h3>
+            {state.problems.map((p) => (
+              <Problem key={p.path} problem={p} />
+            ))}
+          </div>
+        )}
+        <table className="elements">
+          <tbody>
+            {state.sections.map((s) =>
+              s.elements
+                .filter((e) => e.behavior !== 'music')
+                .map((e, i) => (
+                  <tr key={e.id}>
+                    <td className="muted">{i === 0 ? `${s.label} ${s.slug}` : ''}</td>
+                    <td>
+                      <span className={`chip ${e.behavior}`}>{e.label}</span>
+                    </td>
+                    <td>{e.thumbnail ? <img className="mini" src={e.thumbnail} alt="" /> : null}</td>
+                    <td>
+                      {e.file ? (
+                        <>
+                          <span className="ready">✓</span> {e.file} <span className="muted">{e.seconds ? duration(e.seconds) : ''}</span>
+                          {e.ddrItem === null && <span className="missing"> not in DDR 2</span>}
+                        </>
+                      ) : (
+                        <span className="missing">Missing</span>
+                      )}
+                    </td>
+                    <td className="actions">
+                      <button onClick={() => act({ kind: 'chooseFile', elementId: e.id })}>{e.file ? 'Change' : 'Choose file'}</button>
+                      {e.file && <button onClick={() => act({ kind: 'clearFile', elementId: e.id })}>Remove</button>}
+                    </td>
+                  </tr>
+                )),
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -411,43 +572,5 @@ function Problem({ problem }: { problem: AppState['problems'][number] }) {
         <button onClick={() => act({ kind: 'dismissProblem', path: problem.path })}>Ignore</button>
       </span>
     </div>
-  );
-}
-
-function Music({ state }: { state: AppState }) {
-  const { music } = state;
-  const options = [
-    { id: 'default', label: `Default: ${music.defaults.in}` },
-    { id: 'none', label: 'Never by itself' },
-    ...music.points,
-  ];
-  const outOptions = [{ id: 'default', label: `Default: ${music.defaults.out}` }, ...options.slice(1)];
-  return (
-    <section className="panel music">
-      <h2>Music</h2>
-      <p className="muted small">When the Sound player’s music starts and stops for this show. By default it starts with the first Tease in block A and stops just before the Show Intro.</p>
-      <div className="row">
-        <label>
-          Music in
-          <select value={music.in} onChange={(e) => act({ kind: 'setMusic', in: e.target.value, out: music.out })}>
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Music out (just before)
-          <select value={music.out} onChange={(e) => act({ kind: 'setMusic', in: music.in, out: e.target.value })}>
-            {outOptions.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-    </section>
   );
 }

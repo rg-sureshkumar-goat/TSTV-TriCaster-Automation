@@ -8,7 +8,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import * as Y from 'yjs';
 import ffmpegStatic from 'ffmpeg-static';
-import { addElement, DEFAULT_SHOW_SETTINGS, insertBlock, insertSection, type ShowSettings } from '@tstv/shared';
+import { addElement, DEFAULT_SHOW_SETTINGS, insertBlock, insertSection, readBroadcast, setBroadcast, type ShowSettings } from '@tstv/shared';
 import { startSimulator, type RunningSimulator } from '../../../tools/simulator/src/server.ts';
 import { Runtime } from '../src/main/runtime.ts';
 import { Store } from '../src/main/store.ts';
@@ -19,6 +19,7 @@ const alex = { id: 'u1', name: 'Alex Producer' };
 let sim: RunningSimulator;
 let folder: string;
 let runtime: Runtime;
+let doc: Y.Doc;
 const ids: Record<string, string> = {};
 
 /** A solid-color test clip of the given length. */
@@ -45,7 +46,7 @@ beforeAll(async () => {
   await Promise.all([makeClip('A1_TEASE_Sports.mp4', 1.2), makeClip('A3_L3_Score.mp4', 4), makeClip('A3_VO_Highlights.mp4', 1.2), makeClip('A4_SOT_Coach.mp4', 1.2), makeClip('Show Intro.mov', 1)]);
 
   // The episode, as the website would send it.
-  const doc = new Y.Doc();
+  doc = new Y.Doc();
   insertBlock(doc, alex);
   ids.a1 = insertSection(doc, alex, { slug: 'Sports Tease', type: 'Tease' });
   ids.a2 = insertSection(doc, alex, { slug: 'Open', type: 'Permanent Graphic' });
@@ -96,6 +97,23 @@ describe('a mock show on the simulator', () => {
     expect(runtime.state().sections.flatMap((x) => x.elements).every((e) => e.ddrItem !== null)).toBe(true);
   });
 
+  it('ignores the prompter until the producer starts the live broadcast', async () => {
+    const before = sim.externalCommands().length;
+    cue('section', ids.a1);
+    cue('cue', ids.tease);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(sim.externalCommands().length).toBe(before);
+    expect(runtime.state().live.on).toBe(false);
+    // The producer's own buttons work before going live.
+    await runtime.act({ kind: 'takeCamera', input: 2 });
+    await waitFor(() => state().mes.v1.a === 'input2');
+    // Start live broadcast (the website asks the episode room, which sets it in the episode).
+    setBroadcast(doc, true, alex);
+    runtime.website.emit('broadcast', readBroadcast(doc));
+    expect(runtime.state().live.on).toBe(true);
+    expect(runtime.state().clock.startedAt).not.toBeNull();
+  });
+
   it('runs the tease with music, the intro, the L3 and VO, and the SOT, by the cue rules', async () => {
     // A1 starts: camera 1, the tease is cued, and the music starts.
     cue('section', ids.a1);
@@ -139,6 +157,26 @@ describe('a mock show on the simulator', () => {
     await runtime.act({ kind: 'pause', paused: false });
     await runtime.act({ kind: 'takeCamera', input: 3 });
     await waitFor(() => state().mes.v1.a === 'input3');
+  });
+
+  it('takes the show’s permanent graphics and green screen by dropping files', async () => {
+    await makeClip('PrimeTime Station ID.mov', 1);
+    await makeClip('Studio background.mp4', 1);
+    await runtime.act({ kind: 'addPermanent', paths: [path.join(folder, 'usb', 'PrimeTime Station ID.mov')] });
+    expect(runtime.state().permanent.find((g) => g.name === 'Station ID')?.file).toBe('PrimeTime Station ID.mov');
+    await runtime.act({ kind: 'setGreenScreen', path: path.join(folder, 'usb', 'Studio background.mp4') });
+    expect(runtime.state().greenScreen?.file).toBe('Studio background.mp4');
+    // On the simulator, a clip background goes in DDR 1.
+    expect(state().players.ddr1.playlist.map((c) => c.name)).toEqual(['Studio background']);
+  });
+
+  it('stops following the prompter when the live broadcast ends', async () => {
+    setBroadcast(doc, false, alex);
+    runtime.website.emit('broadcast', readBroadcast(doc));
+    const before = sim.externalCommands().length;
+    cue('section', ids.a3);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(sim.externalCommands().length).toBe(before);
   });
 
   it('refuses to talk to anything that isn’t the simulator', async () => {
