@@ -68,6 +68,8 @@ On a fresh copy of the project, copy `apps/web/.dev.vars.example` to `apps/web/.
 
 ## Put it online (one time, about 30 minutes)
 
+**Done Oct 28, 2026:** the website is live at <https://tstv-show.tstv-rundown.workers.dev> on RG's Cloudflare account, with Google sign-in published. These steps are kept here in case it ever needs to be set up again, for example on a TSTV-owned account.
+
 ### A. Create your free Cloudflare account
 
 1. Go to <https://dash.cloudflare.com/sign-up> and sign up with your email. Verify the email.
@@ -101,8 +103,9 @@ Google's screens change from time to time, so the wording might differ a little.
 2. **Create a project** named `TSTV Rundowns`.
 3. Open **Google Auth Platform**, which some screens call the "OAuth consent screen". Then:
    1. Fill in **Branding**: app name `TSTV Rundowns`, your email as the support email, and your email as the developer contact.
-   2. Under **Audience**, choose **External** and **Publish app** (In production).
-   3. The site only asks for name, email and profile picture, so Google doesn't need to review it.
+   2. Also on **Branding**, fill in **Application home page** (the website's address) and **Application privacy policy link** (the address followed by `/privacy`), then **Save**. Without these, Google leaves **Publish app** gray.
+   3. Under **Audience**, choose **External** and **Publish app** (In production).
+   4. The site only asks for name, email and profile picture, so Google doesn't need to review it.
 4. Open **Clients**, then **Create client**, then **Web application**. Name it `TSTV website`.
 5. Under **Authorized redirect URIs**, add your website's address followed by `/api/auth/google/callback`, for example `https://tstv-show.tstv.workers.dev/api/auth/google/callback`.
 6. Click **Create**. Keep the **Client ID** and **Client secret** handy for the next step.
