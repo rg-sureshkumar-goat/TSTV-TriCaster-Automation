@@ -1,5 +1,5 @@
 // The rundown grid: blocks and sections, edited live by everyone in the episode. Drag the handle to
-// reorder; each section's menu floats, moves, inserts or deletes it. Every edit records who made it.
+// reorder; each section's ⋯ menu, beside its number, floats, moves, inserts or deletes it. Every edit records who made it.
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import * as Y from 'yjs';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -114,7 +114,6 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, ai
               Back-time
             </th>
             <th>Last edit</th>
-            <th className="menu-col" aria-label="Actions" />
           </tr>
         </thead>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -186,7 +185,8 @@ function SortableRow({ id, className, disabled, children }: { id: string; classN
 
 /**
  * A commercial break: added automatically before every block except the first, or by an admin. It goes
- * wherever the row below it goes. Admins can change its length or remove it.
+ * wherever the row below it goes. Admins remove it with the × beside its name, and change its length
+ * right in its line (RG, Oct 29, 2026).
  */
 function BreakLine({ computed, commercialBreak, graphic, showSeconds, backTime, editable, doc, me }: { computed: ComputedRow; commercialBreak: CommercialBreak; graphic: string | undefined; showSeconds: number; backTime: string; editable: boolean; doc: Y.Doc; me: Person }) {
   const where = computed.row.kind === 'block' ? `Block ${computed.label}` : computed.label;
@@ -199,39 +199,34 @@ function BreakLine({ computed, commercialBreak, graphic, showSeconds, backTime, 
       <td className="num-col" />
       <td colSpan={9}>
         <div className="break-title">
+          {editable && (
+            <button className="break-remove" aria-label={`Remove the commercial break before ${where}`} title="Remove this commercial break" onClick={remove}>
+              ×
+            </button>
+          )}
           <strong>Commercial break</strong>
           {graphic && <span className="element-chip permanent">★ {graphic}</span>}
-          <span className="muted small">
-            {commercialBreak.automatic ? 'Added automatically between blocks.' : 'Added by an admin.'}{' '}
-            {commercialBreak.customLength ? 'Its length was typed in.' : `The show’s break length: ${formatDuration(showSeconds)}.`}
+          <span className="muted small">{commercialBreak.automatic ? 'Added automatically between blocks.' : 'Added by an admin.'}</span>
+          <span className="break-length small">
+            {commercialBreak.customLength ? 'This break’s length:' : 'The show’s break length:'}{' '}
+            {editable ? (
+              <DurationCell
+                value={commercialBreak.customLength ? commercialBreak.seconds : null}
+                autoSeconds={showSeconds}
+                readOnly={false}
+                onCommit={setLength}
+                ariaLabel={`Commercial break before ${where} length`}
+                hints={{ auto: 'The show’s break length. Type a length for just this break.', typed: 'Typed in for this break. Clear it to go back to the show’s break length.' }}
+              />
+            ) : (
+              <strong>{formatDuration(commercialBreak.seconds)}</strong>
+            )}
           </span>
         </div>
       </td>
-      <td className="time-col">
-        {editable ? (
-          <DurationCell
-            value={commercialBreak.customLength ? commercialBreak.seconds : null}
-            autoSeconds={showSeconds}
-            readOnly={false}
-            onCommit={setLength}
-            ariaLabel={`Commercial break before ${where} length`}
-            hints={{ auto: 'The show’s break length. Type a length for just this break.', typed: 'Typed in for this break. Clear it to use the show’s break length.' }}
-          />
-        ) : commercialBreak.seconds > 0 ? (
-          formatDuration(commercialBreak.seconds)
-        ) : (
-          ''
-        )}
-      </td>
+      <td className="time-col">{commercialBreak.seconds > 0 ? formatDuration(commercialBreak.seconds) : ''}</td>
       <td className="time-col">{commercialBreak.seconds > 0 ? backTime : ''}</td>
       <td />
-      <td className="menu-col">
-        {editable && (
-          <button className="link-button danger" aria-label={`Remove the commercial break before ${where}`} title="Remove this commercial break" onClick={remove}>
-            ×
-          </button>
-        )}
-      </td>
     </tr>
   );
 }
@@ -249,7 +244,23 @@ function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectio
         <>
           <td className="handle-col">{handle}</td>
           <td className="num-col">
-            <strong>{computed.label}</strong>
+            <div className="num-with-menu">
+              <strong>{computed.label}</strong>
+              {!readOnly && (
+                <RowMenu
+                  label={`Block ${computed.label}`}
+                  items={[
+                    { label: 'Add a section to this block', run: () => insertSection(doc, me, {}, ids() + sectionsAfter + 1) },
+                    ...extraItems,
+                    {
+                      label: 'Delete block header',
+                      danger: true,
+                      run: () => confirm(`Delete the Block ${computed.label} header? Its sections stay and join the block above.`) && deleteRow(doc, row.id),
+                    },
+                  ]}
+                />
+              )}
+            </div>
           </td>
           <td colSpan={9}>
             <div className="block-title">
@@ -260,22 +271,6 @@ function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectio
           <td className="time-col">{formatDuration(blockSeconds)}</td>
           <td className="time-col">{backTime}</td>
           <td />
-          <td className="menu-col">
-            {!readOnly && (
-              <RowMenu
-                label={`Block ${computed.label}`}
-                items={[
-                  { label: 'Add a section to this block', run: () => insertSection(doc, me, {}, ids() + sectionsAfter + 1) },
-                  ...extraItems,
-                  {
-                    label: 'Delete block header',
-                    danger: true,
-                    run: () => confirm(`Delete the Block ${computed.label} header? Its sections stay and join the block above.`) && deleteRow(doc, row.id),
-                  },
-                ]}
-              />
-            )}
-          </td>
         </>
       )}
     </SortableRow>
@@ -323,7 +318,22 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
         <>
           <td className="handle-col">{handle}</td>
           <td className="num-col">
-            {computed.label}
+            <div className="num-with-menu">
+              {computed.label}
+              {!readOnly && (
+                <RowMenu
+                  label={computed.label}
+                  items={[
+                    { label: row.floated ? 'Unfloat (put back on air)' : 'Float (keep, but skip on air)', run: () => set({ floated: !row.floated }) },
+                    { label: 'Insert a section below', run: () => insertSection(doc, me, {}, index + 1) },
+                    { label: 'Move up', disabled: index === 0, run: () => moveRow(doc, index, index - 1) },
+                    { label: 'Move down', disabled: index === count - 1, run: () => moveRow(doc, index, index + 1) },
+                    ...extraItems,
+                    { label: 'Delete section', danger: true, run: () => confirm(`Delete ${computed.label}${row.slug ? ` (${row.slug})` : ''}?`) && deleteRow(doc, row.id) },
+                  ]}
+                />
+              )}
+            </div>
             {row.floated && <span className="badge">Floated</span>}
           </td>
           {cell('slug', <SlugCell row={row} label={computed.label} episodeId={episodeId} readOnly={readOnly} onCommit={(slug) => set({ slug })} />, 'slug-col')}
@@ -344,21 +354,6 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
                 <br />
                 <span className="muted small">{timeAgo(row.updatedAt)}</span>
               </>
-            )}
-          </td>
-          <td className="menu-col">
-            {!readOnly && (
-              <RowMenu
-                label={computed.label}
-                items={[
-                  { label: row.floated ? 'Unfloat (put back on air)' : 'Float (keep, but skip on air)', run: () => set({ floated: !row.floated }) },
-                  { label: 'Insert a section below', run: () => insertSection(doc, me, {}, index + 1) },
-                  { label: 'Move up', disabled: index === 0, run: () => moveRow(doc, index, index - 1) },
-                  { label: 'Move down', disabled: index === count - 1, run: () => moveRow(doc, index, index + 1) },
-                  ...extraItems,
-                  { label: 'Delete section', danger: true, run: () => confirm(`Delete ${computed.label}${row.slug ? ` (${row.slug})` : ''}?`) && deleteRow(doc, row.id) },
-                ]}
-              />
             )}
           </td>
         </>

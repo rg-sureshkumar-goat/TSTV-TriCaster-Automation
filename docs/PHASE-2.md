@@ -33,7 +33,7 @@ Phase 2 turns each section's script box into a real script editor: several peopl
 - **Top bar.** At the top left: a light/dark switch for the whole website and, for admins, an **ⓘ** that opens the Usage page. The menu reads Shows, People, Search.
 - **Shows page.** **Add a show** is at the top, with an optional logo. A **List / Cards** switch changes the layout. A show's logo can be changed in its settings.
 - **Deleting episodes.** Admins see **Delete** next to each episode in a show's list, and on the episode itself. It erases the rundown and scripts for good, after a warning.
-- **Commercial breaks.** Admins can type a different length on a break's line, remove a break with its **×**, and add one with **Add a commercial break above** in any row's ⋯ menu.
+- **Commercial breaks.** Admins can click the length after "The show's break length" on a break's line and type a new one, remove a break with the **×** to the left of "Commercial break", and add one with **Add a commercial break above** in any row's ⋯ menu, which now sits right beside the row's number.
 
 **Test it:**
 

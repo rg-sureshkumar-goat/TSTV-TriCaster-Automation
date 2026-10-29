@@ -12,7 +12,7 @@ async function signIn(browser: Browser, name: string): Promise<Page> {
 }
 
 const row = (page: Page, label: string) =>
-  page.locator('tr.section-row', { has: page.locator('td.num-col', { hasText: new RegExp(`^${label}(Floated)?$`) }) });
+  page.locator('tr.section-row', { has: page.locator('td.num-col', { hasText: new RegExp(`^${label}(⋯)?(Floated)?$`) }) });
 const slugLink = (page: Page, label: string, slug: string) => page.getByRole('link', { name: `Open the script for ${label} ${slug}` });
 
 test('two people build one rundown together', async ({ browser }) => {

@@ -744,6 +744,28 @@ table.rundown td {
   font-style: normal;
 }
 
+.break-remove {
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--danger);
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.break-length {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-style: normal;
+}
+
+.break-length .cell-input {
+  width: 64px;
+}
+
 .block-title {
   display: flex;
   align-items: center;
@@ -774,7 +796,7 @@ tr.dragging td {
 }
 
 .num-col {
-  width: 58px;
+  width: 78px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -791,9 +813,15 @@ tr.dragging td {
   white-space: nowrap;
 }
 
-.menu-col {
-  width: 40px;
-  text-align: right;
+/* A row's number with its ⋯ menu right beside it. */
+.num-with-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.num-with-menu .row-menu > button {
+  padding: 2px 6px;
 }
 
 .slug-col {
