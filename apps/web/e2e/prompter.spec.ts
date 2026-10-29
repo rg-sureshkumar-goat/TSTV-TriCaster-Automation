@@ -87,6 +87,14 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await expect(prompter.locator('.p-text', { hasText: 'A BRAND NEW LINE.' })).toHaveCount(1);
   expect(Math.abs((await topOf()) - before)).toBeLessThanOrEqual(2);
 
+  // The reading-line arrows can be made bigger in the settings.
+  const arrowSize = () => prompter.locator('.prompter-reading-line').evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  const arrowsBefore = await arrowSize();
+  await prompter.keyboard.press('s');
+  await prompter.getByLabel('Reading-line arrows size, compared with the text').fill('200');
+  expect(await arrowSize()).toBeGreaterThan(arrowsBefore * 1.5);
+  await prompter.keyboard.press('Escape');
+
   // The down arrow slows it, then runs it backwards.
   for (let i = 0; i < 17; i++) await prompter.keyboard.press('ArrowDown');
   await expect(prompter.locator('.prompter-hud')).toContainText('◀ 2 backwards');

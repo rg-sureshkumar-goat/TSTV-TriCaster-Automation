@@ -1839,7 +1839,8 @@ button.danger {
   align-items: center;
   height: calc(var(--p-size) * var(--p-spacing));
   padding: 0 2px;
-  font-size: calc(var(--p-size) * 1.1);
+  /* Set in the prompter's settings (markerSize). */
+  font-size: calc(var(--p-size) * var(--p-marker, 1.1));
   line-height: 1;
   color: #ffffff;
   text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);

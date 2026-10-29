@@ -43,6 +43,8 @@ export interface PrompterSettings {
   readingLine: number;
   /** How much each arrow press changes the speed, from 1 (gentle) to 10. */
   speedStep: number;
+  /** Size of the reading-line arrows, as a percentage of the text size. */
+  markerSize: number;
 }
 
 export const DEFAULT_PROMPTER_SETTINGS: PrompterSettings = {
@@ -53,6 +55,7 @@ export const DEFAULT_PROMPTER_SETTINGS: PrompterSettings = {
   background: '#000000',
   readingLine: 30,
   speedStep: 5,
+  markerSize: 110,
 };
 
 const SETTINGS_KEY = 'tstv-prompter-settings';
@@ -264,6 +267,12 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
       if (direction === 1) sendCue(target);
     };
     const onKey = (event: KeyboardEvent) => {
+      // Escape closes the settings and gives the keys back to the prompter, even from a slider.
+      if (event.key === 'Escape') {
+        setPanel(null);
+        (document.activeElement as HTMLElement | null)?.blur();
+        return;
+      }
       if ((event.target as HTMLElement).closest('input, select, textarea')) return;
       const e = engine.current;
       let handled = true;
@@ -305,10 +314,6 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
         case 'h':
         case 'H':
           setPanel((p) => (p === 'help' ? null : 'help'));
-          break;
-        case 'Escape':
-          setPanel(null);
-          handled = false;
           break;
         default:
           handled = false;
@@ -367,6 +372,7 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
     '--p-text': settings.textColor,
     '--p-bg': settings.background,
     '--p-line': `${settings.readingLine}vh`,
+    '--p-marker': settings.markerSize / 100,
   } as CSSProperties;
 
   return (
@@ -502,6 +508,11 @@ function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSett
       </span>
     </label>
   );
+  const close = () => {
+    // Give the keys back to the prompter, so the arrows don't keep moving a slider.
+    (document.activeElement as HTMLElement | null)?.blur();
+    onClose();
+  };
   return (
     <div className="prompter-panel settings-panel" role="dialog" aria-label="Prompter settings">
       <h2>Prompter settings</h2>
@@ -510,6 +521,7 @@ function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSett
       {number('lineSpacing', 'Line spacing', 1, 2.2, 0.05)}
       {number('margin', 'Side margins', 0, 30, 1, '%')}
       {number('readingLine', 'Reading line, from the top', 10, 70, 1, '%')}
+      {number('markerSize', 'Reading-line arrows size, compared with the text', 30, 250, 5, '%')}
       {number('speedStep', 'Speed change per arrow press', 1, 10, 1)}
       <label>
         Text color
@@ -521,7 +533,7 @@ function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSett
       </label>
       <div className="row">
         <button onClick={() => onChange(DEFAULT_PROMPTER_SETTINGS)}>Back to the defaults</button>
-        <button onClick={onClose}>Close</button>
+        <button onClick={close}>Close (Esc)</button>
       </div>
     </div>
   );
