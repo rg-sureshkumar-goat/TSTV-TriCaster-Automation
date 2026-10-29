@@ -62,10 +62,11 @@ test('two people build one rundown together', async ({ browser }) => {
   await expect(row(rg, 'A2')).toContainText('7:28:30 PM');
   await expect(row(rg, 'A1')).toContainText('7:27:45 PM');
 
-  // Setting the type and talent works through the dropdowns, and syncs.
-  await expect(rg.getByLabel('A2 type').locator('option')).toHaveText(['—', 'Intro', 'Tease', 'Reader', 'Cross Talk', 'Q&A', 'Package', 'SOT', 'Permanent Graphic']);
-  await rg.getByLabel('A2 type').selectOption('Reader');
-  await expect(sam.getByLabel('A2 type')).toHaveValue('Reader');
+  // Setting the story type and talent works through the dropdowns, and syncs.
+  await expect(rg.getByRole('columnheader', { name: 'Story Type' })).toBeVisible();
+  await expect(rg.getByLabel('A2 story type').locator('option')).toHaveText(['—', 'Intro', 'Tease', 'Reader', 'Cross Talk', 'Q&A', 'Package', 'SOT', 'Permanent Graphic']);
+  await rg.getByLabel('A2 story type').selectOption('Reader');
+  await expect(sam.getByLabel('A2 story type')).toHaveValue('Reader');
 
   // The producer enters this episode's anchors and correspondents; they sync, and a section whose
   // Talent box names one gets that person's color.
@@ -158,31 +159,41 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByRole('button', { name: 'Done' }).click();
   await expect(sam.getByRole('button', { name: 'A3 talent' })).toHaveText('Everyone (cross talk)');
 
-  // Clicking a slug opens its script page. RG and Sam type in the same script at once.
+  // Clicking a slug opens its script in a window over the rundown, which stays in view behind it.
+  // RG and Sam type in the same script at once.
   await slugLink(rg, 'A1', 'Cold Open').click();
-  await expect(rg.getByRole('heading', { name: /A1 · Cold Open/ })).toBeVisible();
-  // The script page says who reads it and which camera to look at.
-  await expect(rg.getByRole('note', { name: 'Who reads and which camera' })).toContainText('Riley Park');
-  await expect(rg.getByRole('note', { name: 'Who reads and which camera' })).toContainText('Camera 1');
+  const rgWindow = rg.getByRole('dialog', { name: /A1 · Cold Open/ });
+  await expect(rgWindow).toBeVisible();
+  await expect(rg.locator('.grid-wrap')).toBeVisible();
+  // The window says who reads it and which camera to look at.
+  await expect(rgWindow.getByRole('note', { name: 'Who reads and which camera' })).toContainText('Riley Park');
+  await expect(rgWindow.getByRole('note', { name: 'Who reads and which camera' })).toContainText('Camera 1');
   const rgScript = rg.getByRole('textbox', { name: 'Script for A1' });
   const samScript = sam.getByRole('textbox', { name: 'Script for A1' });
-  // The script's text, without the other person's cursor and name tag.
+  // The script's lines, without the other person's cursor and name tag.
   const textOf = (script: Locator) => () =>
-    script.evaluate((el) => {
-      const copy = el.cloneNode(true) as HTMLElement;
-      copy.querySelectorAll('.collaboration-carets__caret').forEach((caret) => caret.remove());
-      return copy.textContent;
-    });
-  await rgScript.click();
+    script.evaluate((el) =>
+      [...el.querySelectorAll(':scope > p, :scope > .cue-line')]
+        .map((line) => {
+          const copy = line.cloneNode(true) as HTMLElement;
+          copy.querySelectorAll('.collaboration-carets__caret').forEach((caret) => caret.remove());
+          return copy.textContent;
+        })
+        .join('\n'),
+    );
+  // The readers' names are already in the script, in curly brackets.
+  await expect.poll(textOf(rgScript)).toBe('{JORDAN}\n\n{RILEY PARK}\n');
+  // Typing comes out in capital letters, with Caps Lock off.
+  await rgScript.locator('p').last().click();
   await rg.keyboard.type('Good evening and welcome to TSTV News.');
+  await expect.poll(textOf(rgScript)).toBe('{JORDAN}\n\n{RILEY PARK}\nGOOD EVENING AND WELCOME TO TSTV NEWS.');
   await expect(rg.locator('.script-stats')).toContainText('7 words');
   await expect(rg.locator('.script-stats')).toContainText('Read time about 0:03');
   await slugLink(sam, 'A1', 'Cold Open').click();
-  await expect.poll(textOf(samScript)).toBe('Good evening and welcome to TSTV News.');
-  await samScript.click();
-  await sam.keyboard.press('End');
-  await sam.keyboard.type(' The Longhorns won tonight.');
-  await expect.poll(textOf(rgScript)).toBe('Good evening and welcome to TSTV News. The Longhorns won tonight.');
+  await expect.poll(textOf(samScript)).toBe('{JORDAN}\n\n{RILEY PARK}\nGOOD EVENING AND WELCOME TO TSTV NEWS.');
+  await samScript.locator('p').nth(1).click();
+  await sam.keyboard.type('The Longhorns won tonight.');
+  await expect.poll(textOf(rgScript)).toBe('{JORDAN}\nTHE LONGHORNS WON TONIGHT.\n{RILEY PARK}\nGOOD EVENING AND WELCOME TO TSTV NEWS.');
   await expect(rg.locator('.script-stats')).toContainText('11 words');
   await expect(rg.locator('.script-stats')).toContainText('0:04–0:05');
   await expect(rg.locator('.script-foot')).toContainText('Edited by RG (TD), Sam Writer');
@@ -190,33 +201,48 @@ test('two people build one rundown together', async ({ browser }) => {
   await expect(rg.locator('.collaboration-carets__label')).toHaveText('Sam Writer');
   await expect(sam.locator('.collaboration-carets__label')).toHaveText('RG (TD)');
 
-  // Cue chips: RG drops the Station ID cue into the script. It shows for Sam, can't be added twice,
-  // and isn't counted as words.
+  // Cue chips: RG drops the Station ID cue at the end of a line. It goes on a line of its own, with the
+  // cursor on the line below; it shows for Sam, can't be added twice, and isn't counted as words.
   await rg.getByRole('button', { name: 'Add cue: ★ Station ID' }).click();
-  await expect(sam.locator('.cue-chip', { hasText: '★ Station ID' })).toBeVisible();
+  await rg.keyboard.type('Back to you.');
+  await expect.poll(textOf(samScript)).toBe('{JORDAN}\nTHE LONGHORNS WON TONIGHT.\n{RILEY PARK}\nGOOD EVENING AND WELCOME TO TSTV NEWS.\n★ Station ID\nBACK TO YOU.');
   await expect(rg.getByRole('button', { name: 'In the script: ★ Station ID' })).toBeDisabled();
-  // Speaker tags: Jordan's part starts with {Jordan}, in Jordan's color, and isn't counted either.
+  await expect(rg.locator('.script-stats')).toContainText('14 words');
+  // Pasted text comes out in capitals too.
+  await rgScript.evaluate((el) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', ' Have a good night.');
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect.poll(textOf(samScript)).toContain('\nBACK TO YOU. HAVE A GOOD NIGHT.');
+  await expect(rg.locator('.script-stats')).toContainText('18 words');
+  // Speaker tags: a new part for Jordan starts with {JORDAN}, in Jordan's color, and isn't counted either.
   await rg.getByRole('button', { name: 'Start Jordan’s part' }).click();
-  await expect(sam.locator('.speaker-tag', { hasText: '{Jordan}' })).toBeVisible();
-  await expect(rg.locator('.script-stats')).toContainText('11 words');
-  // A new graphic made from the script page joins the rundown with its cue already placed.
+  await expect(sam.locator('.speaker-tag', { hasText: '{JORDAN}' })).toHaveCount(2);
+  await expect(rg.locator('.script-stats')).toContainText('18 words');
+  // A new graphic made from the script joins the rundown with its cue already placed, on its own line.
   await sam.getByRole('button', { name: '+ New graphic' }).click();
   await sam.getByRole('menuitem', { name: /^FSG/ }).click();
   await expect(rg.locator('.cue-chip', { hasText: 'Take FSG' })).toBeVisible();
-  await rg.goto(episodeUrl);
-  await sam.goto(episodeUrl);
+  await expect.poll(textOf(rgScript)).toContain('{JORDAN}\nTHE LONGHORNS WON TONIGHT.\nTake FSG\n');
+  // Closing the window (or pressing Escape) goes back to the rundown.
+  await rg.getByRole('button', { name: 'Close the script' }).click();
+  await expect(rgWindow).toBeHidden();
+  await expect(rg).toHaveURL(episodeUrl);
+  await sam.keyboard.press('Escape');
+  await expect(sam.getByRole('dialog', { name: /A1 · Cold Open/ })).toBeHidden();
 
   // In the rundown, graphics with a cue in the script are solid; ones without are dashed.
   await expect(rg.getByRole('button', { name: 'A1 graphic 1: PERM Station ID' })).not.toHaveClass(/uncued/);
   await expect(rg.getByRole('button', { name: 'A1 graphic 2: TEASE' })).toHaveClass(/uncued/);
   await expect(rg.getByRole('button', { name: 'A1 graphic 5: FSG' })).not.toHaveClass(/uncued/);
 
-  // Est.: A1's typed-in 0:45 wins; cleared, it falls back to the script's read time (11 words, about 0:04).
+  // Est.: A1's typed-in 0:45 wins; cleared, it falls back to the script's read time (18 words, about 0:07).
   await expect(rg.locator('.timing-bar')).toContainText('Total 0:45');
   await rg.getByLabel('A1 estimated length').fill('');
   await rg.getByLabel('A1 estimated length').press('Enter');
-  await expect(rg.getByLabel('A1 estimated length')).toHaveAttribute('placeholder', '0:04');
-  await expect(sam.locator('.timing-bar')).toContainText('Total 0:04');
+  await expect(rg.getByLabel('A1 estimated length')).toHaveAttribute('placeholder', '0:07');
+  await expect(sam.locator('.timing-bar')).toContainText('Total 0:07');
 
   // Export CSV includes the rows and who wrote them.
   const downloadPromise = rg.waitForEvent('download');

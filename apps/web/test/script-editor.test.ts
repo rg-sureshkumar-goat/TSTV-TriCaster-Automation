@@ -5,7 +5,7 @@ import Document from '@tiptap/extension-document';
 import Paragraph from '@tiptap/extension-paragraph';
 import Text from '@tiptap/extension-text';
 import { prosemirrorJSONToYXmlFragment, yXmlFragmentToProseMirrorRootNode } from '@tiptap/y-tiptap';
-import { ensureScripts, insertSection, readScriptParagraphs, scriptBody } from '@tstv/shared';
+import { ensureScripts, insertSection, readScriptParagraphs, scriptBody, upgradeScripts } from '@tstv/shared';
 import { Cue } from '../src/script/extensions.ts';
 
 const schema = getSchema([Document, Paragraph, Text, Cue]);
@@ -34,17 +34,37 @@ describe('script editor documents', () => {
     expect(root.child(0).type.name).toBe('paragraph');
   });
 
-  it('stores cue chips the way the rundown, the room and (later) the prompter read them', () => {
+  it('stores cue chips, each on its own line, the way the rundown, the room and (later) the prompter read them', () => {
     const doc = new Y.Doc();
     const fragment = doc.getXmlFragment('test');
     prosemirrorJSONToYXmlFragment(
       schema,
       {
         type: 'doc',
-        content: [{ type: 'paragraph', content: [{ type: 'cue', attrs: { elementId: 'e1' } }, { type: 'text', text: 'Good evening.' }] }],
+        content: [
+          { type: 'cue', attrs: { elementId: 'e1' } },
+          { type: 'paragraph', content: [{ type: 'text', text: 'GOOD EVENING.' }] },
+        ],
       },
       fragment,
     );
-    expect(readScriptParagraphs(fragment)).toEqual([[{ kind: 'cue', elementId: 'e1' }, { kind: 'text', text: 'Good evening.' }]]);
+    expect(readScriptParagraphs(fragment)).toEqual([[{ kind: 'cue', elementId: 'e1' }], [{ kind: 'text', text: 'GOOD EVENING.' }]]);
+  });
+
+  it('opens a script brought up to date by the room, with cues on their own lines', () => {
+    const doc = new Y.Doc();
+    const id = insertSection(doc, alex);
+    ensureScripts(doc);
+    const body = scriptBody(doc, id)!;
+    // A line with a cue chip in the middle, the way scripts kept them before Oct 29, 2026.
+    const old = new Y.XmlElement('paragraph');
+    body.push([old]);
+    const cue = new Y.XmlElement('cue');
+    old.push([new Y.XmlText('Good evening. '), cue, new Y.XmlText('The Longhorns won.')]);
+    cue.setAttribute('elementId', 'e1');
+    upgradeScripts(doc);
+    const root = yXmlFragmentToProseMirrorRootNode(body, schema);
+    expect(() => root.check()).not.toThrow();
+    expect(root.content.content.map((n) => (n.type.name === 'cue' ? `[${n.attrs.elementId}]` : n.textContent))).toEqual(['', 'GOOD EVENING.', '[e1]', 'THE LONGHORNS WON.']);
   });
 });

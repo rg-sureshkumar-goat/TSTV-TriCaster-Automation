@@ -104,3 +104,6 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
   return { doc: room?.doc ?? null, provider: room?.provider ?? null, rows, scriptWords, cued, talent, synced: synced && room !== null, status, others, setFocus };
 }
+
+/** An episode's live room, as the rundown page and its script window see it. */
+export type EpisodeRoomView = ReturnType<typeof useEpisodeDoc>;

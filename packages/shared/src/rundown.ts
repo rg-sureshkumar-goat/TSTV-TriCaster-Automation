@@ -67,7 +67,7 @@ export interface SectionRow {
   id: string;
   kind: 'section';
   slug: string;
-  /** Segment type, from the show's editable list (Intro, Tease, Reader, Cross Talk, Package, SOT). */
+  /** Story type, from the show's editable list (Intro, Tease, Reader, Cross Talk, Q&A, Package, SOT, Permanent Graphic). */
   type: string;
   /** Who writes the section's script, typed in by the producer. */
   writer: string;

@@ -4,7 +4,7 @@
 import { YServer } from 'y-partyserver';
 import * as Y from 'yjs';
 import type { Connection, ConnectionContext } from 'partyserver';
-import { allScriptText, computeRundown, ensureScripts, scriptWordCounts, sectionSecondsFrom, initEpisode, readRows, rowsOf, type Person } from '@tstv/shared';
+import { allScriptText, computeRundown, ensureScripts, scriptWordCounts, sectionSecondsFrom, initEpisode, readRows, rowsOf, tagReaders, upgradeScripts, type Person } from '@tstv/shared';
 import type { Env } from './env.ts';
 
 interface ConnectionInfo {
@@ -41,7 +41,7 @@ export class EpisodeRoom extends YServer<Env> {
         offset += c.content.byteLength;
       }
       Y.applyUpdate(this.document, update);
-      this.watchScripts();
+      if (this.watchScripts()) await this.saveNow();
       return;
     }
     // A brand-new episode: start it with block A and one section, credited to whoever created it.
@@ -52,12 +52,30 @@ export class EpisodeRoom extends YServer<Env> {
       .first<{ id: string | null; name: string | null }>();
     initEpisode(this.document, { id: creator?.id ?? 'system', name: creator?.name ?? 'TSTV' });
     this.watchScripts();
+    await this.saveNow();
   }
 
-  /** Every section gets its script here, in one place, as soon as the section exists. */
-  private watchScripts(): void {
-    ensureScripts(this.document);
-    rowsOf(this.document).observeDeep(() => ensureScripts(this.document));
+  /**
+   * Every section gets its script here, in one place, as soon as the section exists, with its readers'
+   * names in it. Scripts from before Oct 29, 2026 are brought up to date first (cues on their own lines,
+   * capital letters). Returns true if opening the room changed anything.
+   *
+   * Changes the room makes on its own are saved straight away, not a few seconds later like typing. If
+   * the room restarted before saving one, it would make it again, and anyone still connected would end up
+   * with both copies, like a doubled line.
+   */
+  private watchScripts(): boolean {
+    const changed = [ensureScripts(this.document), upgradeScripts(this.document), tagReaders(this.document)].some(Boolean);
+    rowsOf(this.document).observeDeep(() => {
+      const added = ensureScripts(this.document);
+      if (tagReaders(this.document) || added) setTimeout(() => void this.saveNow());
+    });
+    return changed;
+  }
+
+  /** Saves now, rather than a few seconds after the last change. */
+  private saveNow(): Promise<void> {
+    return this.onSave().catch((err) => console.error('failed to persist:', err));
   }
 
   async onSave(): Promise<void> {

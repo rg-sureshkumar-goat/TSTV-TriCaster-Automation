@@ -78,7 +78,7 @@ Every connection to the cloud goes through the Worker, which checks sign-in befo
 
 ### 4.2 What lives where
 
-- **Episode room (one per episode).** The rundown rows (blocks, sections, slug, segment type, writer, talent, camera, floated flag, elements), every section's script with its cue chips, and the live show channel. Because the prompter, the producer and every writer share one live copy, an edit appears everywhere within about a second. The room saves itself every few seconds. It also holds the episode's thumbnails: small JPEGs of about 15 KB each.
+- **Episode room (one per episode).** The rundown rows (blocks, sections, slug, story type, writer, talent, camera, floated flag, elements), every section's script with its cue chips, and the live show channel. Because the prompter, the producer and every writer share one live copy, an edit appears everywhere within about a second. The room saves itself every few seconds. It also holds the episode's thumbnails: small JPEGs of about 15 KB each.
 - **D1 database.** Users and invites. Shows and their settings: default camera, camera names, usual talent, target length, words per minute and the segment-type list. The episode list, searchable text of archived episodes, and timing history.
 - **Never in the cloud:** media files.
 

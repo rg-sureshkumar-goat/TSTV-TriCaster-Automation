@@ -1,13 +1,14 @@
 // Section scripts. Each section's script is a shared document in the episode's room, so several people
-// can type in the same script at once without overwriting each other. A script is a list of paragraphs;
-// a paragraph holds text and cue chips. A cue chip marks where one of the section's graphics fires, and
-// is linked to that graphic (rundown element) by its id. A speaker's part starts with their name in curly
-// brackets, like {Jordan}.
+// can type in the same script at once without overwriting each other. A script is a list of lines: lines
+// of text, and cue chips, each on a line of its own. A cue chip marks where one of the section's graphics
+// fires, and is linked to that graphic (rundown element) by its id. A speaker's part starts with their
+// name in curly brackets, like {JORDAN}. Scripts are written in capital letters (decided Oct 29, 2026).
 //
-// The episode room creates a section's script as soon as the section exists; pages never create one
-// themselves, so two people opening a new script at the same moment can't end up with two copies.
+// The episode room creates a section's script as soon as the section exists, and writes the readers'
+// names into it; pages never do either themselves, so two people opening a new script at the same moment
+// can't end up with two copies.
 import * as Y from 'yjs';
-import { readRows, rowsOf, type Person } from './rundown.ts';
+import { isCrossTalk, readRows, rowsOf, type Person } from './rundown.ts';
 
 /** How fast a typical anchor reads (RG, Oct 28, 2026): 143 to 154 words a minute, about 2.38 to 2.57 a second. */
 export const READING_SPEED = { minWordsPerMinute: 143, maxWordsPerMinute: 154 } as const;
@@ -16,6 +17,10 @@ export const READING_SPEED = { minWordsPerMinute: 143, maxWordsPerMinute: 154 } 
 export const PARAGRAPH_NODE = 'paragraph';
 export const CUE_NODE = 'cue';
 
+/** A speaker's name in curly brackets, like {JORDAN}, which marks where their part starts. */
+const SPEAKER_TAG_SOURCE = '\\{([^{}\\n]{1,60})\\}';
+export const SPEAKER_TAG = new RegExp(SPEAKER_TAG_SOURCE, 'g');
+
 export interface ScriptInfo {
   /** Everyone who has typed in this script, in the order they first did. */
   editors: Person[];
@@ -23,7 +28,7 @@ export interface ScriptInfo {
   updatedAt?: number;
 }
 
-/** A piece of a paragraph: text, or a cue chip for one of the section's graphics. */
+/** A piece of a line: text, or a cue chip for one of the section's graphics. */
 export type ScriptPiece = { kind: 'text'; text: string } | { kind: 'cue'; elementId: string };
 
 /** Every section's script, by section id. */
@@ -45,7 +50,7 @@ export function scriptBody(doc: Y.Doc, sectionId: string): Y.XmlFragment | undef
   return scriptBodiesOf(doc).get(sectionId);
 }
 
-/** The script's paragraphs, each as its text and cue chips in order. */
+/** The script's lines, each as its text and cue chips in order. A cue chip is a line of its own. */
 export function readScriptParagraphs(body: Y.XmlFragment): ScriptPiece[][] {
   const paragraphs: ScriptPiece[][] = [];
   const readInline = (node: Y.XmlElement | Y.XmlText | Y.XmlHook, into: ScriptPiece[]) => {
@@ -103,14 +108,21 @@ export function readScriptInfo(doc: Y.Doc, sectionId: string): ScriptInfo {
   return scriptInfoOf(doc).get(sectionId) ?? { editors: [] };
 }
 
+function paragraphOf(line: string): Y.XmlElement {
+  const paragraph = new Y.XmlElement(PARAGRAPH_NODE);
+  if (line) paragraph.insert(0, [new Y.XmlText(line)]);
+  return paragraph;
+}
+
+function cueOf(elementId: string): Y.XmlElement {
+  const cue = new Y.XmlElement(CUE_NODE);
+  cue.setAttribute('elementId', elementId);
+  return cue;
+}
+
 /** Copies plain text into an empty script, one paragraph per line. An empty script gets one empty paragraph. */
 function fillFromText(body: Y.XmlFragment, text: string): void {
-  const paragraphs = text.split(/\r?\n/).map((line) => {
-    const paragraph = new Y.XmlElement(PARAGRAPH_NODE);
-    if (line) paragraph.insert(0, [new Y.XmlText(line)]);
-    return paragraph;
-  });
-  body.insert(0, paragraphs);
+  body.insert(0, text.split(/\r?\n/).map(paragraphOf));
 }
 
 /**
@@ -135,6 +147,122 @@ export function ensureScripts(doc: Y.Doc): boolean {
   return true;
 }
 
+/** Which version of the script layout an episode's scripts are in. */
+function scriptFormatOf(doc: Y.Doc): Y.Map<number> {
+  return doc.getMap<number>('scriptFormat');
+}
+
+/** 2: cue chips on lines of their own, and text in capitals (Oct 29, 2026). 1: cue chips inside lines. */
+export const SCRIPT_FORMAT = 2;
+
+/** A line's pieces as lines of their own: the text in capitals, with each cue chip on a line of its own. */
+function splitAtCues(pieces: ScriptPiece[]): Y.XmlElement[] {
+  const lines: Y.XmlElement[] = [];
+  let text = '';
+  let afterCue = false;
+  const flush = (beforeCue: boolean) => {
+    let line = afterCue ? text.trimStart() : text;
+    if (beforeCue) line = line.trimEnd();
+    if (line || (!afterCue && !beforeCue)) lines.push(paragraphOf(line.toUpperCase()));
+    text = '';
+  };
+  for (const piece of pieces) {
+    if (piece.kind === 'text') {
+      text += piece.text;
+    } else {
+      flush(true);
+      lines.push(cueOf(piece.elementId));
+      afterCue = true;
+    }
+  }
+  flush(false);
+  return lines;
+}
+
+/**
+ * Run by the episode room only, once per episode: brings scripts written before Oct 29, 2026 up to date.
+ * Each cue chip moves to a line of its own, and the text turns to capital letters; the words stay the same.
+ * Returns true if it changed anything.
+ */
+export function upgradeScripts(doc: Y.Doc): boolean {
+  const format = scriptFormatOf(doc);
+  if ((format.get('version') ?? 1) >= SCRIPT_FORMAT) return false;
+  doc.transact(() => {
+    scriptBodiesOf(doc).forEach((body) => {
+      const lines = readScriptParagraphs(body);
+      const children = body.toArray();
+      // From the end, so each line's position stays put while earlier ones are replaced.
+      for (let i = children.length - 1; i >= 0; i--) {
+        const child = children[i];
+        if (!(child instanceof Y.XmlElement) || child.nodeName !== PARAGRAPH_NODE) continue;
+        const text = lines[i].map((p) => (p.kind === 'text' ? p.text : '')).join('');
+        if (!lines[i].some((p) => p.kind === 'cue') && text === text.toUpperCase()) continue;
+        body.delete(i, 1);
+        body.insert(i, splitAtCues(lines[i]));
+      }
+      // A line to type on after a cue that ends the script.
+      const last = body.get(body.length - 1);
+      if (last instanceof Y.XmlElement && last.nodeName === CUE_NODE) body.push([paragraphOf('')]);
+    });
+    format.set('version', SCRIPT_FORMAT);
+  });
+  return true;
+}
+
+/** The people who read a section's script: its talent, or nobody for unscripted cross talk. */
+export function readersOf(talent: string[]): string[] {
+  return isCrossTalk(talent) ? [] : talent;
+}
+
+/** A reader's speaker tag, like {JORDAN}. */
+export function speakerTag(name: string): string {
+  return `{${name.toUpperCase()}}`;
+}
+
+/** For each section, the readers whose names the room last wrote into its script. */
+function taggedReadersOf(doc: Y.Doc): Y.Map<string> {
+  return doc.getMap<string>('scriptReaders');
+}
+
+const ONLY_A_TAG = new RegExp(`^${SPEAKER_TAG_SOURCE}$`);
+
+/**
+ * Run by the episode room only: writes each section's readers into its script as speaker tags, whenever
+ * its Talent changes.
+ * - A script with no words yet gets each reader's {NAME} on its own line, with an empty line under it,
+ *   and is redone if the Talent changes before anyone writes in it.
+ * - A written script with one reader and no name tag gets {NAME} at the top.
+ * - Other written scripts are left alone: the writer marks where each person's part starts.
+ * Returns true if it changed anything.
+ */
+export function tagReaders(doc: Y.Doc): boolean {
+  const bodies = scriptBodiesOf(doc);
+  const tagged = taggedReadersOf(doc);
+  const changed = readRows(doc).flatMap((row) => {
+    if (row.kind !== 'section' || !bodies.has(row.id)) return [];
+    const tags = readersOf(row.talent).map(speakerTag);
+    return tagged.get(row.id) === tags.join('\n') ? [] : [{ id: row.id, body: bodies.get(row.id)!, tags }];
+  });
+  if (changed.length === 0) return false;
+  doc.transact(() => {
+    for (const { id, body, tags } of changed) {
+      const lines = readScriptParagraphs(body).map((pieces) => (pieces.every((p) => p.kind === 'text') ? pieces.map((p) => p.text).join('').trim() : null));
+      const noWords = lines.every((line) => line !== null && (line === '' || ONLY_A_TAG.test(line)));
+      if (noWords) {
+        const current = lines.filter(Boolean);
+        if (current.join('\n') !== tags.join('\n')) {
+          body.delete(0, body.length);
+          fillFromText(body, tags.length > 0 ? tags.flatMap((tag) => [tag, '']).join('\n') : '');
+        }
+      } else if (tags.length === 1 && speakerTags(scriptPlainText(body)).length === 0) {
+        body.insert(0, [paragraphOf(tags[0])]);
+      }
+      tagged.set(id, tags.join('\n'));
+    }
+  });
+  return true;
+}
+
 /** Records who edited a script and when. */
 export function noteScriptEdit(doc: Y.Doc, sectionId: string, by: Person): void {
   const info = scriptInfoOf(doc);
@@ -143,15 +271,12 @@ export function noteScriptEdit(doc: Y.Doc, sectionId: string, by: Person): void 
   info.set(sectionId, { editors, updatedBy: by, updatedAt: Date.now() });
 }
 
-/** A speaker's name in curly brackets, like {Jordan}, which marks where their part starts. */
-export const SPEAKER_TAG = /\{([^{}\n]{1,60})\}/g;
-
 /** The names in a script's speaker tags, in order. */
 export function speakerTags(text: string): string[] {
   return [...text.matchAll(SPEAKER_TAG)].map((m) => m[1].trim());
 }
 
-/** Words read aloud: speaker tags like {Jordan} aren't. */
+/** Words read aloud: speaker tags like {JORDAN} aren't. */
 export function countWords(text: string): number {
   const spoken = text.replace(SPEAKER_TAG, ' ').trim();
   return spoken === '' ? 0 : spoken.split(/\s+/).length;

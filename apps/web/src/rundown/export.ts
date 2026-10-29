@@ -14,7 +14,7 @@ export interface ExportInfo {
   correspondents?: string[];
 }
 
-const HEADERS = ['#', 'Slug', 'Type', 'Writer', 'Talent', 'Camera', 'Headline', 'Graphics', 'Notes', 'Assign Graphics', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
+const HEADERS = ['#', 'Slug', 'Story Type', 'Writer', 'Talent', 'Camera', 'Headline', 'Graphics', 'Notes', 'Assign Graphics', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
 
 function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
   const backTime = (offset: number | null) => (offset === null ? '' : info.airTime ? formatClock(info.airTime, offset) : `+${formatDuration(offset)}`);

@@ -1014,7 +1014,7 @@ tr.dragging td {
   color: var(--danger);
 }
 
-/* Slug links, draft badges and the script page */
+/* Slug links, draft badges and the script window */
 
 .slug-link {
   display: flex;
@@ -1063,12 +1063,64 @@ tr.dragging td {
   }
 }
 
+/* The script window opens over the rundown, which stays in view around it. */
+.script-window {
+  width: min(820px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.script-window::backdrop {
+  background: rgba(15, 18, 24, 0.35);
+}
+
+.script-window-inner {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+}
+
 .script-head {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  padding: 10px 12px 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.script-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 19px;
+}
+
+.close-button {
+  padding: 0 8px;
+  border: none;
+  background: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.close-button:hover {
+  color: var(--text);
+}
+
+.script-window-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 16px;
 }
 
 .read-cue {
@@ -1126,7 +1178,11 @@ tr.dragging td {
   font-variant-numeric: tabular-nums;
 }
 
+/* Stays in view while a long script scrolls. */
 .script-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: grid;
   gap: 6px;
   padding: 8px 14px;
@@ -1173,7 +1229,7 @@ tr.dragging td {
 }
 
 .script-editor {
-  min-height: 55vh;
+  min-height: 260px;
   font-size: 18px;
   line-height: 1.6;
   padding: 16px;
@@ -1202,10 +1258,14 @@ tr.dragging td {
   pointer-events: none;
 }
 
-/* Cue chips sit in the text like words, but can only be moved or deleted. */
+/* Each cue chip is a line of its own, and can only be moved or deleted. */
+.cue-line {
+  margin: 2px 0;
+  line-height: 1.6;
+}
+
 .cue-chip {
   display: inline-block;
-  margin: 0 2px;
   padding: 0 7px;
   font-size: 14px;
   font-weight: 700;
@@ -1221,9 +1281,17 @@ tr.dragging td {
   border: 1px dashed var(--danger);
 }
 
-.script-editor .ProseMirror-selectednode,
-.cue-chip.ProseMirror-selectednode {
+.script-editor .cue-line.ProseMirror-selectednode {
+  outline: none;
+}
+
+.cue-line.ProseMirror-selectednode .cue-chip {
   outline: 2px solid var(--accent);
+}
+
+/* Where a dragged cue chip will land. */
+.drop-cursor {
+  background: var(--accent);
 }
 
 .speaker-tag {
@@ -1262,8 +1330,11 @@ tr.dragging td {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
+  align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
 }
 
 .dot.inline {

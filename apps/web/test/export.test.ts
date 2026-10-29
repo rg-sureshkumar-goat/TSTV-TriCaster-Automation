@@ -14,7 +14,7 @@ describe('CSV export', () => {
   const lines = csv.trim().split('\r\n');
 
   it('has a header and one line per row', () => {
-    expect(lines[0]).toBe('#,Slug,Type,Writer,Talent,Camera,Headline,Graphics,Notes,Assign Graphics,Floated,Est.,Back-time,Added by,Last edited by');
+    expect(lines[0]).toBe('#,Slug,Story Type,Writer,Talent,Camera,Headline,Graphics,Notes,Assign Graphics,Floated,Est.,Back-time,Added by,Last edited by');
     expect(lines).toHaveLength(4);
   });
 

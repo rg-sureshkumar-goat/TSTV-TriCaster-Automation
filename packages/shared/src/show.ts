@@ -17,7 +17,7 @@ export interface ShowSettings {
   defaultCamera: string;
   /** The show's usual on-air talent. */
   talent: Talent[];
-  /** Segment types for the rundown's Type column. */
+  /** Story types for the rundown's Story Type column. */
   segmentTypes: string[];
   /**
    * Graphics used in every episode (Station ID, Show Intro…). They must be loaded on the TriCaster before

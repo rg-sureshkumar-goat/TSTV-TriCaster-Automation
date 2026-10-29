@@ -1,5 +1,6 @@
 // A small box that opens next to a button and floats above everything, so it's never cut off by the
-// rundown table's scrolling. Closes on Escape or a click elsewhere.
+// rundown table's scrolling. Closes on Escape or a click elsewhere. Inside a window, like the script
+// window, it floats in that window, and Escape closes just the box.
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -32,7 +33,12 @@ export function Popover({ anchor, onClose, align = 'left', children }: { anchor:
       const target = e.target as Node;
       if (!ref.current?.contains(target) && !anchor?.contains(target)) onClose();
     };
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      // Stops a window this box is in from closing too.
+      e.preventDefault();
+      onClose();
+    };
     document.addEventListener('mousedown', down);
     document.addEventListener('keydown', key);
     return () => {
@@ -45,6 +51,6 @@ export function Popover({ anchor, onClose, align = 'left', children }: { anchor:
     <div ref={ref} className="popover" style={{ top: position?.top ?? -9999, left: position?.left ?? -9999 }}>
       {children}
     </div>,
-    document.body,
+    anchor?.closest('dialog') ?? document.body,
   );
 }

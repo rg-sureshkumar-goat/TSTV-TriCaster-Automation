@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { breakGraphic, computeRundown, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type ShowSettings } from '@tstv/shared';
 import { TalentPanel } from '../rundown/TalentPanel.tsx';
 import { api, useLoad, type User } from '../lib/api.ts';
-import { Link } from '../lib/router.tsx';
+import { Link, navigate } from '../lib/router.tsx';
 import { formatDate, formatTime } from '../lib/format.ts';
 import { RundownGrid } from '../rundown/RundownGrid.tsx';
 import { useEpisodeDoc } from '../rundown/useEpisodeDoc.ts';
@@ -10,19 +10,23 @@ import { exportCsv, exportPdf } from '../rundown/export.ts';
 import { ConnectionBadge, PresenceList } from '../components/RoomStatus.tsx';
 import type { EpisodeListItem } from './Show.tsx';
 
+// The script editor is large, so it loads only when someone opens a script.
+const ScriptWindow = lazy(() => import('./Script.tsx').then((m) => ({ default: m.ScriptWindow })));
+
 interface EpisodeData {
   episode: EpisodeListItem & { showId: string };
   show: { id: string; name: string; settings: ShowSettings };
 }
 
-export function EpisodePage({ episodeId, user }: { episodeId: string; user: User }) {
+/** The episode's rundown. With a section id, that section's script is open in a window over it. */
+export function EpisodePage({ episodeId, sectionId, user }: { episodeId: string; sectionId?: string; user: User }) {
   const { data, error, reload } = useLoad<EpisodeData>(`/episodes/${episodeId}`);
   if (error) return <div className="page"><p className="error">{error}</p></div>;
   if (!data) return <div className="page muted">Loading…</div>;
-  return <EpisodeView data={data} user={user} reload={reload} />;
+  return <EpisodeView data={data} sectionId={sectionId} user={user} reload={reload} />;
 }
 
-function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; reload: () => void }) {
+function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sectionId?: string; user: User; reload: () => void }) {
   const { episode, show } = data;
   const readOnly = episode.status === 'archived';
   const room = useEpisodeDoc(episode.id, user, reload);
@@ -152,6 +156,21 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
         <p className="muted">Loading the rundown…</p>
       ) : (
         <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} talent={room.talent} cued={room.cued} airTime={episode.airTime} me={me} readOnly={readOnly} others={room.others} setFocus={room.setFocus} />
+      )}
+
+      {sectionId && (
+        <Suspense fallback={null}>
+          <ScriptWindow
+            key={sectionId}
+            episode={episode}
+            show={show}
+            room={room}
+            timing={timing}
+            sectionId={sectionId}
+            user={user}
+            onClose={() => navigate(`/episodes/${episode.id}`, { keepScroll: true })}
+          />
+        </Suspense>
       )}
     </div>
   );

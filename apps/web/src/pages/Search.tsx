@@ -29,7 +29,7 @@ export function SearchPage() {
   return (
     <div className="page">
       <h1>Search</h1>
-      <p className="muted">Find episodes, including archived ones, by title, show, slug, segment type or talent.</p>
+      <p className="muted">Find episodes, including archived ones, by title, show, slug, story type, talent or script.</p>
       <input className="search-box" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search, e.g. Basketball" autoFocus />
       {error && <p className="error">{error}</p>}
       {results && results.length === 0 && <p className="muted">Nothing found.</p>}

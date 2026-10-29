@@ -189,7 +189,7 @@ function ShowSettingsForm({ showId, name, settings, onSaved }: { showId: string;
         </select>
       </label>
       <TalentEditor talent={draft.talent} onChange={(talent) => setDraft({ ...draft, talent })} />
-      <ListEditor label="Segment types" hint="Choices for the rundown's Type column." items={draft.segmentTypes} onChange={(segmentTypes) => setDraft({ ...draft, segmentTypes })} />
+      <ListEditor label="Story types" hint="Choices for the rundown's Story Type column." items={draft.segmentTypes} onChange={(segmentTypes) => setDraft({ ...draft, segmentTypes })} />
       <ListEditor
         label="Permanent graphics"
         hint="Graphics used in every episode, like the Station ID and Show Intro. They're loaded on the TriCaster before every show, and the rundown's Graphics column can pick them."

@@ -73,7 +73,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 **Rundown grid**
 
 - One row per section, grouped under block headers A, B, C. Sections are numbered within the block: A1, A2, B1.
-- Columns: Section, Slug, Segment type (**Intro, Tease, Reader, Cross Talk, Q&A, Package, SOT, Permanent Graphic**, decided Oct 28, 2026, with Q&A and Permanent Graphic added Oct 29, 2026; each show can still edit its list), **Writer** (typed in; added Oct 28, 2026), Talent (picked from the episode's anchors and correspondents; **one or more people** per section, for a Q&A or any part where several people talk; or **Everyone (cross talk)** on its own, for real cross talk with no formal script, where the prompter just says CROSS TALK; decided Oct 29, 2026), Camera, **Headline** (typed in; added Oct 29, 2026), Elements (attached graphics with Ready or Missing status), **Notes** (typed in; added Oct 28, 2026), **Assign Graphics** (typed in: who makes the section's graphics; added Oct 29, 2026), Est. duration, Back-time. The column headers stay at the top while you scroll down the rundown. *(No green-screen column: decided Oct 28, 2026, since each show uses one background for the whole show. See Part 3.)*
+- Columns: Section, Slug, **Story Type** (renamed from Type on Oct 29, 2026: **Intro, Tease, Reader, Cross Talk, Q&A, Package, SOT, Permanent Graphic**, decided Oct 28, 2026, with Q&A and Permanent Graphic added Oct 29, 2026; each show can still edit its list), **Writer** (typed in; added Oct 28, 2026), Talent (picked from the episode's anchors and correspondents; **one or more people** per section, for a Q&A or any part where several people talk; or **Everyone (cross talk)** on its own, for real cross talk with no formal script, where the prompter just says CROSS TALK; decided Oct 29, 2026), Camera, **Headline** (typed in; added Oct 29, 2026), Elements (attached graphics with Ready or Missing status), **Notes** (typed in; added Oct 28, 2026), **Assign Graphics** (typed in: who makes the section's graphics; added Oct 29, 2026), Est. duration, Back-time. The column headers stay at the top while you scroll down the rundown. *(No green-screen column: decided Oct 28, 2026, since each show uses one background for the whole show. See Part 3.)*
 - **Decided Oct 28, 2026:** a section can have several things happening in it, so the **Elements** column (titled **Graphics** in the rundown) lists each section's elements in the order they fire. For example, a Reader can have an L3 and then a VO playing over the anchor.
   - Element types: L3, OTSL, OTSR, FSG, **TEASE**, **LITES**, VO, SOT and PKG (TEASE and LITES added Oct 29, 2026). Each element can also have an optional name.
   - In the rundown, graphics are blue and video is red. **LITES is a video** (decided Oct 29, 2026), so it's red like VO, SOT and PKG.
@@ -92,22 +92,25 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 - Shows the episode total, over/under against the target length, and back-times (the clock time each block must start to finish on time).
 - During the show, records each section's actual start and length from the prompter, so the producer sees how far over or under the show is running.
 
-**Script pages**
+**Scripts**
 
-- Each section opens to its own script page. The prompter shows all sections in rundown order.
-- **Several readers (decided Oct 29, 2026):** when more than one person talks in a section, the writer marks each person's part with their name in curly brackets on its own line above it, like `{Jordan}`. *Proposed for Phase 3:* the prompter shows each `{Name}` line as a speaker marker in that person's color.
-- **Reading cue (decided Oct 29, 2026):** the script page, and in Phase 3 the prompter, clearly shows who reads each section (everyone, when several people share a section) and which camera to look at.
+- Each section has its own script. The prompter shows all sections in rundown order.
+- **Script window (decided Oct 29, 2026):** clicking a slug opens its script in a small window over the rundown, not a full page. The rundown stays in view behind it. Close it with ×, Escape or a click outside it. The window's address can still be shared or bookmarked.
+- **Several readers (decided Oct 29, 2026):** when more than one person talks in a section, the writer marks each person's part with their name in curly brackets on its own line above it, like `{JORDAN}`. *Proposed for Phase 3:* the prompter shows each `{NAME}` line as a speaker marker in that person's color.
+- **Readers' names filled in (decided Oct 29, 2026):** a script with no words yet starts with each reader's `{NAME}` on its own line, from the section's Talent, and follows the Talent until someone writes in it. A written script with one reader and no name tag gets its reader's `{NAME}` at the top. Written scripts with several readers are left to the writer. Cross talk gets no names.
+- **Capital letters (decided Oct 29, 2026):** scripts are written in capitals only, whatever the Caps Lock key says, including pasted text. Scripts written before then were switched to capitals once; the words didn't change.
+- **Reading cue (decided Oct 29, 2026):** the script window, and in Phase 3 the prompter, clearly shows who reads each section (everyone, when several people share a section) and which camera to look at.
 - **Decided Oct 28, 2026:**
-  - Each slug in the rundown is a link to its script page.
-  - The script page has a text box. Above it are a **word counter** and an estimate of how long a typical anchor takes to read the script, at **143 to 154 words a minute** (2.38 to 2.57 words a second).
-  - The page records everyone who edited the script, and who edited it last.
+  - Each slug in the rundown opens its script.
+  - The script has a text box. Above it are a **word counter** and an estimate of how long a typical anchor takes to read the script, at **143 to 154 words a minute** (2.38 to 2.57 words a second).
+  - It records everyone who edited the script, and who edited it last.
   - **The rundown's Est. fills in from the script's read time** (the middle of that range, 148.5 words a minute). Typing a length overrides it; clearing it goes back to the script's time.
 - **Live co-editing**, like Google Docs: several people type in the same rundown and the same script at once, with each other's cursors visible and no overwritten work.
 - **Cues** are inserted with a toolbar button or shortcut as locked chips in the text: Take L3, Take VO, Take SOT, Take PKG, Take OTSL, Take OTSR, Take FSG.
 - **Decided Oct 29, 2026 (Phase 2):**
-  - The cue toolbar lists the section's graphics from the rundown, and each chip is linked to its graphic, one cue per graphic. **+ New graphic** adds a graphic to the rundown and drops its cue in one step. Renaming a graphic renames its chip; a removed graphic's chip shows as **Removed graphic**.
+  - The cue toolbar lists the section's graphics from the rundown, and each chip is linked to its graphic, one cue per graphic. **Each cue chip is on a line of its own** (decided Oct 29, 2026): adding one in the middle of a line splits the line around it. **+ New graphic** adds a graphic to the rundown and drops its cue in one step. Renaming a graphic renames its chip; a removed graphic's chip shows as **Removed graphic**.
   - In the rundown, graphics with no cue chip in their script yet have a dashed outline.
-  - Speaker tags (`{Name}`) show in the speaker's color, names that aren't the episode's talent are flagged, and a **Speakers** button starts each reader's part.
+  - Speaker tags (`{NAME}`) show in the speaker's color, names that aren't the episode's talent are flagged, and a **Speakers** button starts each reader's part.
   - Speaker tags and cue chips don't count as read words.
   - Phase 1 plain-text scripts are copied into the editor word for word, one paragraph per line, and the original text is kept.
 - Each section is tagged with the on-air **talent** who reads it, and the prompter shows that name at the section's start.

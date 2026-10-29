@@ -1,5 +1,5 @@
-// The script editor for one section: shared text where everyone's cursor shows, a toolbar that drops cue
-// chips for the section's graphics, and buttons that start a speaker's part with {Name}.
+// The script editor for one section: shared text in capital letters where everyone's cursor shows, a
+// toolbar that drops cue chips for the section's graphics, and buttons that start a speaker's part with {NAME}.
 import { useEffect, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import type YProvider from 'y-partyserver/provider';
@@ -9,11 +9,11 @@ import Paragraph from '@tiptap/extension-paragraph';
 import Text from '@tiptap/extension-text';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
-import { Placeholder } from '@tiptap/extensions';
-import { addElement, CROSS_TALK, CUE_NODE, cueLabel, elementKind, type Element, type Person, type SectionRow } from '@tstv/shared';
+import { Dropcursor, Gapcursor, Placeholder } from '@tiptap/extensions';
+import { addElement, cueLabel, elementKind, readersOf, speakerTag, type Element, type Person, type SectionRow } from '@tstv/shared';
 import { Popover } from '../components/Popover.tsx';
 import { GraphicMenu } from '../rundown/GraphicMenu.tsx';
-import { Cue, live, SpeakerTags } from './extensions.ts';
+import { Capitals, Cue, insertCue, live, SpeakerTags } from './extensions.ts';
 
 interface Props {
   body: Y.XmlFragment;
@@ -46,6 +46,10 @@ export function ScriptWriter({ body, provider, doc, section, label, me, readOnly
         Paragraph,
         Text,
         Placeholder.configure({ placeholder: 'Type the script for this section…' }),
+        // Lets the cursor sit between two cue chips, and shows where a dragged chip will land.
+        Gapcursor,
+        Dropcursor.configure({ color: false, width: 3, class: 'drop-cursor' }),
+        Capitals,
         Cue.configure({ elements: elementsLive }),
         SpeakerTags.configure({ speakers: speakersLive }),
         Collaboration.configure({ fragment: body }),
@@ -54,7 +58,9 @@ export function ScriptWriter({ body, provider, doc, section, label, me, readOnly
       editable: !readOnly,
       // Set up after the page draws, so the editor's first sync never updates the page mid-draw.
       immediatelyRender: false,
-      editorProps: { attributes: { class: 'script-editor', 'aria-label': `Script for ${label}`, role: 'textbox', 'aria-multiline': 'true', spellcheck: 'true' } },
+      editorProps: {
+        attributes: { class: 'script-editor', 'aria-label': `Script for ${label}`, role: 'textbox', 'aria-multiline': 'true', spellcheck: 'true', autocapitalize: 'characters' },
+      },
       onFocus: () => focusRef.current(true),
       onBlur: () => focusRef.current(false),
     },
@@ -79,18 +85,17 @@ export function ScriptWriter({ body, provider, doc, section, label, me, readOnly
 
 function Toolbar({ editor, doc, section, label, me, elements, cueCounts, permanent }: { editor: Editor; doc: Y.Doc; section: SectionRow; label: string; me: Person; elements: Map<string, Element>; cueCounts: Map<string, number>; permanent: string[] }) {
   const [menu, setMenu] = useState<HTMLElement | null>(null);
-  const insertCue = (elementId: string) => editor.chain().focus().insertContent({ type: CUE_NODE, attrs: { elementId } }).run();
   // A speaker's part starts on its own line with their name in curly brackets.
   const insertSpeaker = (name: string) =>
     editor
       .chain()
       .focus()
       .insertContent([
-        { type: 'paragraph', content: [{ type: 'text', text: `{${name}}` }] },
+        { type: 'paragraph', content: [{ type: 'text', text: speakerTag(name) }] },
         { type: 'paragraph' },
       ])
       .run();
-  const readers = section.talent.filter((n) => n !== CROSS_TALK);
+  const readers = readersOf(section.talent);
   const doubled = section.elements.filter((e) => (cueCounts.get(e.id) ?? 0) > 1);
   const removed = [...cueCounts.keys()].filter((id) => !elements.has(id)).length;
   // Keep the cursor in the script when a toolbar button is clicked.
@@ -99,7 +104,7 @@ function Toolbar({ editor, doc, section, label, me, elements, cueCounts, permane
   return (
     <div className="script-toolbar" role="toolbar" aria-label={`Cues for ${label}`}>
       <div className="toolbar-row">
-        <span className="toolbar-label" title="Put the cursor where a graphic should fire, then click it">
+        <span className="toolbar-label" title="Put the cursor where a graphic should fire, then click it. It goes on a line of its own.">
           Cues
         </span>
         {section.elements.length === 0 && <span className="muted small">This section has no graphics yet.</span>}
@@ -113,7 +118,7 @@ function Toolbar({ editor, doc, section, label, me, elements, cueCounts, permane
               aria-label={`${placed ? 'In the script' : 'Add cue'}: ${cueLabel(e)}`}
               title={placed ? 'Already in the script. Drag the chip to move it, or delete it and add it again.' : 'Add this cue where the cursor is'}
               onMouseDown={keepFocus}
-              onClick={() => insertCue(e.id)}
+              onClick={() => insertCue(editor, e.id)}
             >
               {placed ? '✓ ' : '+ '}
               {cueLabel(e)}
@@ -131,7 +136,7 @@ function Toolbar({ editor, doc, section, label, me, elements, cueCounts, permane
               onPick={(type, name) => {
                 setMenu(null);
                 const id = addElement(doc, section.id, type, me, name);
-                if (id) insertCue(id);
+                if (id) insertCue(editor, id);
               }}
             />
           </Popover>
@@ -144,7 +149,7 @@ function Toolbar({ editor, doc, section, label, me, elements, cueCounts, permane
           </span>
           {readers.map((name) => (
             <button key={name} className="speaker-button" aria-label={`Start ${name}’s part`} onMouseDown={keepFocus} onClick={() => insertSpeaker(name)}>
-              {`{${name}}`}
+              {speakerTag(name)}
             </button>
           ))}
         </div>

@@ -78,7 +78,7 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, ai
             <th className="handle-col" aria-label="Drag to reorder" />
             <th className="num-col">#</th>
             <th>Slug</th>
-            <th className="type-col">Type</th>
+            <th className="type-col" title="What kind of story this section is">Story Type</th>
             <th title="Who writes this section's script">Writer</th>
             <th title="Who reads it on air">Talent</th>
             <th className="camera-col">Camera</th>
@@ -267,7 +267,7 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
             {row.floated && <span className="badge">Floated</span>}
           </td>
           {cell('slug', <SlugCell row={row} label={computed.label} episodeId={episodeId} readOnly={readOnly} onCommit={(slug) => set({ slug })} />, 'slug-col')}
-          {cell('type', <SelectCell value={row.type} options={settings.segmentTypes} readOnly={readOnly} onChange={(type) => set({ type })} ariaLabel={`${computed.label} type`} />, 'type-col')}
+          {cell('type', <SelectCell value={row.type} options={settings.segmentTypes} readOnly={readOnly} onChange={(type) => set({ type })} ariaLabel={`${computed.label} story type`} />, 'type-col')}
           {cell('writer', <TextCell value={row.writer} placeholder="Writer" readOnly={readOnly} onCommit={(writer) => set({ writer })} ariaLabel={`${computed.label} writer`} />, 'person-col')}
           {cell('talent', <TalentPicker value={row.talent} talent={talent} colors={settings.talent} label={computed.label} readOnly={readOnly} onChange={(names) => set({ talent: names })} />, 'person-col')}
           {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
@@ -308,8 +308,8 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
 
 /** A text field that sends each keystroke to everyone, without jumping while you type. */
 /**
- * The slug links to the section's script page. An empty slug, or one being renamed (✎), is a text box,
- * so building the rundown stays quick.
+ * The slug opens the section's script, in a window over the rundown. An empty slug, or one being renamed
+ * (✎), is a text box, so building the rundown stays quick.
  */
 function SlugCell({ row, label, episodeId, readOnly, onCommit }: { row: SectionRow; label: string; episodeId: string; readOnly: boolean; onCommit: (slug: string) => void }) {
   const [editing, setEditing] = useState(false);
@@ -328,7 +328,7 @@ function SlugCell({ row, label, episodeId, readOnly, onCommit }: { row: SectionR
   }
   return (
     <span className="slug-link">
-      <Link to={`/episodes/${episodeId}/sections/${row.id}`} aria-label={`Open the script for ${label} ${row.slug}`}>
+      <Link to={`/episodes/${episodeId}/sections/${row.id}`} keepScroll aria-label={`Open the script for ${label} ${row.slug}`}>
         {row.slug || 'Untitled'}
       </Link>
       {!readOnly && (
