@@ -1,5 +1,7 @@
 # Phase 2: script editor
 
+**Approved by RG on Oct 29, 2026.**
+
 Phase 2 turns each section's script box into a real script editor: several people can write at once and see each other's cursors, cues for the section's graphics sit in the script as locked chips, and speaker tags like `{JORDAN}` show in that person's color. It also adds the admin **Usage** page.
 
 ## What's new
