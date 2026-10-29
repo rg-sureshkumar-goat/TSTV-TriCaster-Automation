@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import YProvider from 'y-partyserver/provider';
-import { readRows, rowsOf, scriptsOf, scriptWordCounts, type Row } from '@tstv/shared';
+import { readEpisodeTalent, readRows, rowsOf, scriptsOf, scriptWordCounts, type EpisodeTalent, type Row } from '@tstv/shared';
 import type { User } from '../lib/api.ts';
 
 export interface Presence {
@@ -28,6 +28,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
   const [room, setRoom] = useState<{ doc: Y.Doc; provider: YProvider } | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [scriptWords, setScriptWords] = useState<Record<string, number>>({});
+  const [talent, setTalent] = useState<EpisodeTalent[]>([]);
   const [synced, setSynced] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [others, setOthers] = useState<Presence[]>([]);
@@ -50,11 +51,14 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
     // Script word counts drive the rundown's estimated lengths.
     const updateWords = () => setScriptWords(scriptWordCounts(doc));
     scriptsOf(doc).observeDeep(updateWords);
+    const updateTalent = () => setTalent(readEpisodeTalent(doc));
+    doc.getArray('talent').observe(updateTalent);
     const onSync = (isSynced: boolean) => {
       setSynced(isSynced);
       if (isSynced) {
         updateRows();
         updateWords();
+        updateTalent();
       }
     };
     const onStatus = ({ status: s }: { status: ConnectionStatus }) => setStatus(s);
@@ -81,6 +85,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
     return () => {
       rowsOf(doc).unobserveDeep(updateRows);
       scriptsOf(doc).unobserveDeep(updateWords);
+      doc.getArray('talent').unobserve(updateTalent);
       provider.off('sync', onSync);
       provider.off('status', onStatus);
       provider.off('custom-message', onCustom);
@@ -92,5 +97,5 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
   const setFocus = (focus: string | null) => room?.provider.awareness.setLocalStateField('focus', focus);
 
-  return { doc: room?.doc ?? null, rows, scriptWords, synced: synced && room !== null, status, others, setFocus };
+  return { doc: room?.doc ?? null, rows, scriptWords, talent, synced: synced && room !== null, status, others, setFocus };
 }

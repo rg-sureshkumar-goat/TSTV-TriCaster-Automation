@@ -8,6 +8,8 @@ export interface ExportInfo {
   airDate: string;
   airTime: string;
   defaultCamera: string;
+  anchors?: string[];
+  correspondents?: string[];
 }
 
 const HEADERS = ['#', 'Slug', 'Type', 'Writer', 'Talent', 'Camera', 'Graphics', 'Notes', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
@@ -73,8 +75,15 @@ export async function exportPdf(timing: RundownTiming, info: ExportInfo): Promis
     40,
     58,
   );
+  const talentLine = [
+    info.anchors?.length ? `Anchors: ${info.anchors.join(', ')}` : '',
+    info.correspondents?.length ? `Correspondents: ${info.correspondents.join(', ')}` : '',
+  ]
+    .filter(Boolean)
+    .join('   ·   ');
+  if (talentLine) pdf.text(talentLine, 40, 72);
   autoTable(pdf, {
-    startY: 72,
+    startY: talentLine ? 86 : 72,
     head: [HEADERS],
     body: tableRows(timing, info),
     styles: { fontSize: 8, cellPadding: 3 },

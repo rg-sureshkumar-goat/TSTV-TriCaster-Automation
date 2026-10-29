@@ -11,7 +11,7 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
   - camera names and the default camera
   - usual talent, each with a color
   - segment types (Intro, Tease, Reader, Cross Talk, Package, SOT)
-- **Episodes**, each with a title, air date and start time.
+- **Episodes**, each with a title, air date and start time, and an **Anchors / Correspondents** section where the producer enters that episode's on-air talent. Each person gets a color, and a section whose Talent box names them shows that color. The PDF export lists them at the top.
 - **The rundown grid**:
   - Blocks A, B, C, with sections numbered A1, A2, B1. Numbers update when rows move.
   - Columns: Slug, Type, Writer, Talent, Camera, Graphics, Notes, Est., Back-time, and Last edit. There's no green-screen column, because each show's background is set once in the show app (Phase 4).
@@ -139,7 +139,7 @@ Open your website and click **Sign in with Google**. You're the admin. Use **Peo
    - default camera
    - talent, with colors
    - segment types
-4. **Create an episode** with its real air date and start time.
+4. **Create an episode** with its real air date and start time, and enter its anchors and correspondents.
 5. **Rebuild a past episode's rundown from Rundown Creator:** blocks, sections, slugs, types, writers, talent, cameras and estimates. Give each section its **graphics** in order: L3s, VOs, SOTs, packages, OTS and FSGs.
 6. **Check timing** against Rundown Creator: total, over or under, and back-times.
 7. **Drag a row** to a new place, then **float** a section. Check that the numbers and totals update.

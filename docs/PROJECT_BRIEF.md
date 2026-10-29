@@ -67,6 +67,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 - Anyone can **Add a Show** and name it anything. Each show holds **episodes**, and each episode has its own rundown, scripts, graphics and prompter text.
 - Every show uses the same interface. Shows differ only in their content: number of blocks, sections and talent.
 - Each show has settings for its default camera (for example "Anchor Camera"), its usual talent, and its target length (default 30:00).
+- **On-air talent per episode (decided Oct 28, 2026):** every episode has its own anchors and correspondents, so each episode has a section where the producer enters their names. Each person gets a color, used for their sections in the rundown and on the prompter.
 - After air, an episode can be **archived** (read-only, still searchable) and **exported** as PDF and CSV.
 
 **Rundown grid**

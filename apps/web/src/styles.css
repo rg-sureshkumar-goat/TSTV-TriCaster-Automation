@@ -968,3 +968,35 @@ textarea.script:focus {
   display: inline-block;
   vertical-align: middle;
 }
+
+/* On-air talent */
+
+.talent-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 8px 24px;
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.talent-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.talent-list .chips {
+  margin: 0;
+  align-items: center;
+}
+
+.talent-add {
+  width: 190px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 14px;
+}

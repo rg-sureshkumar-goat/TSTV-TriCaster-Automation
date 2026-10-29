@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { computeRundown, formatDuration, formatOverUnder, sectionSecondsFrom, type ShowSettings } from '@tstv/shared';
+import { computeRundown, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type ShowSettings } from '@tstv/shared';
+import { TalentPanel } from '../rundown/TalentPanel.tsx';
 import { api, useLoad, type User } from '../lib/api.ts';
 import { Link } from '../lib/router.tsx';
 import { formatDate, formatTime } from '../lib/format.ts';
@@ -32,7 +33,18 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const me = { id: user.id, name: user.name };
-  const exportInfo = { showName: show.name, episodeTitle: episode.title, airDate: formatDate(episode.airDate), airTime: episode.airTime, defaultCamera: show.settings.defaultCamera };
+  // This episode's anchors and correspondents color their sections, ahead of the show's usual talent.
+  const settings = useMemo(() => ({ ...show.settings, talent: talentColors(room.talent, show.settings.talent) }), [show.settings, room.talent]);
+  const names = (role: string) => room.talent.filter((t) => t.role === role).map((t) => t.name);
+  const exportInfo = {
+    showName: show.name,
+    episodeTitle: episode.title,
+    airDate: formatDate(episode.airDate),
+    airTime: episode.airTime,
+    defaultCamera: show.settings.defaultCamera,
+    anchors: names('anchor'),
+    correspondents: names('correspondent'),
+  };
 
   const canPublish = episode.createdById === user.id || user.isAdmin;
   const publish = async (on: boolean) => {
@@ -116,6 +128,8 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
       </div>
       {message && <p className="error">{message}</p>}
 
+      {room.synced && room.doc && <TalentPanel doc={room.doc} talent={room.talent} colors={settings.talent} readOnly={readOnly} />}
+
       <div className="timing-bar" aria-live="polite">
         <span>
           Total <strong>{formatDuration(timing.totalSeconds)}</strong>
@@ -136,7 +150,7 @@ function EpisodeView({ data, user, reload }: { data: EpisodeData; user: User; re
       {!room.synced || !room.doc ? (
         <p className="muted">Loading the rundown…</p>
       ) : (
-        <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={show.settings} airTime={episode.airTime} me={me} readOnly={readOnly} others={room.others} setFocus={room.setFocus} />
+        <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} airTime={episode.airTime} me={me} readOnly={readOnly} others={room.others} setFocus={room.setFocus} />
       )}
     </div>
   );

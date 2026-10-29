@@ -67,11 +67,21 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByLabel('A2 type').selectOption('Reader');
   await expect(sam.getByLabel('A2 type')).toHaveValue('Reader');
 
+  // The producer enters this episode's anchors and correspondents; they sync, and a section whose
+  // Talent box names one gets that person's color.
+  await rg.getByLabel('Add an anchor').fill('Jordan');
+  await rg.getByLabel('Add an anchor').press('Enter');
+  await rg.getByLabel('Add a correspondent').fill('Riley Park');
+  await rg.getByLabel('Add a correspondent').press('Enter');
+  await expect(sam.getByRole('region', { name: 'On-air talent' })).toContainText('Jordan');
+  await expect(sam.getByRole('region', { name: 'On-air talent' })).toContainText('Riley Park');
+
   // Writer and Talent are typed in, and sync too.
   await rg.getByRole('textbox', { name: 'A2 writer' }).fill('Sam');
   await rg.getByRole('textbox', { name: 'A2 talent' }).fill('Jordan');
   await expect(sam.getByLabel('A2 writer')).toHaveValue('Sam');
   await expect(sam.getByLabel('A2 talent')).toHaveValue('Jordan');
+  await expect(row(sam, 'A2').locator('.talent-cell .dot')).toBeVisible();
   await rg.getByRole('textbox', { name: 'A2 notes' }).fill('Confirm final score');
   await expect(sam.getByLabel('A2 notes')).toHaveValue('Confirm final score');
 

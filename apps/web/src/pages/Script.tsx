@@ -11,6 +11,7 @@ import {
   readTimeRange,
   scriptsOf,
   scriptText,
+  talentColors,
   type SectionRow,
   type ShowSettings,
 } from '@tstv/shared';
@@ -59,7 +60,8 @@ function ScriptView({ data, sectionId, user, reload }: { data: EpisodeData; sect
   const words = countWords(box.value);
   const { fastestSeconds, slowestSeconds } = readTimeRange(words);
   const readTime = fastestSeconds === slowestSeconds ? formatDuration(fastestSeconds) : `${formatDuration(fastestSeconds)}–${formatDuration(slowestSeconds)}`;
-  const talentColor = section && show.settings.talent.find((t) => t.name.toLowerCase() === section.talent.trim().toLowerCase())?.color;
+  const colors = talentColors(room.talent, show.settings.talent);
+  const talentColor = section && colors.find((t) => t.name.toLowerCase() === section.talent.trim().toLowerCase())?.color;
   const here = room.others.filter((o) => o.focus === `${sectionId}:script`);
   const link = (i: number) => `/episodes/${episode.id}/sections/${sections[i].row.id}`;
 
