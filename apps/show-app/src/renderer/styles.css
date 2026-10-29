@@ -262,9 +262,13 @@ h3 {
   color: #fff;
   background: var(--blue);
 }
-.chip.voiceover,
+/* The same colors as the rundown and the prompter: graphics blue, video red, music purple, and the
+   show's permanent graphics green. */
 .chip.clip {
   background: var(--red);
+}
+.chip.permanent {
+  background: #16a34a;
 }
 .chip.music {
   background: var(--purple);

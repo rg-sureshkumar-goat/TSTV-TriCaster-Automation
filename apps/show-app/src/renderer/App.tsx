@@ -4,6 +4,7 @@
 // The episode key is at the top right. Import graphics opens a window that matches files to cues.
 // Keys: Space fires the next cue, P pauses.
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
+import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
 
 declare global {
@@ -309,7 +310,7 @@ function Playlist({ state, onImport, onReview }: { state: AppState; onImport: ()
 function Item({ element }: { element: ElementView }) {
   return (
     <span className="item">
-      <span className={`chip ${element.behavior}`}>{element.label}</span>
+      <span className={`chip ${elementKind(element.type)}`}>{element.label}</span>
       <span className="muted">{element.sectionLabel}</span>
       {element.ddrItem === null && element.behavior !== 'music' && <span className="missing">no file</span>}
     </span>
@@ -525,7 +526,7 @@ function GraphicsWindow({ state, onClose, onImport }: { state: AppState; onClose
                   <tr key={e.id}>
                     <td className="muted">{i === 0 ? `${s.label} ${s.slug}` : ''}</td>
                     <td>
-                      <span className={`chip ${e.behavior}`}>{e.label}</span>
+                      <span className={`chip ${elementKind(e.type)}`}>{e.label}</span>
                     </td>
                     <td>{e.thumbnail ? <img className="mini" src={e.thumbnail} alt="" /> : null}</td>
                     <td>
