@@ -1877,6 +1877,7 @@ button.danger {
 }
 
 .prompter-controls button,
+.prompter-controls select,
 .prompter-panel button {
   background: #222;
   color: #fff;

@@ -99,6 +99,14 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   for (let i = 0; i < 17; i++) await prompter.keyboard.press('ArrowDown');
   await expect(prompter.locator('.prompter-hud')).toContainText('◀ 2 backwards');
 
+  // H goes back to the top, stopped; the Go to section list jumps to any section and starts it.
+  await prompter.keyboard.press('h');
+  await expect(prompter.locator('.prompter-hud')).toContainText('Stopped');
+  await expect(prompter.getByLabel('Go to section').locator('option')).toHaveText(['Go to section…', 'A1 · Open', 'A2 · Second story']);
+  await prompter.getByLabel('Go to section').selectOption({ label: 'A2 · Second story' });
+  await expect(bar).toContainText('A2 started');
+  await expect(bar).toContainText('on A2');
+
   // It keeps a copy of the episode on this computer, for when the internet drops.
   await expect.poll(() => prompter.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith('tstv-prompter-copy-')))).toBe(true);
 });

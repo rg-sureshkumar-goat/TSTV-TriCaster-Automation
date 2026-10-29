@@ -4,7 +4,8 @@
 // crosses the reading line, it tells the episode room, which passes it on (to the show app from Phase 4).
 //
 // Keys: ↑ faster, ↓ slower and then backwards, Space pause, Page Down / → next section, Page Up / ← back a
-// section, Home the top, F full screen, S settings, ? help.
+// section, H (or Home) the top, F full screen, S settings, ? help. The Go to section list at the top jumps
+// to any section.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import * as Y from 'yjs';
 import {
@@ -159,6 +160,13 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
     draw();
   };
 
+  /** Jumps to a section and starts it, without firing the cues it skipped. */
+  const goToSection = (target: Marker) => {
+    engine.current.pos = Math.min(maxPos(), Math.max(0, target.top - readingY()));
+    draw();
+    sendCue(target);
+  };
+
   const showHud = () => setHud((h) => ({ ...h, speed: engine.current.speed, paused: engine.current.paused }));
 
   // The episode's lines, rebuilt whenever the rundown or a script changes.
@@ -261,10 +269,11 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
         target = current && lineY - current.top > 40 ? current : [...sections].reverse().find((m) => m.top < (current?.top ?? lineY) - 1);
       }
       if (!target) return;
-      e.pos = Math.min(maxPos(), Math.max(0, target.top - readingY()));
-      draw();
-      // A jump starts that section, but doesn't fire the cues it skipped.
-      if (direction === 1) sendCue(target);
+      if (direction === 1) goToSection(target);
+      else {
+        e.pos = Math.min(maxPos(), Math.max(0, target.top - readingY()));
+        draw();
+      }
     };
     const onKey = (event: KeyboardEvent) => {
       // Escape closes the settings and gives the keys back to the prompter, even from a slider.
@@ -296,6 +305,9 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
         case 'ArrowLeft':
           jumpToSection(-1);
           break;
+        // Back to the top (RG, Oct 29, 2026: H, as well as Home).
+        case 'h':
+        case 'H':
         case 'Home':
           e.pos = 0;
           e.speed = 0;
@@ -311,8 +323,6 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
           setPanel((p) => (p === 'settings' ? null : 'settings'));
           break;
         case '?':
-        case 'h':
-        case 'H':
           setPanel((p) => (p === 'help' ? null : 'help'));
           break;
         default:
@@ -404,6 +414,25 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
       </div>
 
       <div className="prompter-controls">
+        <select
+          aria-label="Go to section"
+          value=""
+          onChange={(event) => {
+            const target = engine.current.markers.find((m) => m.kind === 'section' && m.sectionId === event.target.value);
+            if (target) goToSection(target);
+            // Back to the keys, so the arrows run the prompter again.
+            event.target.blur();
+          }}
+        >
+          <option value="">Go to section…</option>
+          {lines.map((line) =>
+            line.kind === 'section' ? (
+              <option key={line.key} value={line.sectionId}>
+                {line.label} · {line.slug || 'Untitled'}
+              </option>
+            ) : null,
+          )}
+        </select>
         <button onClick={() => setPanel(panel === 'help' ? null : 'help')}>Keys (?)</button>
         <button onClick={() => setPanel(panel === 'settings' ? null : 'settings')}>Settings (S)</button>
         <button onClick={() => (document.fullscreenElement ? void document.exitFullscreen() : void document.documentElement.requestFullscreen?.())}>Full screen (F)</button>
@@ -423,14 +452,14 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
             <dd>Next section</dd>
             <dt>Page Up or ←</dt>
             <dd>Back to the start of this section, then the one before</dd>
-            <dt>Home</dt>
+            <dt>H or Home</dt>
             <dd>Back to the top, stopped</dd>
             <dt>F</dt>
             <dd>Full screen</dd>
             <dt>S</dt>
             <dd>Settings</dd>
           </dl>
-          <p>The mouse wheel nudges the text. Cues fire as they cross the reading line (the arrows at the side).</p>
+          <p>The Go to section list at the top jumps to any section. The mouse wheel nudges the text. Cues fire as they cross the reading line (the arrows at the side).</p>
           <button onClick={() => setPanel(null)}>Close</button>
         </div>
       )}
