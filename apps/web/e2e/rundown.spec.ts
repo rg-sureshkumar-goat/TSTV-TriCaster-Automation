@@ -62,6 +62,8 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByRole('textbox', { name: 'A2 talent' }).fill('Jordan');
   await expect(sam.getByLabel('A2 writer')).toHaveValue('Sam');
   await expect(sam.getByLabel('A2 talent')).toHaveValue('Jordan');
+  await rg.getByRole('textbox', { name: 'A2 notes' }).fill('Confirm final score');
+  await expect(sam.getByLabel('A2 notes')).toHaveValue('Confirm final score');
 
   // Graphics: A2 is a reader with an L3, and a VO playing over the anchor.
   await rg.getByRole('button', { name: 'Add a graphic to A2' }).click();

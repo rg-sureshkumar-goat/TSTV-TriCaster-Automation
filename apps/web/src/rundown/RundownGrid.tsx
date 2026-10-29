@@ -67,6 +67,7 @@ export function RundownGrid({ doc, timing, settings, airTime, me, readOnly, othe
             <th title="Who reads it on air">Talent</th>
             <th className="camera-col">Camera</th>
             <th title="Graphics and clips that play during this section, in order (L3, OTS, FSG, VO, SOT, PKG)">Graphics</th>
+            <th className="notes-col">Notes</th>
             <th className="time-col" title="Estimated length">Est.</th>
             <th className="time-col" title={airTime ? 'Clock time this must start to end on time' : 'How far into the show this must start to end on time'}>
               Back-time
@@ -148,7 +149,7 @@ function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectio
           <td className="num-col">
             <strong>{computed.label}</strong>
           </td>
-          <td colSpan={6}>
+          <td colSpan={7}>
             <div className="block-title">
               <strong>Block {computed.label}</strong>
               <TextCell value={row.title} placeholder="Block title (optional)" readOnly={readOnly} onCommit={(title) => updateRow(doc, row.id, { title }, me)} ariaLabel={`Block ${computed.label} title`} />
@@ -232,6 +233,7 @@ function SectionLine({ computed, index, count, doc, me, settings, readOnly, back
           )}
           {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
           {cell('elements', <ElementsCell section={row} label={computed.label} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
+          {cell('notes', <TextCell value={row.notes} placeholder="Notes" readOnly={readOnly} onCommit={(notes) => set({ notes })} ariaLabel={`${computed.label} notes`} />, 'notes-col')}
           {cell('est', <DurationCell value={row.estSeconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
           <td className="time-col">{backTime}</td>
           <td className="edited-col" title={row.createdBy ? `Added by ${row.createdBy.name}` : undefined}>

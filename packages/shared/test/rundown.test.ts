@@ -35,6 +35,7 @@ const section = (slug: string, estSeconds: number | null, extra: Partial<Section
   writer: '',
   talent: '',
   camera: '',
+  notes: '',
   floated: false,
   estSeconds,
   elements: [],

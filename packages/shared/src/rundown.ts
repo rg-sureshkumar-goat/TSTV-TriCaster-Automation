@@ -48,6 +48,8 @@ export interface SectionRow {
   talent: string;
   /** Camera name from the show's camera list; empty means the show's default camera. */
   camera: string;
+  /** Free-form notes for the section. */
+  notes: string;
   /** Kept in the rundown but skipped on air. */
   floated: boolean;
   /** Estimated length in seconds, typed in by hand. Later phases add script read time and clip lengths. */
@@ -70,6 +72,7 @@ export const EMPTY_SECTION: SectionFields = {
   writer: '',
   talent: '',
   camera: '',
+  notes: '',
   floated: false,
   estSeconds: null,
 };
@@ -99,6 +102,7 @@ export function readRow(map: Y.Map<unknown>): Row {
     writer: text(s.writer),
     talent: text(s.talent),
     camera: text(s.camera),
+    notes: text(s.notes),
     createdBy: s.createdBy,
     createdAt: s.createdAt,
     updatedBy: s.updatedBy,

@@ -14,7 +14,7 @@ Phase 1 covers sign-in, shows and episodes, the live rundown grid, timing, archi
 - **Episodes**, each with a title, air date and start time.
 - **The rundown grid**:
   - Blocks A, B, C, with sections numbered A1, A2, B1. Numbers update when rows move.
-  - Columns: Slug, Type, Writer, Talent, Camera, Graphics, Est., Back-time, and Last edit. There's no green-screen column, because each show's background is set once in the show app (Phase 4).
+  - Columns: Slug, Type, Writer, Talent, Camera, Graphics, Notes, Est., Back-time, and Last edit. There's no green-screen column, because each show's background is set once in the show app (Phase 4).
   - **Writer** and **Talent** are typed in. A talent name that matches the show's talent list gets that person's color.
   - **Graphics:** what plays during a section, in order, for example an L3 and then a VO over the anchor during a Reader. Click **+** to add one (L3, OTSL, OTSR, FSG, VO, SOT, PKG). Click a chip to name it, change its type, move it earlier or later, or remove it. Blue chips are graphics and orange chips are clips. Later phases connect each element to its cue in the script and its file, and that's what the TriCaster cueing runs on.
   - **Live editing:** everyone in the episode sees changes within about a second, plus colored initials for who else is there and a highlight on the cell they're editing.

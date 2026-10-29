@@ -10,13 +10,13 @@ export interface ExportInfo {
   defaultCamera: string;
 }
 
-const HEADERS = ['#', 'Slug', 'Type', 'Writer', 'Talent', 'Camera', 'Graphics', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
+const HEADERS = ['#', 'Slug', 'Type', 'Writer', 'Talent', 'Camera', 'Graphics', 'Notes', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
 
 function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
   const backTime = (offset: number | null) => (offset === null ? '' : info.airTime ? formatClock(info.airTime, offset) : `+${formatDuration(offset)}`);
   return timing.rows.map((c) => {
     if (c.row.kind === 'block') {
-      return [c.label, `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, '', '', '', '', '', '', formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime(c.backTimeOffset), '', ''];
+      return [c.label, `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, '', '', '', '', '', '', '', formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime(c.backTimeOffset), '', ''];
     }
     const s = c.row as SectionRow;
     return [
@@ -27,6 +27,7 @@ function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
       s.talent,
       s.camera || info.defaultCamera,
       s.elements.map((e) => (e.name ? `${e.type} ${e.name}` : e.type)).join(', '),
+      s.notes,
       s.floated ? 'Floated' : '',
       s.estSeconds === null ? '' : formatDuration(s.estSeconds),
       backTime(c.backTimeOffset),
