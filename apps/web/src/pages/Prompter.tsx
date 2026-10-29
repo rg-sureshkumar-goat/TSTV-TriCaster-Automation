@@ -521,7 +521,7 @@ function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSett
       {number('lineSpacing', 'Line spacing', 1, 2.2, 0.05)}
       {number('margin', 'Side margins', 0, 30, 1, '%')}
       {number('readingLine', 'Reading line, from the top', 10, 70, 1, '%')}
-      {number('markerSize', 'Reading-line arrows size, compared with the text', 30, 250, 5, '%')}
+      {number('markerSize', 'Marker Size', 30, 250, 5, '%')}
       {number('speedStep', 'Speed change per arrow press', 1, 10, 1)}
       <label>
         Text color
