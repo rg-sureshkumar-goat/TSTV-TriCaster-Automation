@@ -52,6 +52,9 @@ export function SignInPage() {
           </div>
         )}
         <p className="muted small">Only people the TD has invited can sign in.</p>
+        <p className="muted small">
+          <a href="/privacy">Privacy</a>
+        </p>
       </div>
     </div>
   );

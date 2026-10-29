@@ -9,6 +9,7 @@ import { EpisodePage } from './pages/Episode.tsx';
 import { ScriptPage } from './pages/Script.tsx';
 import { SearchPage } from './pages/Search.tsx';
 import { PeoplePage } from './pages/People.tsx';
+import { PrivacyPage } from './pages/Privacy.tsx';
 import './styles.css';
 
 function App() {
@@ -24,6 +25,8 @@ function App() {
     return () => window.removeEventListener('tstv:signed-out', signedOut);
   }, []);
 
+  // The privacy page is public: Google's sign-in setup links to it.
+  if (path === '/privacy') return <main><PrivacyPage /></main>;
   if (user === undefined) return <div className="page-loading">Loading…</div>;
   if (user === null || path === '/signin') return <SignInPage />;
 

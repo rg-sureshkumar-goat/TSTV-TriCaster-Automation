@@ -1000,3 +1000,8 @@ textarea.script:focus {
   border-radius: 999px;
   font-size: 14px;
 }
+
+.privacy {
+  max-width: 720px;
+  line-height: 1.55;
+}
