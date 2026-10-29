@@ -32,6 +32,7 @@ const section = (slug: string, estSeconds: number | null, extra: Partial<Section
   kind: 'section',
   slug,
   type: '',
+  writer: '',
   talent: '',
   camera: '',
   greenScreen: '',
@@ -101,9 +102,10 @@ describe('shared document', () => {
   it('records who created and who last edited a section', () => {
     const doc = new Y.Doc();
     const id = insertSection(doc, alex, { slug: 'Basketball' });
-    updateRow(doc, id, { slug: 'Basketball Wins', estSeconds: 45 }, sam);
+    updateRow(doc, id, { slug: 'Basketball Wins', writer: 'Sam', estSeconds: 45 }, sam);
     const row = readRows(doc)[0] as SectionRow;
     expect(row.slug).toBe('Basketball Wins');
+    expect(row.writer).toBe('Sam');
     expect(row.estSeconds).toBe(45);
     expect(row.createdBy).toEqual(alex);
     expect(row.updatedBy).toEqual(sam);
@@ -200,6 +202,7 @@ describe('elements', () => {
     old.set('slug', 'Old story');
     rowsOf(doc).push([old]);
     expect((readRows(doc)[0] as SectionRow).elements).toEqual([]);
+    expect((readRows(doc)[0] as SectionRow).writer).toBe('');
     addElement(doc, 'old', 'FSG', alex);
     expect((readRows(doc)[0] as SectionRow).elements.map((e) => e.type)).toEqual(['FSG']);
   });

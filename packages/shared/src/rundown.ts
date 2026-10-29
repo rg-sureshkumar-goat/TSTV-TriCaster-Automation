@@ -40,9 +40,11 @@ export interface SectionRow {
   id: string;
   kind: 'section';
   slug: string;
-  /** Segment type, from the show's editable list (Reader, VO, SOT, PKG…). */
+  /** Segment type, from the show's editable list (Intro, Tease, Reader, Cross Talk, Package, SOT). */
   type: string;
-  /** Who reads it on air. */
+  /** Who writes the section's script, typed in by the producer. */
+  writer: string;
+  /** Who reads it on air, typed in. */
   talent: string;
   /** Camera name from the show's camera list; empty means the show's default camera. */
   camera: string;
@@ -67,6 +69,7 @@ export type SectionFields = Omit<SectionRow, 'id' | 'kind' | 'elements' | 'creat
 export const EMPTY_SECTION: SectionFields = {
   slug: '',
   type: '',
+  writer: '',
   talent: '',
   camera: '',
   greenScreen: '',

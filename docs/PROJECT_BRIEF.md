@@ -72,7 +72,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 **Rundown grid**
 
 - One row per section, grouped under block headers A, B, C. Sections are numbered within the block: A1, A2, B1.
-- Columns: Section, Slug, Segment type (**Intro, Tease, Reader, Cross Talk, Package, SOT**, decided Oct 28, 2026; each show can still edit its list), Talent, Camera, Green-screen background, Elements (attached graphics with Ready or Missing status), Est. duration, Back-time.
+- Columns: Section, Slug, Segment type (**Intro, Tease, Reader, Cross Talk, Package, SOT**, decided Oct 28, 2026; each show can still edit its list), **Writer** (typed in; added Oct 28, 2026), Talent (typed in), Camera, Green-screen background, Elements (attached graphics with Ready or Missing status), Est. duration, Back-time.
 - **Decided Oct 28, 2026:** a section can have several things happening in it, so the **Elements** column lists each section's elements in the order they fire. For example, a Reader can have an L3 and then a VO playing over the anchor.
   - Element types: L3, OTSL, OTSR, FSG, VO, SOT and PKG. Each element can also have an optional name.
   - Elements are planned in the rundown first.

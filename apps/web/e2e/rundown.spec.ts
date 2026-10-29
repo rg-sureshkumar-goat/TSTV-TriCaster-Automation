@@ -57,6 +57,12 @@ test('two people build one rundown together', async ({ browser }) => {
   await rg.getByLabel('A2 type').selectOption('Reader');
   await expect(sam.getByLabel('A2 type')).toHaveValue('Reader');
 
+  // Writer and Talent are typed in, and sync too.
+  await rg.getByRole('textbox', { name: 'A2 writer' }).fill('Sam');
+  await rg.getByRole('textbox', { name: 'A2 talent' }).fill('Jordan');
+  await expect(sam.getByLabel('A2 writer')).toHaveValue('Sam');
+  await expect(sam.getByLabel('A2 talent')).toHaveValue('Jordan');
+
   // Elements: A2 is a reader with an L3, and a VO playing over the anchor.
   await rg.getByRole('button', { name: 'Add an element to A2' }).click();
   await rg.getByRole('menuitem', { name: /^L3/ }).click();
@@ -95,6 +101,7 @@ test('two people build one rundown together', async ({ browser }) => {
   expect(download.suggestedFilename()).toBe('E2E News - Test Episode rundown.csv');
   expect(csv).toContain('A1,Cold Open');
   expect(csv).toContain('"VO Highlights, L3"');
+  expect(csv).toContain('A2,Basketball Wins,Reader,Sam,Jordan');
   expect(csv).toContain('Sam Writer');
 
   // Export PDF makes a real PDF file.

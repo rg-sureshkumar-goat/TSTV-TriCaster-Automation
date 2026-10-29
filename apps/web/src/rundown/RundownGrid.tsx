@@ -62,9 +62,10 @@ export function RundownGrid({ doc, timing, settings, airTime, me, readOnly, othe
             <th className="handle-col" aria-label="Drag to reorder" />
             <th className="num-col">#</th>
             <th>Slug</th>
-            <th>Type</th>
-            <th>Talent</th>
-            <th>Camera</th>
+            <th className="type-col">Type</th>
+            <th title="Who writes this section's script">Writer</th>
+            <th title="Who reads it on air">Talent</th>
+            <th className="camera-col">Camera</th>
             <th>Green screen</th>
             <th title="Graphics and clips that play during this section, in order">Elements</th>
             <th className="time-col" title="Estimated length">Est.</th>
@@ -148,7 +149,7 @@ function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectio
           <td className="num-col">
             <strong>{computed.label}</strong>
           </td>
-          <td colSpan={6}>
+          <td colSpan={7}>
             <div className="block-title">
               <strong>Block {computed.label}</strong>
               <TextCell value={row.title} placeholder="Block title (optional)" readOnly={readOnly} onCommit={(title) => updateRow(doc, row.id, { title }, me)} ariaLabel={`Block ${computed.label} title`} />
@@ -194,7 +195,8 @@ interface SectionLineProps {
 function SectionLine({ computed, index, count, doc, me, settings, readOnly, backTime, focusedBy, setFocus }: SectionLineProps) {
   const row = computed.row;
   const set = (patch: Partial<SectionRow>) => updateRow(doc, row.id, patch, me);
-  const talentColor = settings.talent.find((t) => t.name === row.talent)?.color;
+  // A typed talent name that matches the show's talent list gets that person's color.
+  const talentColor = settings.talent.find((t) => t.name.toLowerCase() === row.talent.trim().toLowerCase())?.color;
   const cell = (field: string, children: ReactNode, className = '') => {
     const people = focusedBy(row.id, field);
     return (
@@ -219,24 +221,27 @@ function SectionLine({ computed, index, count, doc, me, settings, readOnly, back
             {row.floated && <span className="badge">Floated</span>}
           </td>
           {cell('slug', <TextCell value={row.slug} placeholder="Slug" readOnly={readOnly} onCommit={(slug) => set({ slug })} ariaLabel={`${computed.label} slug`} />, 'slug-col')}
-          {cell('type', <SelectCell value={row.type} options={settings.segmentTypes} readOnly={readOnly} onChange={(type) => set({ type })} ariaLabel={`${computed.label} type`} />)}
+          {cell('type', <SelectCell value={row.type} options={settings.segmentTypes} readOnly={readOnly} onChange={(type) => set({ type })} ariaLabel={`${computed.label} type`} />, 'type-col')}
+          {cell('writer', <TextCell value={row.writer} placeholder="Writer" readOnly={readOnly} onCommit={(writer) => set({ writer })} ariaLabel={`${computed.label} writer`} />, 'person-col')}
           {cell(
             'talent',
             <span className="talent-cell">
               {talentColor && <span className="dot" style={{ background: talentColor }} />}
-              <SelectCell value={row.talent} options={settings.talent.map((t) => t.name)} readOnly={readOnly} onChange={(talent) => set({ talent })} ariaLabel={`${computed.label} talent`} />
+              <TextCell value={row.talent} placeholder="Talent" readOnly={readOnly} onCommit={(talent) => set({ talent })} ariaLabel={`${computed.label} talent`} />
             </span>,
+            'person-col',
           )}
-          {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />)}
+          {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
           {cell('greenScreen', <TextCell value={row.greenScreen} placeholder="—" readOnly={readOnly} onCommit={(greenScreen) => set({ greenScreen })} ariaLabel={`${computed.label} green screen`} />)}
           {cell('elements', <ElementsCell section={row} label={computed.label} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
           {cell('est', <DurationCell value={row.estSeconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
           <td className="time-col">{backTime}</td>
-          <td className="edited-col" title={row.createdBy ? `Created by ${row.createdBy.name}` : undefined}>
+          <td className="edited-col" title={row.createdBy ? `Added by ${row.createdBy.name}` : undefined}>
             {row.updatedBy && (
               <>
                 {row.updatedBy.name}
-                <span className="muted small"> {timeAgo(row.updatedAt)}</span>
+                <br />
+                <span className="muted small">{timeAgo(row.updatedAt)}</span>
               </>
             )}
           </td>
