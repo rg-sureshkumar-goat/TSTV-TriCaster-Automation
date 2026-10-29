@@ -70,4 +70,13 @@ export class Store {
   saveGreenScreen(showId: string, file: FileInfo | null): Promise<void> {
     return this.write(`green-screen/${showId}.json`, { file });
   }
+
+  /** A show's music track, dropped on the Music box (RG, Oct 29, 2026). */
+  async musicTrack(showId: string): Promise<FileInfo | null> {
+    return (await this.read<{ file: FileInfo | null }>(`music/${showId}.json`, { file: null })).file;
+  }
+
+  saveMusicTrack(showId: string, file: FileInfo | null): Promise<void> {
+    return this.write(`music/${showId}.json`, { file });
+  }
 }

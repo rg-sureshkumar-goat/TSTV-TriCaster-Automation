@@ -101,7 +101,7 @@ export function buildShowPlan(
   files: Record<string, string>,
   ddrPlaylist: string[],
   soundTracks: string[],
-  music?: { in: CuePoint | null; out: CuePoint | null },
+  music?: { in: CuePoint | null; out: CuePoint | null; track?: string | null },
 ): ShowPlan {
   const playlist = ddrPlaylist.map(clipKey);
   const sections: ShowSection[] = timing.rows
@@ -123,8 +123,11 @@ export function buildShowPlan(
         }),
       };
     });
+  // The track the producer dropped on the show app's Music box wins (RG, Oct 29, 2026); otherwise the
+  // Sound player track named like the MUSIC element; otherwise the first one.
   const musicElement = sections.flatMap((s) => s.elements).find((e) => e.type === 'MUSIC');
-  const track = musicElement ? soundTracks.map(clipKey).indexOf(clipKey(musicElement.name)) : -1;
+  const wanted = music?.track ?? musicElement?.name;
+  const track = wanted ? soundTracks.map(clipKey).indexOf(clipKey(wanted)) : -1;
   const points = music ?? defaultMusicPoints(sections);
   return { sections, music: { in: points.in, out: points.out, track: track < 0 ? 0 : track } };
 }

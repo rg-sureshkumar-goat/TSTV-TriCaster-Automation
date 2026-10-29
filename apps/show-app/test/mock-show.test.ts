@@ -159,6 +159,22 @@ describe('a mock show on the simulator', () => {
     await waitFor(() => state().mes.v1.a === 'input3');
   });
 
+  it('plays the music track the producer dropped on the Music box', async () => {
+    const file = path.join(folder, 'usb', 'Show Music 2026.wav');
+    await run(ffmpegStatic as unknown as string, ['-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', '-y', file]);
+    await runtime.act({ kind: 'setMusicTrack', path: file });
+    expect(runtime.state().musicTrack).toMatchObject({ file: 'Show Music 2026.wav', seconds: 3 });
+    // On the simulator, it's put in the Sound player…
+    expect(state().players.sound.playlist.map((c) => c.name)).toEqual(['Show Music 2026']);
+    await waitFor(() => runtime.state().musicTrack?.inSoundPlayer === true);
+    // …and the show's music cue now points at that track, so that's the one that plays.
+    const track = runtime.engine!.plan.music.track;
+    expect(runtime.state().switcher.soundTracks[track]).toBe('Show Music 2026');
+    await runtime.switcher.run([{ kind: 'music', play: true, track }]);
+    await waitFor(() => state().players.sound.playing);
+    expect(state().players.sound.playlist[state().players.sound.index].name).toBe('Show Music 2026');
+  });
+
   it('takes the show’s permanent graphics and green screen by dropping files', async () => {
     await makeClip('PrimeTime Station ID.mov', 1);
     await makeClip('Studio background.mp4', 1);

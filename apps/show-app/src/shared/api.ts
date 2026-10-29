@@ -54,6 +54,8 @@ export interface AppState {
   permanent: PermanentView[];
   /** The show's green-screen background. */
   greenScreen: { file: string; seconds: number | null; thumbnail: string | null } | null;
+  /** The show's music track, and whether the Sound player has it. */
+  musicTrack: { file: string; seconds: number | null; inSoundPlayer: boolean } | null;
   episode: { id: string; title: string; showName: string; airDate: string; airTime: string } | null;
   /** video: where to watch the camera's picture (the simulator's test pictures for now), or null. */
   cameras: { name: string; input: number; video: string | null }[];
@@ -111,4 +113,7 @@ export type Action =
   | { kind: 'setGreenScreen'; path: string }
   | { kind: 'chooseGreenScreen' }
   | { kind: 'clearGreenScreen' }
+  | { kind: 'setMusicTrack'; path: string }
+  | { kind: 'chooseMusicTrack' }
+  | { kind: 'clearMusicTrack' }
   | { kind: 'setMusic'; in: string; out: string };

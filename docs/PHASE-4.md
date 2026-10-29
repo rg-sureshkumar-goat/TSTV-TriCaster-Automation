@@ -54,7 +54,11 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 
 - By default, the music starts when the first **Tease** section in block A starts, and stops just before the **Show Intro** fires (RG, Oct 29, 2026).
 - The **Music** box changes both, for each show: **Music in** and **Music out** can be any section start or any cue, or **Never by itself**.
-- A MUSIC element's cue in the script also starts it. The app plays the Sound player track with the MUSIC element's name, like "PrimeTime Main".
+- **Which track plays:** drop the show's music track (a .wav, .mp3, .aif or .m4a) on the **Music** box, or click **Choose** (RG, Oct 29, 2026). The box shows the track's name and length, and **▶ Playing** while it plays. The app remembers it for the show.
+  - On the simulator, the app puts the track in the Sound player for you.
+  - On the real TC1, the track has to be in the Sound player already; the box warns **Not in the Sound player yet** if it isn't. Sending it there comes with Send to TriCaster in Phase 5.
+  - With no track dropped, the app plays the Sound player track with the MUSIC element's name, like "PrimeTime Main".
+- A MUSIC element's cue in the script also starts the music.
 
 ### The cue rules the app follows
 

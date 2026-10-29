@@ -5,6 +5,7 @@ import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import {
   buildShowPlan,
+  clipKey,
   computeRundown,
   CueEngine,
   cueLabel,
@@ -50,6 +51,7 @@ export class Runtime extends EventEmitter {
   private log: AppState['log'] = [];
   private clock: AppState['clock'] = { startedAt: null, sectionLabel: null, overUnderSeconds: null };
   private greenScreen: FileInfo | null = null;
+  private musicTrack: FileInfo | null = null;
 
   constructor(private deps: RuntimeDeps) {
     super();
@@ -128,7 +130,7 @@ export class Runtime extends EventEmitter {
     return this.files[element.id] ?? (element.type === 'PERM' ? this.permanent[element.name.trim().toLowerCase()] : undefined);
   }
 
-  private musicPoints(): { in: CuePoint | null; out: CuePoint | null } {
+  private musicPoints(): { in: CuePoint | null; out: CuePoint | null; track: string | null } {
     const showId = this.website.show?.id ?? '';
     const chosen = this.settings.music[showId] ?? { in: 'default', out: 'default' };
     const defaults = this.plan ? defaultMusicPoints(this.plan.sections) : { in: null, out: null };
@@ -139,7 +141,7 @@ export class Runtime extends EventEmitter {
       if (kind === 'cue' && id) return { kind: 'cue', elementId: id };
       return fallback;
     };
-    return { in: resolve(chosen.in, defaults.in), out: resolve(chosen.out, defaults.out) };
+    return { in: resolve(chosen.in, defaults.in), out: resolve(chosen.out, defaults.out), track: this.musicTrack?.path ?? null };
   }
 
   /** Rebuilds the show from the rundown, the files and the switcher's playlists. */
@@ -305,6 +307,27 @@ export class Runtime extends EventEmitter {
     this.changed();
   }
 
+  /**
+   * The show's music track, dropped on the Music box (RG, Oct 29, 2026), so the right track plays. On the
+   * simulator it's put in the Sound player; on the real TC1 it has to be in the Sound player already
+   * (sending it there comes with Send to TriCaster in Phase 5).
+   */
+  private async setMusicTrack(file: string | null): Promise<void> {
+    const show = this.website.show;
+    if (!show) return;
+    this.musicTrack = file ? await readFile(file) : null;
+    await this.deps.store.saveMusicTrack(show.id, this.musicTrack);
+    if (this.musicTrack && this.switcher.snapshot.status === 'connected') await this.loadSimulatorSound();
+    this.note(this.musicTrack ? `Music: ${path.basename(this.musicTrack.path)}` : 'Music track removed');
+    this.rebuild();
+  }
+
+  private async loadSimulatorSound(): Promise<void> {
+    if (!this.musicTrack) return;
+    const name = path.basename(this.musicTrack.path).replace(/\.[^.]+$/, '');
+    await this.switcher.loadSimulatorPlaylist([{ name, durationMs: Math.round((this.musicTrack.seconds ?? 60) * 1000) }], 'sound');
+  }
+
   private async assign(file: string, elementId: string): Promise<void> {
     if (elementId.startsWith('perm:')) {
       const name = this.permanentName(elementId.slice(5));
@@ -374,6 +397,13 @@ export class Runtime extends EventEmitter {
           return { name, withSound: show.settings.permanentWithSound.includes(name), file: file ? path.basename(file.path) : null, seconds: file?.seconds ?? null, thumbnail: file?.thumbnail ?? null };
         }) ?? [],
       greenScreen: this.greenScreen ? { file: path.basename(this.greenScreen.path), seconds: this.greenScreen.seconds, thumbnail: this.greenScreen.thumbnail } : null,
+      musicTrack: this.musicTrack
+        ? {
+            file: path.basename(this.musicTrack.path),
+            seconds: this.musicTrack.seconds,
+            inSoundPlayer: this.switcher.snapshot.soundTracks.some((t) => clipKey(t) === clipKey(this.musicTrack!.path)),
+          }
+        : null,
       episode: this.website.episode ? { id: this.website.episode.id, title: this.website.episode.title, showName: show?.name ?? '', airDate: this.website.episode.airDate, airTime: this.website.episode.airTime } : null,
       cameras: show
         ? show.settings.cameras.map((name) => {
@@ -423,10 +453,12 @@ export class Runtime extends EventEmitter {
     if (this.website.show) {
       this.permanent = await this.deps.store.permanentFiles(this.website.show.id);
       this.greenScreen = await this.deps.store.greenScreen(this.website.show.id);
+      this.musicTrack = await this.deps.store.musicTrack(this.website.show.id);
     }
     const broadcast = this.website.broadcast();
     if (broadcast.live) this.clock = { startedAt: broadcast.startedAt, sectionLabel: null, overUnderSeconds: null };
     this.reportStatus();
+    if (this.switcher.snapshot.status === 'connected') await this.loadSimulatorSound().catch(() => undefined);
     this.rebuild();
     void this.refreshThumbnails();
   }
@@ -458,6 +490,8 @@ export class Runtime extends EventEmitter {
     this.settings = { ...this.settings, simulatorAddress: this.switcher.snapshot.address };
     await this.deps.store.saveSettings(this.settings);
     await this.switcher.connect();
+    // A fresh simulator gets the show's music track in its Sound player.
+    if (this.switcher.snapshot.status === 'connected') await this.loadSimulatorSound().catch(() => undefined);
     this.changed();
   }
 
@@ -537,6 +571,15 @@ export class Runtime extends EventEmitter {
       }
       case 'clearGreenScreen':
         return this.setGreenScreen(null);
+      case 'setMusicTrack':
+        return this.setMusicTrack(action.path);
+      case 'chooseMusicTrack': {
+        const file = await this.deps.pickFile();
+        if (file) await this.setMusicTrack(file);
+        return;
+      }
+      case 'clearMusicTrack':
+        return this.setMusicTrack(null);
       case 'setMusic': {
         const showId = this.website.show?.id;
         if (!showId) return;
@@ -567,7 +610,8 @@ export class Runtime extends EventEmitter {
       }
     }
     await this.switcher.loadSimulatorPlaylist(clips);
-    this.note(`Loaded ${clips.length} clips into the simulator’s DDR 2`);
+    await this.loadSimulatorSound();
+    this.note(`Loaded ${clips.length} clips into the simulator’s DDR 2${this.musicTrack ? ', and the music into its Sound player' : ''}`);
     this.changed();
   }
 

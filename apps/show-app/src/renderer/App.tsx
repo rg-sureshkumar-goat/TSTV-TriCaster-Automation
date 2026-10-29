@@ -481,11 +481,33 @@ function GreenScreenBox({ state }: { state: AppState }) {
 }
 
 function Music({ state }: { state: AppState }) {
-  const { music } = state;
+  const { music, musicTrack, switcher } = state;
   const inOptions = [{ id: 'default', label: `Default: ${music.defaults.in}` }, { id: 'none', label: 'Never by itself' }, ...music.points];
   const outOptions = [{ id: 'default', label: `Default: ${music.defaults.out}` }, ...inOptions.slice(1)];
   return (
-    <Panel title="Music" className="music">
+    <DropPanel title="Music" className="music" onFiles={(paths) => act({ kind: 'setMusicTrack', path: paths[0] })}>
+      {/* The track the producer drops here is the one that plays (RG, Oct 29, 2026). */}
+      {musicTrack ? (
+        <div className={`track${switcher.musicPlaying ? ' playing' : ''}`}>
+          <strong title={musicTrack.file}>♪ {musicTrack.file.replace(/\.[^.]+$/, '')}</strong>
+          <span className="muted small">
+            {musicTrack.seconds ? duration(musicTrack.seconds) : ''} {switcher.musicPlaying ? '· ▶ Playing' : ''}
+          </span>
+          {!musicTrack.inSoundPlayer && <span className="missing small">Not in the Sound player yet</span>}
+        </div>
+      ) : (
+        <div className="track empty-track">Drop the music track here</div>
+      )}
+      <div className="row">
+        <button className="small-button" onClick={() => act({ kind: 'chooseMusicTrack' })}>
+          {musicTrack ? 'Change' : 'Choose'}
+        </button>
+        {musicTrack && (
+          <button className="small-button" onClick={() => act({ kind: 'clearMusicTrack' })}>
+            Remove
+          </button>
+        )}
+      </div>
       <label>
         Music in
         <select value={music.in} onChange={(e) => act({ kind: 'setMusic', in: e.target.value, out: music.out })}>
@@ -506,7 +528,7 @@ function Music({ state }: { state: AppState }) {
           ))}
         </select>
       </label>
-    </Panel>
+    </DropPanel>
   );
 }
 

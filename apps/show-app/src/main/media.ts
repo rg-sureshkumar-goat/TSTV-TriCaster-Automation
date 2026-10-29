@@ -11,7 +11,7 @@ const run = promisify(execFile);
 // ffmpeg-static is the path to FFmpeg (its types describe the module rather than the path).
 const ffmpegPath = ffmpegStatic as unknown as string | null;
 
-export const MEDIA_EXTENSIONS = ['.mov', '.mp4', '.m4v', '.mxf', '.avi', '.png', '.jpg', '.jpeg', '.tif', '.tiff', '.wav', '.mp3'];
+export const MEDIA_EXTENSIONS = ['.mov', '.mp4', '.m4v', '.mxf', '.avi', '.png', '.jpg', '.jpeg', '.tif', '.tiff', '.wav', '.mp3', '.aif', '.aiff', '.m4a'];
 
 /** Thumbnails made before this version are remade (2: graphics keep their see-through parts, Oct 29, 2026). */
 export const THUMBNAIL_VERSION = 2;

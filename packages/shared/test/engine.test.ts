@@ -64,6 +64,18 @@ describe('the show plan', () => {
     expect(plan.music).toEqual({ in: { kind: 'section', sectionId: ids.a1 }, out: { kind: 'cue', elementId: ids.intro }, track: 1 });
     expect(defaultMusicPoints([] as ShowSection[])).toEqual({ in: null, out: null });
   });
+
+  it('plays the track the producer chose, found in the Sound player by its file name', () => {
+    const doc = new Y.Doc();
+    const id = insertSection(doc, alex, { type: 'Tease' });
+    addElement(doc, id, 'MUSIC', alex, 'PrimeTime Main');
+    const timing = computeRundown(readRows(doc), 1800);
+    const tracks = ['PrimeTime Main', 'PrimeTime Transition Music', 'News Open 2026'];
+    const chosen = buildShowPlan(timing, DEFAULT_SHOW_SETTINGS, {}, [], tracks, { in: null, out: null, track: '/Volumes/USB/News Open 2026.wav' });
+    expect(chosen.music.track).toBe(2);
+    // Without a choice, the MUSIC element's name picks the track.
+    expect(buildShowPlan(timing, DEFAULT_SHOW_SETTINGS, {}, [], tracks).music.track).toBe(0);
+  });
 });
 
 describe('the cue engine', () => {
