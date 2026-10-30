@@ -27,6 +27,8 @@ export interface FileInfo {
    */
   thumbnail: string | null;
   thumbnailVersion?: number;
+  /** The copy the Program box plays, kept on this laptop (see makePlayable), once it's made. */
+  playable?: string;
 }
 
 /** Every graphics or clip file in these paths, looking inside folders (one level down, like a USB drive's). */

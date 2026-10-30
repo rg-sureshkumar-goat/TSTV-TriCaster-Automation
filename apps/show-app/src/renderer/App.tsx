@@ -236,6 +236,13 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
           </div>
         )
       )}
+      {state.unreachable.count > 0 && (
+        <div className="banner" role="status">
+          {state.unreachable.count} {state.unreachable.count === 1 ? 'graphic' : 'graphics'} can’t play in the Program box:{' '}
+          {state.unreachable.places.length ? `their files are on ${state.unreachable.places.join(' and ')}, which isn’t plugged in` : 'their files aren’t on this laptop any more'}. Plug it in, and the
+          app picks them up by itself and keeps copies on this laptop, so they play even after it’s unplugged.
+        </div>
+      )}
       <div className="grid">
         <div className="cell program-cell">
           <Program state={state} />
@@ -260,6 +267,8 @@ function Program({ state }: { state: AppState }) {
   const camera = state.cameras.find((c) => c.input === state.switcher.programInput);
   const onAir = state.automation.onAir;
   const keyed = state.switcher.dskOn ? onAir?.playable : null;
+  // Until its clip can play (being made, or its drive isn't plugged in), a graphic shows as its still.
+  const still = state.switcher.dskOn && onAir && !onAir.playable ? onAir.thumbnail : null;
   // The laptop's sound takes over a second to wake for the first clip, which held that clip back. A silent
   // sound kept playing keeps it awake.
   useEffect(() => {
@@ -279,10 +288,12 @@ function Program({ state }: { state: AppState }) {
         <span className="program-note">Live video from the TriCaster will show here in a later version.</span>
       )}
       {keyed && <ProgramClip key={onAir!.id} src={keyed} />}
+      {still && <img className="program-clip" src={still} alt="" />}
       <span className={`live-dot${state.live.on ? ' on' : ''}`}>{state.live.on ? '● LIVE' : '○ Not live'}</span>
       <span className="program-caption">
         <strong>{camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera')}</strong>
         {onAir && <> + {onAir.label}</>}
+        {still && <span className="muted"> (still: {onAir!.fileFound ? 'getting its clip ready' : 'its file isn’t on this laptop'})</span>}
         {state.switcher.musicPlaying && <> + ♪ music</>}
       </span>
     </div>
@@ -452,6 +463,11 @@ function Item({ element, musicTrack }: { element: ElementView; musicTrack?: stri
         </span>
       )}
       {element.behavior !== 'music' && !element.file && <span className="missing">no file</span>}
+      {element.file && !element.fileFound && (
+        <span className="missing" title="Its file is on a drive that isn’t plugged in, so it can’t play in the Program box">
+          not on this laptop
+        </span>
+      )}
       {element.behavior !== 'music' && element.file && element.ddrItem === null && (
         <span className="missing" title="Its file isn’t in DDR 2 yet. On the simulator, the app loads DDR 2 as soon as nothing is on air.">
           not in DDR 2

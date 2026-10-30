@@ -18,6 +18,8 @@ export interface ElementView {
   thumbnail: string | null;
   /** A copy of its file the Program box can play (a file: URL), once the app has made it. */
   playable: string | null;
+  /** False when its file isn't on this laptop right now (its drive isn't plugged in) and has no copy yet. */
+  fileFound: boolean;
   /** Where its file sits in DDR 2, counting from 0; null when DDR 2 doesn't have it. */
   ddrItem: number | null;
   skipped: boolean;
@@ -89,6 +91,8 @@ export interface AppState {
   };
   sections: SectionView[];
   problems: FileProblem[];
+  /** Graphics that can't play in the Program box because their files' drive isn't plugged in, and where they are. */
+  unreachable: { count: number; places: string[] };
   /** The music's in and out points: "default", "none", "section:<id>" or "cue:<id>". */
   music: { in: string; out: string; defaults: { in: string; out: string }; points: { id: string; label: string }[] };
   clock: { startedAt: number | null; sectionLabel: string | null; overUnderSeconds: number | null };

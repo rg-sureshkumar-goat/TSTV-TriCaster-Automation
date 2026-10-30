@@ -2,6 +2,7 @@
 // sends the engine's commands to the switcher, and keeps track of each element's file. It knows nothing
 // about Electron (the window and file pickers come in from main.ts), so it can be tested on its own.
 import { EventEmitter } from 'node:events';
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -53,10 +54,13 @@ export class Runtime extends EventEmitter {
   private clock: AppState['clock'] = { startedAt: null, sectionLabel: null, overUnderSeconds: null };
   private greenScreen: FileInfo | null = null;
   private musicTrack: FileInfo | null = null;
-  /** The Program box's playable copy of each file, by the file's path (null: FFmpeg couldn't make one). */
-  private playable: Record<string, string | null> = {};
+  /** Files with no playable copy yet that aren't on this laptop right now (on a drive that isn't plugged in). */
+  private unreachable = new Set<string>();
+  /** Files FFmpeg couldn't make a playable copy of, so they aren't tried again and again. */
+  private unplayable = new Set<string>();
   private makingPlayable = false;
   private playableAgain = false;
+  private retryTimer: ReturnType<typeof setInterval> | null = null;
   private syncingSimulator = false;
 
   constructor(private deps: RuntimeDeps) {
@@ -98,6 +102,8 @@ export class Runtime extends EventEmitter {
     // Tests can run a second simulator, with its state stream on another port (TSTV_SIM_STATE_PORT).
     await this.connectSwitcher(this.settings.simulatorAddress, Number(process.env.TSTV_SIM_STATE_PORT) || undefined);
     if (this.settings.key) await this.connect(this.settings.siteUrl, this.settings.key);
+    // A drive plugged in later is noticed by itself: its files get their playable copies.
+    this.retryTimer = setInterval(() => this.unreachable.size > 0 && void this.makePlayables(), 10_000);
     this.changed();
   }
 
@@ -221,18 +227,24 @@ export class Runtime extends EventEmitter {
   }
 
   private async saveFiles(): Promise<void> {
-    const episode = this.website.episode;
-    const show = this.website.show;
-    if (episode) await this.deps.store.saveEpisodeFiles(episode.id, this.files);
-    if (show) await this.deps.store.savePermanentFiles(show.id, this.permanent);
+    await this.writeFiles();
     this.rebuild();
     this.sendMedia();
     void this.makePlayables();
   }
 
+  private async writeFiles(): Promise<void> {
+    const episode = this.website.episode;
+    const show = this.website.show;
+    if (episode) await this.deps.store.saveEpisodeFiles(episode.id, this.files);
+    if (show) await this.deps.store.savePermanentFiles(show.id, this.permanent);
+  }
+
   /**
    * Makes the copies the Program box plays (see makePlayable), one file at a time in the background, so
-   * the producer can carry on. Each one shows up as soon as it's ready.
+   * the producer can carry on. Each one shows up as soon as it's ready, and is remembered with its file,
+   * so it plays even after the drive the file came from is unplugged. A file whose drive isn't plugged in
+   * waits for it (see start).
    */
   private async makePlayables(): Promise<void> {
     if (this.makingPlayable) {
@@ -240,18 +252,44 @@ export class Runtime extends EventEmitter {
       return;
     }
     this.makingPlayable = true;
+    const exists = (file: string) => stat(file).then(() => true, () => false);
     try {
       do {
         this.playableAgain = false;
+        let made = false;
         for (const info of [...Object.values(this.files), ...Object.values(this.permanent)]) {
-          if (info.path in this.playable) continue;
-          this.playable[info.path] = await makePlayable(info.path, this.deps.store.playableFolder()).catch(() => null);
+          if ((info.playable && (await exists(info.playable))) || this.unplayable.has(info.path)) continue;
+          const found = await exists(info.path);
+          if (found === this.unreachable.has(info.path)) {
+            if (found) this.unreachable.delete(info.path);
+            else this.unreachable.add(info.path);
+            this.changed();
+          }
+          if (!found) continue;
+          const copy = await makePlayable(info.path, this.deps.store.playableFolder()).catch(() => null);
+          if (copy) {
+            info.playable = copy;
+            made = true;
+          } else {
+            this.unplayable.add(info.path);
+          }
           this.changed();
         }
+        if (made) await this.writeFiles();
       } while (this.playableAgain);
     } finally {
       this.makingPlayable = false;
     }
+  }
+
+  /** Where the files that aren't on this laptop are: the drives' names (like “RG'S DRIVE”), or their folders. */
+  private unreachablePlaces(): string[] {
+    const places = [...this.unreachable].map((file) => {
+      const mac = /^\/Volumes\/([^/]+)\//.exec(file);
+      const windows = /^([A-Za-z]):[\\/]/.exec(file);
+      return mac ? `“${mac[1]}”` : windows ? `drive ${windows[1].toUpperCase()}:` : path.dirname(file);
+    });
+    return [...new Set(places)];
   }
 
   private problemText(p: MediaProblem): string {
@@ -409,7 +447,8 @@ export class Runtime extends EventEmitter {
       file: file ? path.basename(file.path) : null,
       seconds: file?.seconds ?? null,
       thumbnail: file?.thumbnail ?? null,
-      playable: file && this.playable[file.path] ? pathToFileURL(this.playable[file.path]!).href : null,
+      playable: file?.playable ? pathToFileURL(file.playable).href : null,
+      fileFound: !file || !this.unreachable.has(file.path),
       ddrItem: e.ddrItem,
       skipped: this.engine?.state.skipped.includes(e.id) ?? false,
     };
@@ -466,6 +505,7 @@ export class Runtime extends EventEmitter {
       },
       sections,
       problems: this.problems,
+      unreachable: { count: this.views().filter((e) => !e.fileFound).length, places: this.unreachablePlaces() },
       music: {
         in: chosen.in,
         out: chosen.out,
@@ -686,6 +726,7 @@ export class Runtime extends EventEmitter {
   }
 
   close(): void {
+    if (this.retryTimer) clearInterval(this.retryTimer);
     this.website.close();
     this.switcher.close();
   }
