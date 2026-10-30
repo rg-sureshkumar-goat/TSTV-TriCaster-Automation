@@ -246,7 +246,12 @@ function startPlayout(name: string): void {
   let playlist: { name: string; path: string; fallback?: string; seconds: number | null }[] = [];
   const probes = new Map<string, Promise<{ seconds: number | null; audio: boolean; still: boolean; readable: boolean }>>();
   const probeOf = (file: string) => {
-    if (!probes.has(file)) probes.set(file, probe(file));
+    if (!probes.has(file)) {
+      const asked = probe(file);
+      probes.set(file, asked);
+      // A file that couldn't be read (its drive unplugged) is asked about again next time, in case it's back.
+      void asked.then((info) => !info.readable && probes.delete(file));
+    }
     return probes.get(file)!;
   };
   // What's on input 4: the clip playing or held, the one selected next, and whether it plays.
