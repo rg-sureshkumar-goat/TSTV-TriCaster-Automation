@@ -139,7 +139,7 @@ For `ADMIN_EMAILS`, type the Gmail address you'll sign in with. That account is 
 
 So people can sign in with their school Microsoft 365 account (UT's), or a personal Microsoft account. Microsoft's screens change from time to time, so the wording might differ a little.
 
-1. Go to <https://entra.microsoft.com> (or <https://portal.azure.com>) and sign in with a **personal** Microsoft account you own (Outlook.com works; a free account is fine). A UT account may not be allowed to register apps.
+1. Go to <https://entra.microsoft.com> (or <https://portal.azure.com>) and sign in. Your UT account is worth a try (RG, Oct 29, 2026), but UT may not let students register apps: if **App registrations** says you don't have access, or **New registration** is gray, make a free personal Microsoft account at <https://outlook.com> (no card) and sign in with that instead. If it does work with your UT account, the app belongs to that account, so when it closes after you graduate, someone registers a new one (a few minutes, with these same steps).
 2. Open **App registrations**, then **New registration**:
    - Name: `TSTV Rundowns`
    - Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**
