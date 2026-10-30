@@ -190,6 +190,10 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 - The same NDI link brings the cameras' pictures into the app (in Phase 5, RG, Oct 30, 2026), and the app records the TC1's program feed onto the laptop, so recordings don't have to be copied off the TC1 (RG wants the recording on the laptop).
 - **Proven at the studio Oct 30, 2026** (details in `docs/TC1-FINDINGS.md`): the TC1 shows the laptop's NDI source on an input, keys it over a camera with its see-through parts, and gets its sound; and the TC1's camera and program feeds play live on the laptop at 60 frames a second. Fallback: the TD loads DDR 2 from USB, and the app cues DDR 2 as in Phase 4.
 - The app sends NDI only on the cable to the TC1, never on campus Wi-Fi.
+- **How the TC1 is set up for it (RG, Oct 30, 2026):** in the TSTV session, **input 4** is the laptop's NDI source ("TSTV Show App") and **DSK 2's source is input 4** (instead of media player B), saved once. Input 4's sound is set always on (not following video) in the TC1's audio mixer, once.
+- **Music comes from the laptop too (RG, Oct 30, 2026):** the track dropped on the Music box plays from the laptop and goes to the TC1 with the graphics' sound over NDI, through the one Sound fader. The TC1's Sound player isn't used.
+- **In live mode the Program box shows the TC1's real program** (its MIX 1 feed), picture only so the laptop doesn't echo sound into the studio; the camera boxes show the TC1's camera feeds (1)–(3).
+- **Record saves on the laptop only (RG, Oct 30, 2026):** the TC1's program feed, picture and sound, to a folder the producer picks, named `Show_Episode_Date`. The TC1's own recording stays as the TD sets it.
 
 **Send to TriCaster (before the show, at the station)** *(superseded Oct 30, 2026 by graphics over NDI above; kept for the USB fallback)*
 
