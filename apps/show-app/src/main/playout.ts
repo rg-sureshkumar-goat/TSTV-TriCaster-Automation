@@ -46,7 +46,7 @@ export class Playout extends EventEmitter {
   }
 
   /** The show's clips, in the order the cue engine numbers them (see Runtime.playlistClips). */
-  setPlaylist(clips: { name: string; path: string; seconds: number | null }[]): void {
+  setPlaylist(clips: { name: string; path: string; fallback?: string; seconds: number | null }[]): void {
     this.send({ type: 'playlist', clips });
   }
 

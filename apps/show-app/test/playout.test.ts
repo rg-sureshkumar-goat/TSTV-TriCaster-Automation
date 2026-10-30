@@ -71,6 +71,8 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     playout.setPlaylist([
       { name: 'A1_L3_Bar', path: file('A1_L3_Bar.mov'), seconds: 2 },
       { name: 'A2_VO_Tone', path: file('A2_VO_Tone.mp4'), seconds: 4 },
+      // Its drive is unplugged: the copy plays.
+      { name: 'A3_L3_Gone', path: '/Volumes/Unplugged/A3_L3_Gone.mov', fallback: file('A1_L3_Bar.mov'), seconds: 2 },
     ]);
     ndi = loadNdi();
     const finder = ndi.findCreate({ show_local_sources: true, p_groups: null, p_extra_ips: null });
@@ -122,6 +124,16 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     await wait(400);
     expect(before - playout.state.level).toBeGreaterThan(9);
     playout.fader(1);
+  }, 20_000);
+
+  it('plays the copy of a graphic whose original can’t be read', async () => {
+    playout.stop();
+    receive(3000, (got) => got.bar[3] === 0);
+    playout.select(2);
+    playout.play();
+    const got = receive(5000, (g) => g.bar[3] === 255);
+    expect(got.bar[3]).toBe(255);
+    expect(got.bar[0]).toBeGreaterThan(200);
   }, 20_000);
 
   it('clears input 4 when DSK 2 goes off, and plays the music', async () => {

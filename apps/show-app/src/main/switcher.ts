@@ -23,6 +23,8 @@ export interface PlaylistClip {
   name: string;
   durationMs: number;
   path?: string;
+  /** The app's small playable copy, which the playout plays if the original can't be read. */
+  fallback?: string;
 }
 
 export interface SwitcherSnapshot {
@@ -311,7 +313,7 @@ export class Switcher extends EventEmitter {
     if (this.snapshot.status !== 'connected') throw new Error('Connect to the switcher first.');
     if (this.live) {
       if (player === 'ddr2') {
-        this.playout?.setPlaylist(clips.map((c) => ({ name: c.name, path: c.path ?? '', seconds: c.durationMs ? c.durationMs / 1000 : null })));
+        this.playout?.setPlaylist(clips.map((c) => ({ name: c.name, path: c.path ?? '', fallback: c.fallback, seconds: c.durationMs ? c.durationMs / 1000 : null })));
         this.set({ playlist: clips.map((c) => c.name) });
       } else if (player === 'sound') {
         this.musicPath = clips[0]?.path ?? null;

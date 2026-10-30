@@ -22,7 +22,8 @@ const ffmpeg = ffmpegStatic as unknown as string;
 const run = promisify(execFile);
 
 export type PlayoutMessage =
-  | { type: 'playlist'; clips: { name: string; path: string; seconds: number | null }[] }
+  /** fallback: the app's small playable copy, played if the original can't be read (its drive unplugged or blocked). */
+  | { type: 'playlist'; clips: { name: string; path: string; fallback?: string; seconds: number | null }[] }
   | { type: 'select'; item: number }
   | { type: 'play' }
   | { type: 'stop' }
@@ -39,14 +40,14 @@ export type PlayoutReport =
 const post = (report: PlayoutReport) => parentPort?.postMessage(report);
 
 /** What FFmpeg says a file has: its length, and whether it has sound and moving pictures. */
-async function probe(file: string): Promise<{ seconds: number | null; audio: boolean; still: boolean }> {
+async function probe(file: string): Promise<{ seconds: number | null; audio: boolean; still: boolean; readable: boolean }> {
   const output = await run(ffmpeg, ['-hide_banner', '-i', file], { timeout: 15_000 }).then(
     (r) => r.stderr,
     (e: { stderr?: string }) => e.stderr ?? '',
   );
   const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(output);
   const seconds = m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0;
-  return { seconds: seconds > 0.2 ? seconds : null, audio: /Audio:/.test(output), still: seconds <= 0.2 };
+  return { seconds: seconds > 0.2 ? seconds : null, audio: /Audio:/.test(output), still: seconds <= 0.2, readable: /Video:|Audio:/.test(output) };
 }
 
 /** Float sound, two channels interleaved, kept in order as it arrives. */
@@ -187,8 +188,8 @@ function startPlayout(name: string): void {
   const ndi = loadNdi();
   const sender = ndi.sendCreate({ p_ndi_name: name, p_groups: null, clock_video: false, clock_audio: false });
   const clear = Buffer.alloc(FRAME_BYTES);
-  let playlist: { name: string; path: string; seconds: number | null }[] = [];
-  const probes = new Map<string, Promise<{ seconds: number | null; audio: boolean; still: boolean }>>();
+  let playlist: { name: string; path: string; fallback?: string; seconds: number | null }[] = [];
+  const probes = new Map<string, Promise<{ seconds: number | null; audio: boolean; still: boolean; readable: boolean }>>();
   const probeOf = (file: string) => {
     if (!probes.has(file)) probes.set(file, probe(file));
     return probes.get(file)!;
@@ -236,13 +237,20 @@ function startPlayout(name: string): void {
     const clip = playlist[item];
     if (!clip) return;
     selecting = item;
-    const info = await probeOf(clip.path);
+    let file = clip.path;
+    let info = await probeOf(file);
+    if (!info.readable && clip.fallback) {
+      // The original can't be read right now: the small copy plays instead, rather than nothing.
+      file = clip.fallback;
+      info = await probeOf(file);
+      post({ type: 'error', message: `Couldn’t read ${clip.name}; playing the app’s small copy of it.` });
+    }
     // A later select won.
     if (selecting !== item) return;
     selecting = null;
     next?.close();
     const seconds = info.seconds ?? clip.seconds;
-    next = new Clip(item, clip.path, info.still || !seconds ? null : Math.round(seconds * FPS), info.audio, info.still);
+    next = new Clip(item, file, info.still || !seconds ? null : Math.round(seconds * FPS), info.audio, info.still);
   };
 
   // Each frame: the clip's next picture and its sound, plus the music, through the fader.

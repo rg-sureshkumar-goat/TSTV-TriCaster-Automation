@@ -871,7 +871,7 @@ export class Runtime extends EventEmitter {
   private simulatorClips(): PlaylistClip[] | null {
     if (!this.timing) return null;
     const clips: PlaylistClip[] = [];
-    const clip = (file: FileInfo) => ({ name: path.basename(file.path).replace(/\.[^.]+$/, ''), durationMs: Math.round((file.seconds ?? 20) * 1000), path: file.path });
+    const clip = (file: FileInfo) => ({ name: path.basename(file.path).replace(/\.[^.]+$/, ''), durationMs: Math.round((file.seconds ?? 20) * 1000), path: file.path, fallback: file.playable });
     const breakFile = this.breakFile();
     for (const c of this.timing.rows) {
       if (c.row.kind === 'block') {
