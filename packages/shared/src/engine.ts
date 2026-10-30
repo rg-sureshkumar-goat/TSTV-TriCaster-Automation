@@ -198,6 +198,8 @@ export class CueEngine {
   };
   /** A clip to cue in DDR 2 once the one playing ends (cueing it now would cut that one off). */
   private waitingToCue: number | null = null;
+  /** Cues fired as their section started (see sectionStarted), so the prompter reaching them fires nothing. */
+  private firedEarly = new Set<string>();
 
   constructor(plan: ShowPlan) {
     this.plan = plan;
@@ -262,12 +264,17 @@ export class CueEngine {
     return [{ kind: 'cueClip', item }];
   }
 
-  /** A section's start crossed the reading line. */
-  sectionStarted(sectionId: string): SwitcherCommand[] {
+  /**
+   * A section's start crossed the reading line. topCues are the cues at the very top of its script (see
+   * topCues in prompter.ts): they fire now, with the section, instead of once the section's number, camera
+   * and talent lines have scrolled past, so back-to-back teases don't cut to the camera between them.
+   */
+  sectionStarted(sectionId: string, topCues: string[] = []): SwitcherCommand[] {
     const section = this.section(sectionId);
     if (!section) return [];
     this.state.prompterSection = sectionId;
     this.state.prompterCue = null;
+    this.firedEarly.clear();
     // Manual mode: the producer runs the show. The engine just notes the prompter's place.
     if (this.state.manual) return [];
     const commands: SwitcherCommand[] = [];
@@ -288,6 +295,12 @@ export class CueEngine {
     }
     commands.push(...this.cueCommands(this.firstClipFrom(sectionId)));
     if (this.isPoint(this.plan.music.in, 'section', sectionId)) commands.push(...this.musicCommands(true));
+    for (const id of topCues) {
+      const element = section.elements.find((e) => e.id === id);
+      if (!element || this.state.skipped.includes(id)) continue;
+      commands.push(...this.fire(element));
+      this.firedEarly.add(id);
+    }
     return commands;
   }
 
@@ -297,6 +310,8 @@ export class CueEngine {
     if (!element) return [];
     this.state.prompterSection = element.sectionId;
     this.state.prompterCue = elementId;
+    // Fired already, as its section started.
+    if (this.firedEarly.delete(elementId)) return [];
     // Manual mode: the cue is passed without firing, and isn't fired later either.
     if (this.state.manual || this.state.skipped.includes(elementId)) return [];
     return this.fire(element);

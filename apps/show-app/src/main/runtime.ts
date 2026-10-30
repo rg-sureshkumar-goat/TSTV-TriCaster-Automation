@@ -18,6 +18,7 @@ import {
   defaultMusicPoints,
   matchMedia,
   readRows,
+  topCues,
   type Broadcast,
   type CuePoint,
   type MediaProblem,
@@ -204,8 +205,11 @@ export class Runtime extends EventEmitter {
     if (event.kind === 'section') {
       const section = this.plan.sections.find((s) => s.id === event.sectionId);
       if (!section) return;
-      label = `${section.label} started`;
-      commands = this.engine.sectionStarted(section.id);
+      // The cues at the very top of its script fire with it (RG, Oct 29, 2026).
+      const top = this.website.doc ? topCues(this.website.doc, section.id) : [];
+      const firing = this.engine.state.manual ? [] : top.map((id) => this.view(id)?.label).filter(Boolean);
+      label = `${section.label} started${firing.length ? `, with ${firing.join(' and ')}` : ''}`;
+      commands = this.engine.sectionStarted(section.id, top);
       const now = Date.now();
       this.clock.startedAt ??= this.website.broadcast().startedAt ?? now;
       const planned = this.timing?.rows.find((c) => c.row.id === section.id)?.startOffset ?? null;

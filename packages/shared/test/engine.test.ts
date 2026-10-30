@@ -83,6 +83,32 @@ describe('the show plan', () => {
 });
 
 describe('the cue engine', () => {
+  it('fires the cues at the top of a section as it starts, so back-to-back teases don’t cut to the camera', () => {
+    const doc = new Y.Doc();
+    insertBlock(doc, alex);
+    const t1 = insertSection(doc, alex, { type: 'Tease' });
+    const t2 = insertSection(doc, alex, { type: 'Tease' });
+    const tease1 = addElement(doc, t1, 'TEASE', alex)!;
+    const tease2 = addElement(doc, t2, 'TEASE', alex)!;
+    const timing = computeRundown(readRows(doc), 1800);
+    const plan = buildShowPlan(timing, DEFAULT_SHOW_SETTINGS, { [tease1]: 'A1_TEASE_One.mov', [tease2]: 'A2_TEASE_Two.mov' }, ['TSTV Ident 2022 News', 'A1_TEASE_One', 'A2_TEASE_Two'], [], { in: null, out: null });
+    const engine = new CueEngine(plan);
+    expect(engine.sectionStarted(t1, [tease1])).toEqual([
+      { kind: 'camera', input: 1 },
+      { kind: 'cueClip', item: 1 },
+      { kind: 'dsk', on: true },
+    ]);
+    // The next tease replaces this one straight away, as its section starts.
+    expect(engine.sectionStarted(t2, [tease2])).toEqual([
+      { kind: 'dsk', on: false },
+      { kind: 'cueClip', item: 2 },
+      { kind: 'dsk', on: true },
+    ]);
+    // When the prompter reaches the cue itself, it's already up.
+    expect(engine.cueReached(tease2)).toEqual([]);
+    expect(engine.state.onAir).toBe(tease2);
+  });
+
   it('takes the section’s camera, cues its first clip, and starts the music with the tease', () => {
     const { plan, ids } = show();
     const engine = new CueEngine(plan);

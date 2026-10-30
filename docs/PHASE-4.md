@@ -71,6 +71,8 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 | Commercial break (the show's Commercial Break graphic, RG, Oct 29, 2026) | The prompter's **COMMERCIAL BREAK** line reaches the reading line | The next section starts: it stays up for the whole break, holding after its clip ends |
 | MUSIC | Its cue, or the music-in point | The music-out point |
 
+A cue at the very top of a section's script, above any words to read, fires as soon as the section starts (RG, Oct 29, 2026), instead of after the section's number, camera and talent lines scroll past. So back-to-back teases play one after another, with no camera in between.
+
 When a section starts, the app takes its camera (the show's default camera when it doesn't name one) and cues its first clip in DDR 2.
 
 ## Set it up (one time)
@@ -118,6 +120,7 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
 5. **DDR 2:** check the simulator page's DDR 2 lists the clips in rundown order (the app loads it by itself), and that no cue in the Playlist says "not in DDR 2".
 6. **Run the show:** open the prompter on the episode (on another computer, or another window). Scroll a little first, and check the app does nothing yet ("Not live yet"). Then press **Start live broadcast** on the website and run the prompter from the top. Watch the simulator page and the app. Check:
    - each section's camera is taken when it starts, and the **Program** box shows that camera
+   - the teases at the start of block A play back to back, with no camera between them
    - each cue goes up as it crosses the reading line, and plays in the Program box over the camera (or full screen), and the right ones come off (see the table above)
    - a VO over an L3 brings the L3 back when it ends first
    - SOTs and the Show Intro play to their end, then back to the anchors

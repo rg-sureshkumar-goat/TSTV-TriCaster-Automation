@@ -47,3 +47,21 @@ export function prompterLines(doc: Y.Doc, timing: RundownTiming, defaultCamera: 
   lines.push({ kind: 'end', key: 'end' });
   return lines;
 }
+
+/**
+ * The cues at the very top of a section's script, before any words to read (speaker tags and empty lines
+ * don't count), in order. The show app fires them as the section starts, rather than once the section's
+ * number, camera and talent lines have scrolled past, so back-to-back teases play one after another with
+ * no camera between them (RG, Oct 29, 2026).
+ */
+export function topCues(doc: Y.Doc, sectionId: string): string[] {
+  const body = scriptBody(doc, sectionId);
+  const cues: string[] = [];
+  for (const { pieces } of body ? readScriptLines(body) : []) {
+    // The prompter shows a line's cues above its words.
+    for (const p of pieces) if (p.kind === 'cue') cues.push(p.elementId);
+    const text = pieces.map((p) => (p.kind === 'text' ? p.text : '')).join('');
+    if (text.trim() && !speakerTagLine(text)) break;
+  }
+  return cues;
+}

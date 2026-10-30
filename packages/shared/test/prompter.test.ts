@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { addElement, computeRundown, CROSS_TALK, insertBlock, insertSection, readRows, updateRow } from '../src/rundown.ts';
 import { CUE_NODE, ensureScripts, PARAGRAPH_NODE, scriptBody } from '../src/script.ts';
-import { prompterLines } from '../src/prompter.ts';
+import { prompterLines, topCues } from '../src/prompter.ts';
 
 const alex = { id: 'u1', name: 'Alex Producer' };
 
@@ -44,6 +44,17 @@ describe('prompter', () => {
     expect(lines[10]).toMatchObject({ kind: 'section', sectionId: b1, readers: [], camera: 'Camera 1' });
     // The floated section is skipped.
     expect(lines.some((l) => 'sectionId' in l && l.sectionId === a2)).toBe(false);
+  });
+
+  it('finds the cues at the top of a section, before any words to read', () => {
+    const doc = new Y.Doc();
+    const tease = insertSection(doc, alex, { type: 'Tease', talent: ['Jordan'] });
+    const reader = insertSection(doc, alex, { talent: ['Jordan'] });
+    ensureScripts(doc);
+    setLines(scriptBody(doc, tease)!, ['{JORDAN}', '', '[cue:music]', '[cue:tease]', 'TONIGHT ON PRIMETIME.', '[cue:later]']);
+    setLines(scriptBody(doc, reader)!, ['GOOD EVENING.', '[cue:l3]']);
+    expect(topCues(doc, tease)).toEqual(['music', 'tease']);
+    expect(topCues(doc, reader)).toEqual([]);
   });
 
   it('keeps each line’s key while the script is edited above it', () => {

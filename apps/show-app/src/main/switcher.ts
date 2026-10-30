@@ -202,7 +202,19 @@ export class Switcher extends EventEmitter {
    * through DSK 2, and music from the Sound player (docs/TC1-FINDINGS.md). The DDR and Sound player
    * command names get confirmed on the real TC1 in Phase 5.
    */
-  async run(commands: SwitcherCommand[]): Promise<void> {
+  /**
+   * Sends commands in order. Each batch waits for the one before it, so two cues arriving together (a
+   * section start and the cue at its top, say) never mix their commands.
+   */
+  run(commands: SwitcherCommand[]): Promise<void> {
+    const sent = this.sending.then(() => this.sendAll(commands));
+    this.sending = sent.catch(() => undefined);
+    return sent;
+  }
+
+  private sending: Promise<void> = Promise.resolve();
+
+  private async sendAll(commands: SwitcherCommand[]): Promise<void> {
     for (const c of commands) {
       if (c.kind === 'camera') await this.send('v1_a_row', `INPUT${c.input}`);
       else if (c.kind === 'cueClip') await this.send('ddr2_select_clips', String(c.item));
