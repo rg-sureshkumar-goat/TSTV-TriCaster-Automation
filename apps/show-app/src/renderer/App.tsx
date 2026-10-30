@@ -62,16 +62,17 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [state, graphicsOpen]);
 
-  // Files to place by hand show up in the graphics window.
+  // Files to place by hand show up in the graphics window (or in the missing list, when that's open).
   const problems = state?.problems.length ?? 0;
   useEffect(() => {
-    if (problems > 0) setGraphicsOpen('edit');
+    if (problems > 0) setGraphicsOpen((open) => open || 'edit');
   }, [problems]);
 
   if (!state) return <div className="loading">Starting…</div>;
-  const importGraphics = async () => {
+  // After importing, the window it was started from stays open.
+  const importGraphics = async (from: 'edit' | 'missing' = 'edit') => {
     await act({ kind: 'importFiles' });
-    setGraphicsOpen('edit');
+    setGraphicsOpen(from);
   };
   return (
     <div className={`app${state.automation.paused ? ' paused' : ''}`}>
@@ -83,10 +84,10 @@ export function App() {
           </p>
         </main>
       ) : (
-        <Show state={state} onImport={importGraphics} onEdit={() => setGraphicsOpen('edit')} onMissing={() => setGraphicsOpen('missing')} />
+        <Show state={state} onImport={() => importGraphics()} onEdit={() => setGraphicsOpen('edit')} onMissing={() => setGraphicsOpen('missing')} />
       )}
-      {graphicsOpen === 'edit' && state.episode && <GraphicsWindow state={state} onClose={() => setGraphicsOpen(false)} onImport={importGraphics} />}
-      {graphicsOpen === 'missing' && state.episode && <MissingWindow state={state} onClose={() => setGraphicsOpen(false)} />}
+      {graphicsOpen === 'edit' && state.episode && <GraphicsWindow state={state} onClose={() => setGraphicsOpen(false)} onImport={() => importGraphics('edit')} />}
+      {graphicsOpen === 'missing' && state.episode && <MissingWindow state={state} onClose={() => setGraphicsOpen(false)} onImport={() => importGraphics('missing')} />}
     </div>
   );
 }
@@ -546,8 +547,11 @@ function Music({ state }: { state: AppState }) {
 
 // ---- The graphics windows ----
 
-/** Just the graphics that still need a file (RG, Oct 29, 2026). */
-function MissingWindow({ state, onClose }: { state: AppState; onClose: () => void }) {
+/**
+ * Just the graphics that still need a file (RG, Oct 29, 2026), and ways to load them in: import a folder,
+ * choose each one's file, or drop files on the window. A graphic leaves the list once it has its file.
+ */
+function MissingWindow({ state, onClose, onImport }: { state: AppState; onClose: () => void; onImport: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -556,15 +560,36 @@ function MissingWindow({ state, onClose }: { state: AppState; onClose: () => voi
   const missing = state.sections.flatMap((s) => s.elements.filter((e) => e.behavior !== 'music' && !e.file).map((e) => ({ section: s, element: e })));
   return (
     <div className="overlay" role="dialog" aria-label="Missing graphics" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="window small-window">
+      <div
+        className="window small-window"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          const paths = droppedPaths(e);
+          if (paths.length) void act({ kind: 'addFiles', paths });
+        }}
+      >
         <h2>
           Missing graphics
           <span className="actions">
+            {missing.length > 0 && <button onClick={onImport}>Import graphics</button>}
+            <button onClick={() => act({ kind: 'loadSimulator' })} title="Puts the show’s files in the simulator’s DDR 2, in rundown order (Send to TriCaster does this on the real TC1 in Phase 5)">
+              Load into the simulator
+            </button>
             <button className="primary" onClick={onClose}>
               Done
             </button>
           </span>
         </h2>
+        {state.problems.length > 0 && (
+          <div className="problems">
+            <h3>Files to place by hand</h3>
+            {state.problems.map((p) => (
+              <Problem key={p.path} problem={p} />
+            ))}
+          </div>
+        )}
+        {missing.length > 0 && <p className="muted">Import the graphics folder, choose each file, or drop files here.</p>}
         {missing.length === 0 ? (
           <p>Every graphic has its file.</p>
         ) : (
@@ -577,6 +602,9 @@ function MissingWindow({ state, onClose }: { state: AppState; onClose: () => voi
                   </td>
                   <td>
                     <span className={`chip ${elementKind(element.type)}`}>{element.label}</span>
+                  </td>
+                  <td className="actions">
+                    <button onClick={() => act({ kind: 'chooseFile', elementId: element.id })}>Choose file</button>
                   </td>
                 </tr>
               ))}

@@ -234,7 +234,9 @@ export class Runtime extends EventEmitter {
     const sections = this.plan.sections.map((s) => ({ label: s.label, slug: s.slug, elements: s.elements.map((e) => ({ id: e.id, type: e.type, name: e.name })) }));
     const taken = new Set(Object.keys(this.files));
     const { matches, problems } = matchMedia(files, sections, taken);
-    const open = this.views().filter((e) => e.type !== 'MUSIC' && !e.file);
+    // Elements this import fills aren't offered for the files it couldn't place.
+    const placed = new Set(matches.filter((m) => !m.checkSlug).map((m) => m.elementId));
+    const open = this.views().filter((e) => e.type !== 'MUSIC' && !e.file && !placed.has(e.id));
     const choices = (ids?: string[]) => (ids ? this.views().filter((e) => ids.includes(e.id)) : open).map((e) => ({ id: e.id, label: `${e.sectionLabel} · ${e.label}` }));
     const asked: FileProblem[] = problems.map((p) => ({ path: p.file, name: path.basename(p.file), reason: this.problemText(p), candidates: choices(p.reason === 'which-element' ? p.candidates : undefined) }));
     for (const m of matches) {

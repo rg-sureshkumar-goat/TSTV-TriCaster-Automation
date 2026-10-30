@@ -42,7 +42,7 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 
 ### Graphics
 
-- **Import graphics** (in the Playlist) picks files or a folder, like the graphics team's USB drive. Then a **Graphics** window shows which file went on which cue, with **Files to place by hand** at the top when there are any. **Edit graphics** opens that window again, to change, remove or place files by hand; you can also drop files on it. The button beside it (like **2 missing**) shows just the list of graphics that still need a file.
+- **Import graphics** (in the Playlist) picks files or a folder, like the graphics team's USB drive. Then a **Graphics** window shows which file went on which cue, with **Files to place by hand** at the top when there are any. **Edit graphics** opens that window again, to change, remove or place files by hand; you can also drop files on it. The button beside it (like **2 missing**) shows just the list of graphics that still need a file, with ways to load them in: **Import graphics**, **Choose file** on each one, or drop files on the list. Each graphic leaves the list once it has its file, and **Load into the simulator** puts them in DDR 2.
 - Files are matched by name, like `B5_VO_Basketball.mov` going to B5's VO. The app also reads the real playlist's spellings: `OTS_L`, `OTS_R`, double underscores, copies ending in `(1)` or `copy`, and spaces. **NAMES** files are lower thirds and **RDR** files are OTS graphics.
 - **When it isn't sure, it asks.** For example: a name that doesn't follow the pattern, a section that doesn't exist, two files of one type for one section, or a slug that doesn't look like its section's slug. Each shows under **Files to place by hand** with a menu of where it could go.
 - It reads each clip's length and makes a thumbnail. **The files stay on the laptop.** Only names and lengths go to the website.
@@ -111,7 +111,8 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
    - files named after sections land on the right elements, with lengths and thumbnails
    - anything it couldn't place is listed, and you can put it on the right element
    - the rundown on the website shows ✓ on the graphics that have files
-   - the **missing** button lists only the graphics without a file, and **Edit graphics** opens the full Graphics window
+   - the **missing** button lists only the graphics without a file, and you can load them in from there (Import graphics, Choose file, or drop files on it)
+   - **Edit graphics** opens the full Graphics window
 5. **Load into the simulator** (in the Graphics window), and check the simulator page's DDR 2 lists the clips in rundown order.
 6. **Run the show:** open the prompter on the episode (on another computer, or another window). Scroll a little first, and check the app does nothing yet ("Not live yet"). Then press **Start live broadcast** on the website and run the prompter from the top. Watch the simulator page and the app. Check:
    - each section's camera is taken when it starts

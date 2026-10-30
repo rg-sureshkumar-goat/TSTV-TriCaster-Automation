@@ -807,5 +807,14 @@ h3 {
 }
 
 .small-window {
-  width: min(560px, calc(100vw - 40px));
+  width: min(720px, calc(100vw - 40px));
+}
+
+.small-window h2 {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.small-window h2 .actions button {
+  white-space: nowrap;
 }
