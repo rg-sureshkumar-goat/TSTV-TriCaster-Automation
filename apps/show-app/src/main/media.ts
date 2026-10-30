@@ -54,8 +54,8 @@ export async function collectFiles(paths: string[]): Promise<string[]> {
  * prints both when asked about a file, like "Duration: 00:01:30.04" and "yuva444p12le" (and exits with an
  * error, since it's given nothing to do).
  */
-export async function inspect(file: string): Promise<{ seconds: number | null; alpha: boolean }> {
-  if (!ffmpegPath) return { seconds: null, alpha: false };
+export async function inspect(file: string): Promise<{ seconds: number | null; alpha: boolean; video: boolean }> {
+  if (!ffmpegPath) return { seconds: null, alpha: false, video: false };
   const output = await run(ffmpegPath, ['-hide_banner', '-i', file], { timeout: 15_000 }).then(
     (r) => r.stderr,
     (e: { stderr?: string }) => e.stderr ?? '',
@@ -65,8 +65,8 @@ export async function inspect(file: string): Promise<{ seconds: number | null; a
   const video = /Video:[^\n]*/.exec(output)?.[0] ?? '';
   // Pixel formats with an alpha channel: yuva…, rgba, argb, bgra, abgr, gbrap…, ya8/ya16, pal8 (PNG and GIF palettes).
   const alpha = /\b(yuva\w*|rgba\w*|argb|bgra|abgr|gbrap\w*|ya8|ya16\w*|pal8)\b/.test(video);
-  // A still picture reports a tiny duration.
-  return { seconds: total > 0.2 ? Math.round(total * 10) / 10 : null, alpha };
+  // A still picture reports a tiny duration. An MP3's cover art is a "video" stream that isn't one.
+  return { seconds: total > 0.2 ? Math.round(total * 10) / 10 : null, alpha, video: /Video:(?![^\n]*attached pic)/.test(output) };
 }
 
 export async function clipSeconds(file: string): Promise<number | null> {
@@ -112,20 +112,22 @@ export async function readable(file: string): Promise<'yes' | 'missing' | 'block
 /**
  * A copy of a graphic or clip that the app's window can play, for the Program box on the simulator (RG's
  * mock show, Oct 29, 2026). The window can't play ProRes, so a clip becomes a small WebM (VP9, keeping its
- * see-through parts, with its sound) and a still becomes a PNG. Each is made once, into folder on this
+ * see-through parts, with its sound), a still becomes a PNG, and music becomes sound-only WebM (Opus). Each is made once, into folder on this
  * laptop, and found again by the file's path, size and date. Null if FFmpeg can't read the file.
  */
 export async function makePlayable(file: string, folder: string): Promise<string | null> {
   const info = await stat(file).catch(() => null);
   if (!ffmpegPath || !info) return null;
-  const { seconds, alpha } = await inspect(file);
+  const { seconds, alpha, video } = await inspect(file);
   const name = createHash('sha1').update(`${file}|${info.size}|${info.mtimeMs}`).digest('hex').slice(0, 20);
   const out = path.join(folder, `${name}.${seconds ? 'webm' : 'png'}`);
   if (await stat(out).catch(() => null)) return out;
   await mkdir(folder, { recursive: true });
   // Written under another name first, so a half-made copy is never played.
   const partial = `${out}.part`;
-  const args = seconds
+  const args = !video
+    ? ['-vn', '-c:a', 'libopus', '-b:a', '128k', '-ac', '2', '-f', 'webm']
+    : seconds
     ? ['-vf', `scale=640:-2${alpha ? ',format=yuva420p' : ''}`, '-c:v', 'libvpx-vp9', '-b:v', '800k', '-deadline', 'realtime', '-cpu-used', '8', '-row-mt', '1', ...(alpha ? ['-auto-alt-ref', '0'] : []), '-c:a', 'libopus', '-b:a', '96k', '-ac', '2', '-f', 'webm']
     : ['-frames:v', '1', '-vf', 'scale=640:-2,format=rgba', '-c:v', 'png', '-f', 'image2'];
   try {

@@ -251,6 +251,7 @@ export class Runtime extends EventEmitter {
     const show = this.website.show;
     if (episode) await this.deps.store.saveEpisodeFiles(episode.id, this.files);
     if (show) await this.deps.store.savePermanentFiles(show.id, this.permanent);
+    if (show && this.musicTrack) await this.deps.store.saveMusicTrack(show.id, this.musicTrack);
   }
 
   /**
@@ -270,7 +271,7 @@ export class Runtime extends EventEmitter {
       do {
         this.playableAgain = false;
         let made = false;
-        for (const info of [...Object.values(this.files), ...Object.values(this.permanent)]) {
+        for (const info of [...Object.values(this.files), ...Object.values(this.permanent), ...(this.musicTrack ? [this.musicTrack] : [])]) {
           if ((info.playable && (await exists(info.playable))) || this.unplayable.has(info.path)) continue;
           const found = await readable(info.path);
           if (found !== (this.unreachable.get(info.path) ?? 'yes')) {
@@ -421,6 +422,7 @@ export class Runtime extends EventEmitter {
     await this.deps.store.saveMusicTrack(show.id, this.musicTrack);
     if (this.musicTrack && this.switcher.snapshot.status === 'connected') await this.loadSimulatorSound();
     this.note(this.musicTrack ? `Music: ${path.basename(this.musicTrack.path)}` : 'Music track removed');
+    void this.makePlayables();
     this.rebuild();
   }
 
@@ -507,6 +509,7 @@ export class Runtime extends EventEmitter {
             file: path.basename(this.musicTrack.path),
             seconds: this.musicTrack.seconds,
             inSoundPlayer: this.switcher.snapshot.soundTracks.some((t) => clipKey(t) === clipKey(this.musicTrack!.path)),
+            playable: this.musicTrack.playable ? pathToFileURL(this.musicTrack.playable).href : null,
           }
         : null,
       episode: this.website.episode ? { id: this.website.episode.id, title: this.website.episode.title, showName: show?.name ?? '', airDate: this.website.episode.airDate, airTime: this.website.episode.airTime } : null,

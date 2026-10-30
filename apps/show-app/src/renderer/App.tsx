@@ -298,6 +298,8 @@ function Program({ state }: { state: AppState }) {
       )}
       {keyed && <ProgramClip key={onAir!.id} src={keyed} />}
       {still && <img className="program-clip" src={still} alt="" />}
+      {/* On the simulator, the Sound player only pretends: the app plays the music out loud while it plays. */}
+      {state.switcher.musicPlaying && state.musicTrack?.playable && <audio src={state.musicTrack.playable} autoPlay />}
       <span className={`live-dot${state.live.on ? ' on' : ''}`}>{state.live.on ? '● LIVE' : '○ Not live'}</span>
       <span className="program-caption">
         <strong>{camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera')}</strong>

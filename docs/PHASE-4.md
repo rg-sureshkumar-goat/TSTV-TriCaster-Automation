@@ -33,6 +33,7 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 
 - **Header:** at the far left, a switch between **light and dark mode** (RG, Oct 29, 2026). The app starts dark, like the control room, and remembers your choice on this laptop. The video boxes (Program, cameras, preview) stay black in both. Then the show and episode, a green **SIMULATOR** badge (Phase 4 can't drive the real TC1), and at the right the **Website / Prompter / Simulator** lights and the **Episode key** button. Click Episode key, paste the key from the website, and Connect. Click the Simulator light to change the simulator's address.
 - **Program:** on the simulator, what's on air (RG, Oct 29, 2026, for mock shows): the camera on air, playing, with the clip on DSK 2 playing over it with its sound. Graphics keep their see-through parts, so an L3 sits over the camera, while a VO or SOT fills the screen. The caption names the camera and the graphic. The **● LIVE** dot is red once the producer presses Start live broadcast. The real TC1's own program video is a later upgrade.
+- **Music out loud (RG, Oct 29, 2026):** the simulator's Sound player only pretends to play, so on the simulator the app plays the music track itself, out loud, from the moment the Sound player starts until it stops (by default from the first tease to just before the Show Intro). It makes a sound-only copy of the track, like the graphics' copies.
 - **Playable copies:** the app's window can't play ProRes, so the first time it sees a graphic or clip, the app makes a small copy it can play (WebM, about a second for a 20-second graphic), in the background. It keeps the copies on this laptop, in its own folder; nothing goes to the cloud. Once a file has its copy, it plays even after the drive it came from is unplugged. If a file's drive isn't plugged in and it has no copy yet, a banner says which drive, the Playlist marks the cue **not on this laptop**, and the Program box shows the graphic's still instead; plug the drive in and the app picks the files up by itself within about 10 seconds.
 - **Cameras:** one box per camera from the show's settings, playing that camera's picture. Click one to take it; the one on air has a red frame. On the simulator each camera plays a moving test picture that looks nothing like the others (RG, Oct 29, 2026): **Camera 1 blue, Camera 2 green, Camera 3 orange**, each with its name in the middle and a clock at the top left. Getting the real cameras' video from the TC1 is still to be worked out at the station (see below).
 - **Playlist:** what's on DSK 2 now, and the cues coming up. While the clip on air plays, a see-through red bar fills across it from left to right, with the time left at the right (RG, Oct 29, 2026). Next to each cue's section number is the file that will play (RG, Oct 29, 2026), or the music track for a music cue; hover over a long name to see all of it. Each upcoming cue has **Skip** (it won't fire; skipped cues can be put back) and **Play next** (it fires next, out of order). **Fire next** (or the **Space** bar) fires the next cue by hand.
@@ -125,7 +126,7 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
    - a VO over an L3 brings the L3 back when it ends first
    - SOTs and the Show Intro play to their end, then back to the anchors
    - at each **COMMERCIAL BREAK** line, the Commercial Break graphic plays (it shows in Up next as **★ Commercial Break** with **Break** beside it), stays up through the break, and comes off when the next section starts
-   - the music starts with the tease and stops just before the Show Intro
+   - the music starts with the tease and stops just before the Show Intro, and you hear it from the laptop
    - the latency stays green
 7. **Producer controls:** try **Skip**, **Play next**, **Fire next** with the Space bar, and the camera buttons.
 8. **Manual mode:** during the show, click **Pause automation**. Check:
@@ -141,6 +142,8 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
 12. **Tell me** what's missing or awkward, and whether Phase 4 is approved.
 
 ## Not yet
+
+- **Back-to-back teases still don't cut cleanly (come back to this; RG, Oct 29, 2026).** In the mock show, the change from one tease to the next still isn't right, even after the top-of-section cues and the clip-to-clip cut. RG asked to set it aside and return to it later.
 
 - **The real cameras' video.** At the studio on Oct 29 we found the TC1 sends 8 NDI video feeds over the cable, but they didn't play live on the laptop yet (see `docs/TC1-FINDINGS.md`). Working out which feed is which camera, and getting them to play, is part of Phase 5. Until then, the simulator's test pictures stand in.
 - **The real TC1** (Phase 5): live mode with its three safety locks, Send to TriCaster, sending the green screen to the TC1, and the Record button.

@@ -59,7 +59,8 @@ export interface AppState {
   /** The show's green-screen background. */
   greenScreen: { file: string; seconds: number | null; thumbnail: string | null } | null;
   /** The show's music track, and whether the Sound player has it. */
-  musicTrack: { file: string; seconds: number | null; inSoundPlayer: boolean } | null;
+  /** playable: a copy the app plays out loud while the Sound player plays (on the simulator). */
+  musicTrack: { file: string; seconds: number | null; inSoundPlayer: boolean; playable: string | null } | null;
   episode: { id: string; title: string; showName: string; airDate: string; airTime: string } | null;
   /** video: where to watch the camera's picture (the simulator's test pictures for now), or null. */
   cameras: { name: string; input: number; video: string | null }[];
