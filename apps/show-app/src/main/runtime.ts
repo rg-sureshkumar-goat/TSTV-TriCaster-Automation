@@ -266,6 +266,7 @@ export class Runtime extends EventEmitter {
     if (episode) await this.deps.store.saveEpisodeFiles(episode.id, this.files);
     if (show) await this.deps.store.savePermanentFiles(show.id, this.permanent);
     if (show && this.musicTrack) await this.deps.store.saveMusicTrack(show.id, this.musicTrack);
+    if (show && this.greenScreen) await this.deps.store.saveGreenScreen(show.id, this.greenScreen);
   }
 
   /**
@@ -285,7 +286,7 @@ export class Runtime extends EventEmitter {
       do {
         this.playableAgain = false;
         let made = false;
-        for (const info of [...Object.values(this.files), ...Object.values(this.permanent), ...(this.musicTrack ? [this.musicTrack] : [])]) {
+        for (const info of [...Object.values(this.files), ...Object.values(this.permanent), ...(this.musicTrack ? [this.musicTrack] : []), ...(this.greenScreen ? [this.greenScreen] : [])]) {
           if ((info.playable && (await exists(info.playable))) || this.unplayable.has(info.path)) continue;
           const found = await readable(info.path);
           if (found !== (this.unreachable.get(info.path) ?? 'yes')) {
@@ -414,8 +415,10 @@ export class Runtime extends EventEmitter {
     if (!show) return;
     this.greenScreen = file ? await readFile(file) : null;
     await this.deps.store.saveGreenScreen(show.id, this.greenScreen);
-    // On the simulator, a still goes in GFX 1 and a clip in DDR 1. On the real TC1 the TD keeps the
-    // background in media player A, so live mode sends nothing.
+    // On the simulator, a still goes in GFX 1 and a clip in DDR 1. In live mode the playout sends it to the
+    // TC1 as the "TSTV Show App Background" source (RG, Oct 30, 2026).
+    this.playout?.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
+    void this.makePlayables();
     if (this.greenScreen && this.switcher.snapshot.status === 'connected' && this.switcher.mode === 'simulator') {
       const name = path.basename(this.greenScreen.path).replace(/\.[^.]+$/, '');
       const seconds = this.greenScreen.seconds;
@@ -672,6 +675,7 @@ export class Runtime extends EventEmitter {
     const playout = new Playout('TSTV Show App');
     playout.on('level', (db: number) => this.emit('level', db));
     playout.fader(this.fader);
+    playout.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
     const live = this.newSwitcher(address, 5951, 'live', playout);
     await live.connect();
     if (live.snapshot.status !== 'connected') {

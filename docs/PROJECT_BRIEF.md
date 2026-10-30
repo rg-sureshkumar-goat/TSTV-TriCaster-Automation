@@ -193,6 +193,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 - **How the TC1 is set up for it (RG, Oct 30, 2026):** in the TSTV session, **input 4** is the laptop's NDI source ("TSTV Show App") and **DSK 2's source is input 4** (instead of media player B), saved once. Input 4's sound is set always on (not following video) in the TC1's audio mixer, once.
 - **Music comes from the laptop too (RG, Oct 30, 2026):** the track dropped on the Music box plays from the laptop and goes to the TC1 with the graphics' sound over NDI, through the one Sound fader. The TC1's Sound player isn't used.
 - **In live mode the Program box shows the TC1's real program** (its MIX 1 feed), picture only so the laptop doesn't echo sound into the studio; the camera boxes show the TC1's camera feeds (1)–(3).
+- **The green-screen background comes from the laptop too (RG, Oct 30, 2026):** the image or clip dropped on the Green screen box goes to the TC1 as a second NDI source, **TSTV Show App Background** (a still sent steadily, a clip on a loop, filling the picture). On the TC1, a spare input (like input 5) is set to it and used as M/E 1's background behind the keyed cameras, in place of media player A or GFX 1.
 - **Record saves on the laptop only (RG, Oct 30, 2026):** the TC1's program feed, picture and sound, to a folder the producer picks, named `Show_Episode_Date`. The TC1's own recording stays as the TD sets it.
 
 **Send to TriCaster (before the show, at the station)** *(superseded Oct 30, 2026 by graphics over NDI above; kept for the USB fallback)*

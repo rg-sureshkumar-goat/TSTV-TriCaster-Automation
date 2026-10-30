@@ -19,7 +19,7 @@ Phase 5 connects the show app to TSTV's real TriCaster TC1. Decisions (RG, Oct 3
 - **The TC1's feeds in the app:** the camera boxes show feeds (1)–(3), and the Program box the program (MIX 1), picture only.
 - **Record** (under Pause automation, live mode only) asks where to save, then records the program as `Show_Episode_Date.mp4`; click again to stop. The file is written in pieces, so it plays even if the laptop stops partway.
 - **The Sound strip** in live mode shows the level of the sound going to the TC1, and its fader sets it.
-- **Green screen:** in live mode, the background stays in the TC1's media player A, where the TD keeps it.
+- **Green screen (RG, Oct 30, 2026):** in live mode, the background dropped on the Green screen box goes to the TC1 as a second source, **TSTV Show App Background**: a still sent steadily, or a clip on a loop, filling the picture. If its file can't be read, the app's small copy goes instead.
 
 ## What the TC1 needs
 
@@ -28,6 +28,7 @@ In the TSTV session, once (after it works, save the session so it stays):
 1. **Input 4's source: TSTV Show App** (in input 4's drop-down, under the laptop's coded NDI name, like `NDI_E29C…`). It appears once live mode is on.
 2. **DSK 2's source: input 4** (instead of player B).
 3. **Input 4's sound on** in the **AUDIO MIXER** tab (not muted, and not following video, so the music plays under the cameras).
+4. **The green-screen background:** a spare input (like **input 5**) set to **TSTV Show App Background** (under the same coded NDI name), and M/E 1's background (where media player A's PrimeTime Main BG or GFX 1 is today) set to that input.
 
 ## The Phase 5 test: a rehearsal on the TC1, outside a show
 
@@ -64,5 +65,4 @@ You need: the laptop on the TC1's cable, NDI Tools on the laptop (already instal
 ## Not yet
 
 - **TD fallback sheet** (a one-page printout of each section's camera and graphics), if still wanted with graphics over NDI.
-- **Sending the green-screen background** from the laptop (it stays in the TC1's player A for now).
 - **Back-to-back teases** to revisit at the rehearsal (the straight cut may fix them on the real TC1).

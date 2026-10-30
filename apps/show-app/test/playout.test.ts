@@ -66,6 +66,9 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     // A 4-second clip with a loud tone.
     await run(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=red:s=640x360:r=30:d=4', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=4', '-af', 'volume=4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', file('A2_VO_Tone.mp4')]);
     await run(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=220:duration=10', '-c:a', 'libmp3lame', file('Music.mp3')]);
+    // Green-screen backgrounds: an orange still, and a 1-second green clip.
+    await run(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=0xff8000:s=1920x1080', '-frames:v', '1', file('Background.png')]);
+    await run(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=0x00c000:s=1280x720:r=30:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', file('Background.mp4')]);
 
     playout = new Playout(NAME);
     playout.setPlaylist([
@@ -79,7 +82,8 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     let source = null;
     for (let i = 0; i < 20 && !source; i++) {
       ndi.findWait(finder, 500);
-      source = listSources(ndi, finder).find((s) => s.p_ndi_name.includes(NAME)) ?? null;
+      // Exactly the graphics source, not "… Background".
+      source = listSources(ndi, finder).find((s) => s.p_ndi_name.endsWith(`(${NAME})`)) ?? null;
     }
     expect(source).not.toBeNull();
     receiver = ndi.recvCreate({ source_to_connect_to: source, color_format: COLOR.BGRX_BGRA, bandwidth: BANDWIDTH.highest, allow_video_fields: false, p_ndi_recv_name: 'TSTV test' });
@@ -135,6 +139,36 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     expect(got.bar[3]).toBe(255);
     expect(got.bar[0]).toBeGreaterThan(200);
   }, 20_000);
+
+  it('sends the green-screen background as its own source: a still, or a clip on a loop', async () => {
+    const finder = ndi.findCreate({ show_local_sources: true, p_groups: null, p_extra_ips: null });
+    let source = null;
+    for (let i = 0; i < 20 && !source; i++) {
+      ndi.findWait(finder, 500);
+      source = listSources(ndi, finder).find((s) => s.p_ndi_name.endsWith(`(${NAME} Background)`)) ?? null;
+    }
+    expect(source).not.toBeNull();
+    const main = receiver;
+    receiver = ndi.recvCreate({ source_to_connect_to: source, color_format: COLOR.BGRX_BGRA, bandwidth: BANDWIDTH.highest, allow_video_fields: false, p_ndi_recv_name: 'TSTV test background' });
+    try {
+      playout.background(path.join(folder, 'Background.png'));
+      // Orange (BGRA), solid, in the corner too: it fills the picture.
+      const still = receive(5000, (got) => got.corner[2] > 200 && got.corner[1] > 100 && got.corner[0] < 60);
+      expect(still.corner[3]).toBe(255);
+      expect(still.corner[2]).toBeGreaterThan(200);
+      playout.background(path.join(folder, 'Background.mp4'));
+      receive(5000, (got) => got.corner[1] > 150 && got.corner[2] < 60);
+      // A 1-second clip still sends a picture every frame long after it would have ended: it loops.
+      const looping = receive(2500);
+      expect(looping.frames).toBeGreaterThan(50);
+      expect(looping.corner[1]).toBeGreaterThan(150);
+      playout.background(null);
+    } finally {
+      ndi.recvDestroy(receiver);
+      receiver = main;
+      ndi.findDestroy(finder);
+    }
+  }, 30_000);
 
   it('clears input 4 when DSK 2 goes off, and plays the music', async () => {
     playout.stop();

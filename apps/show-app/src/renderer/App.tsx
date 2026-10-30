@@ -180,7 +180,8 @@ function LiveSwitch({ state }: { state: AppState }) {
             </ul>
             <p className="small muted">
               Once live mode is on, the TC1 needs (if the TSTV session doesn’t have it saved yet): <strong>input 4</strong> set to the laptop’s source,{' '}
-              <strong>TSTV Show App</strong>; <strong>DSK 2’s source</strong> set to input 4; and input 4’s sound on in the AUDIO MIXER.
+              <strong>TSTV Show App</strong>; <strong>DSK 2’s source</strong> set to input 4; input 4’s sound on in the AUDIO MIXER; and, for the green screen, a spare
+              input (like input 5) set to <strong>TSTV Show App Background</strong>, used as M/E 1’s background.
             </p>
             {state.liveError && <p className="error">{state.liveError}</p>}
             <div className="row">
@@ -831,7 +832,11 @@ function GreenScreenBox({ state }: { state: AppState }) {
   const g = state.greenScreen;
   return (
     <DropPanel title="Green screen" className="green" onFiles={(paths) => act({ kind: 'setGreenScreen', path: paths[0] })}>
-      {state.mode === 'live' && <p className="small muted">On the TC1, the background stays in media player A, where the TD keeps it.</p>}
+      {state.mode === 'live' && (
+        <p className="small muted">
+          Goes to the TC1 as <strong>TSTV Show App Background</strong>. On the TC1, use it as the background behind the keyed cameras.
+        </p>
+      )}
       <div className="thumb small-thumb">{g?.thumbnail ? <img src={g.thumbnail} alt="" /> : <span>{g ? g.file : 'Drop the background here'}</span>}</div>
       {g && <p className="small">{g.file}</p>}
       <div className="row">

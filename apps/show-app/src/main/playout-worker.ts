@@ -1,6 +1,7 @@
 // The playout (Phase 5, runs in a background worker): plays the show's graphics and music on the laptop and
 // sends them to the TC1's input 4 over NDI, picture with its see-through parts, and sound (decided Oct 30,
-// 2026). It stands in for DDR 2: the app selects a clip, plays it, stops it, and hears when it ends. FFmpeg
+// 2026). It also sends the show's green-screen background as a second source, "… Background", which the TC1
+// uses behind the keyed cameras (RG, Oct 30, 2026). It stands in for DDR 2: the app selects a clip, plays it, stops it, and hears when it ends. FFmpeg
 // reads each file at the TC1 session's size (1280×720) and 29.97 frames a second. The music and the clip's
 // sound are mixed, through the Sound fader. See playout.ts for the app's side.
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -29,6 +30,8 @@ export type PlayoutMessage =
   | { type: 'stop' }
   | { type: 'music'; play: boolean; path?: string }
   | { type: 'fader'; level: number }
+  /** The green-screen background (a still or a clip, which loops), or none; fallback as for the playlist. */
+  | { type: 'background'; path: string | null; fallback?: string }
   | { type: 'close' };
 
 export type PlayoutReport =
@@ -157,6 +160,54 @@ class Clip {
   }
 }
 
+/**
+ * The green-screen background: a still, sent over and over, or a clip, on a loop. It fills the picture
+ * (cropped to 16:9 if it isn't), with no sound.
+ */
+class Background {
+  private frames: Buffer[] = [];
+  private stillFrame: Buffer | null = null;
+  private pending: Buffer[] = [];
+  private pendingBytes = 0;
+  private process: ChildProcess;
+
+  constructor(
+    file: string,
+    readonly still: boolean,
+  ) {
+    const picture = `scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},format=bgra`;
+    const args = ['-v', 'error', ...(still ? [] : ['-stream_loop', '-1']), '-i', file, '-map', '0:v:0', '-vf', picture, ...(still ? ['-frames:v', '1'] : ['-r', `${FPS_N}/${FPS_D}`]), '-f', 'rawvideo', 'pipe:1'];
+    this.process = spawn(ffmpeg, args, { stdio: ['ignore', 'pipe', 'ignore'] });
+    this.process.stdout!.on('data', (chunk: Buffer) => {
+      this.pending.push(chunk);
+      this.pendingBytes += chunk.length;
+      while (this.pendingBytes >= FRAME_BYTES) {
+        const all = Buffer.concat(this.pending);
+        const frame = all.subarray(0, FRAME_BYTES);
+        if (this.still) this.stillFrame = frame;
+        else this.frames.push(frame);
+        const rest = all.subarray(FRAME_BYTES);
+        this.pending = rest.length ? [rest] : [];
+        this.pendingBytes = rest.length;
+      }
+      if (this.frames.length >= 15) this.process.stdout!.pause();
+    });
+    this.process.on('error', () => undefined);
+  }
+
+  /** The picture for this frame, if there's one to send. */
+  take(): Buffer | undefined {
+    if (this.still) return this.stillFrame ?? undefined;
+    const frame = this.frames.shift();
+    if (this.frames.length < 8) this.process.stdout!.resume();
+    return frame;
+  }
+
+  close(): void {
+    this.process.kill('SIGKILL');
+  }
+}
+
 /** The music track, read by FFmpeg as sound only, a few seconds ahead. */
 class Music {
   sound = new SoundQueue();
@@ -187,6 +238,10 @@ class Music {
 function startPlayout(name: string): void {
   const ndi = loadNdi();
   const sender = ndi.sendCreate({ p_ndi_name: name, p_groups: null, clock_video: false, clock_audio: false });
+  const backgroundSender = ndi.sendCreate({ p_ndi_name: `${name} Background`, p_groups: null, clock_video: false, clock_audio: false });
+  let background: Background | null = null;
+  // The latest background asked for wins, if two come quickly.
+  let backgroundAsked = 0;
   const clear = Buffer.alloc(FRAME_BYTES);
   let playlist: { name: string; path: string; fallback?: string; seconds: number | null }[] = [];
   const probes = new Map<string, Promise<{ seconds: number | null; audio: boolean; still: boolean; readable: boolean }>>();
@@ -206,8 +261,8 @@ function startPlayout(name: string): void {
   let tick = 0;
   let lastState = '';
 
-  const sendPicture = (data: Buffer) =>
-    ndi.sendVideo(sender, {
+  const sendPicture = (data: Buffer, to: unknown = sender) =>
+    ndi.sendVideo(to, {
       xres: WIDTH,
       yres: HEIGHT,
       FourCC: FOURCC_BGRA,
@@ -279,6 +334,11 @@ function startPlayout(name: string): void {
         post({ type: 'ended', item: current.item });
       }
     }
+    // The background: a clip's next frame, or a still twice a second (the TC1 holds the last one).
+    if (background && (!background.still || tick % 15 === 0)) {
+      const frame = background.take();
+      if (frame) sendPicture(frame, backgroundSender);
+    }
     if (music) {
       music.sound.mixInto(sound, samples);
       music.topUp();
@@ -331,11 +391,28 @@ function startPlayout(name: string): void {
       case 'fader':
         fader = Math.max(0, Math.min(2, message.level));
         return;
+      case 'background':
+        void (async () => {
+          const asked = ++backgroundAsked;
+          background?.close();
+          background = null;
+          if (!message.path) return;
+          let file = message.path;
+          let info = await probeOf(file);
+          if (!info.readable && message.fallback) {
+            file = message.fallback;
+            info = await probeOf(file);
+          }
+          if (asked === backgroundAsked) background = new Background(file, info.still);
+        })();
+        return;
       case 'close':
         current?.close();
         next?.close();
         music?.close();
+        background?.close();
         ndi.sendDestroy(sender);
+        ndi.sendDestroy(backgroundSender);
         process.exit(0);
     }
   });

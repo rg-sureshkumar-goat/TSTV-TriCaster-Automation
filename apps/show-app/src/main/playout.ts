@@ -66,6 +66,11 @@ export class Playout extends EventEmitter {
     this.send({ type: 'music', play, path });
   }
 
+  /** The green-screen background, sent as the "… Background" source; null for none. */
+  background(path: string | null, fallback?: string): void {
+    this.send({ type: 'background', path, fallback });
+  }
+
   fader(level: number): void {
     this.send({ type: 'fader', level });
   }
