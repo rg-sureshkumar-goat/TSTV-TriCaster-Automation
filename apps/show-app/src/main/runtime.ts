@@ -6,8 +6,11 @@ import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
+  breakCueId,
+  breakGraphic,
   buildShowPlan,
   clipKey,
+  isBreakCue,
   computeRundown,
   CueEngine,
   cueLabel,
@@ -177,6 +180,9 @@ export class Runtime extends EventEmitter {
       const file = this.fileFor(e);
       if (file) files[e.id] = path.basename(file.path);
     }
+    // Each commercial break plays the show's break graphic, or else the break clip DDR 2 already has.
+    const breakFile = this.breakFile();
+    for (const c of this.timing.rows) if (c.breakBefore) files[breakCueId(c.row.id)] = breakFile ? path.basename(breakFile.path) : BREAK_CLIP.name;
     const { playlist, soundTracks } = this.switcher.snapshot;
     // First without the producer's music choices (they need the sections), then with them.
     this.plan = buildShowPlan(this.timing, show.settings, files, playlist, soundTracks);
@@ -453,7 +459,8 @@ export class Runtime extends EventEmitter {
     return {
       id: e.id,
       sectionId: e.sectionId,
-      sectionLabel,
+      // A commercial break's cue sits at the end of the section before it, but reads as the break.
+      sectionLabel: isBreakCue(e.id) ? 'Break' : sectionLabel,
       label: cueLabel(e),
       type: e.type,
       behavior: e.behavior,
@@ -692,23 +699,31 @@ export class Runtime extends EventEmitter {
     }
   }
 
+  /** The file of the show's break graphic (like Commercial Break), if it has one. */
+  private breakFile(): FileInfo | undefined {
+    const name = this.website.show ? breakGraphic(this.website.show.settings) : undefined;
+    return name ? this.permanent[name.toLowerCase()] : undefined;
+  }
+
   /**
-   * The show's clips in the order TSTV's TD loads DDR 2: the break clip at the start of every block, then
-   * each element's file in rundown order.
+   * The show's clips in the order TSTV's TD loads DDR 2: the break clip at the start of every block (the
+   * show's break graphic, when it has a file), then each element's file in rundown order.
    */
   private simulatorClips(): { name: string; durationMs: number }[] | null {
     if (!this.timing) return null;
     const clips: { name: string; durationMs: number }[] = [];
+    const clip = (file: FileInfo) => ({ name: path.basename(file.path).replace(/\.[^.]+$/, ''), durationMs: Math.round((file.seconds ?? 20) * 1000) });
+    const breakFile = this.breakFile();
     for (const c of this.timing.rows) {
       if (c.row.kind === 'block') {
-        clips.push(BREAK_CLIP);
+        clips.push(breakFile ? clip(breakFile) : BREAK_CLIP);
         continue;
       }
       if (c.row.floated) continue;
       for (const e of c.row.elements) {
         const file = e.type === 'MUSIC' ? undefined : this.fileFor(e);
         // Graphics are about 20-second clips on TSTV's playlist.
-        if (file) clips.push({ name: path.basename(file.path).replace(/\.[^.]+$/, ''), durationMs: Math.round((file.seconds ?? 20) * 1000) });
+        if (file) clips.push(clip(file));
       }
     }
     return clips;

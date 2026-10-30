@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { addElement, computeRundown, insertBlock, insertSection, readRows } from '../src/rundown.ts';
+import { addElement, breakCueId, computeRundown, insertBlock, insertSection, readRows } from '../src/rundown.ts';
 import { DEFAULT_SHOW_SETTINGS, normalizeShowSettings } from '../src/show.ts';
 import { buildShowPlan, cueBehavior, CueEngine, defaultMusicPoints, type ShowPlan, type ShowSection } from '../src/engine.ts';
 
 const alex = { id: 'u1', name: 'Alex Producer' };
 
-/** A small show: A1 tease with music, A2 Show Intro, A3 reader with an L3 and a VO, A4 SOT, B1 on camera 3 with an FSG. */
+/**
+ * A small show: A1 tease with music, A2 Show Intro, A3 reader with an L3 and a VO, A4 SOT, the commercial
+ * break, then B1 on camera 3 with an FSG.
+ */
 function show(): { plan: ShowPlan; ids: Record<string, string> } {
   const doc = new Y.Doc();
   insertBlock(doc, alex);
@@ -15,9 +18,10 @@ function show(): { plan: ShowPlan; ids: Record<string, string> } {
   const a3 = insertSection(doc, alex, { slug: 'Basketball', type: 'Reader' });
   const a4 = insertSection(doc, alex, { slug: 'Coach', type: 'SOT' });
   insertSection(doc, alex, { slug: 'Floated', floated: true });
-  insertBlock(doc, alex);
+  const blockB = insertBlock(doc, alex);
   const b1 = insertSection(doc, alex, { slug: 'Weather', camera: 'Camera 3' });
   const ids = {
+    breakB: breakCueId(blockB),
     a1,
     a2,
     a3,
@@ -31,7 +35,7 @@ function show(): { plan: ShowPlan; ids: Record<string, string> } {
     sot: addElement(doc, a4, 'SOT', alex)!,
     fsg: addElement(doc, b1, 'FSG', alex)!,
   };
-  const files = { [ids.tease]: 'A1_TEASE_Sports.mov', [ids.intro]: 'Show Intro.mov', [ids.l3]: 'A3_L3_Score.mov', [ids.vo]: 'A3_VO_Highlights.mp4', [ids.sot]: 'A4_SOT_Coach.mov', [ids.fsg]: 'B1_FSG_Weather.mov' };
+  const files = { [ids.breakB]: 'TSTV Ident 2022 News.m4v', [ids.tease]: 'A1_TEASE_Sports.mov', [ids.intro]: 'Show Intro.mov', [ids.l3]: 'A3_L3_Score.mov', [ids.vo]: 'A3_VO_Highlights.mp4', [ids.sot]: 'A4_SOT_Coach.mov', [ids.fsg]: 'B1_FSG_Weather.mov' };
   const playlist = ['TSTV Ident 2022 News', 'A1_TEASE_Sports', 'Show Intro', 'A3_L3_Score', 'A3_VO_Highlights', 'A4_SOT_Coach', 'TSTV Ident 2022 News', 'B1_FSG_Weather'];
   const timing = computeRundown(readRows(doc), 1800);
   return { plan: buildShowPlan(timing, DEFAULT_SHOW_SETTINGS, files, playlist, ['PrimeTime Transition Music', 'PrimeTime Main']), ids };
@@ -156,9 +160,30 @@ describe('the cue engine', () => {
     const engine = new CueEngine(plan);
     engine.sectionStarted(ids.a4);
     expect(engine.cueReached(ids.sot)).toEqual([{ kind: 'dsk', on: true }]);
-    expect(engine.clipEnded()).toEqual([{ kind: 'dsk', on: false }]);
+    // Back to the anchors, and the commercial break's graphic is cued.
+    expect(engine.clipEnded()).toEqual([
+      { kind: 'dsk', on: false },
+      { kind: 'cueClip', item: 0 },
+    ]);
     expect(engine.sectionStarted(ids.b1)).toEqual([
       { kind: 'camera', input: 3 },
+      { kind: 'cueClip', item: 7 },
+    ]);
+  });
+
+  it('plays the show’s break graphic when the prompter reaches the commercial break, to its end', () => {
+    const { plan, ids } = show();
+    // The break is the last cue of the section before it.
+    expect(plan.sections[3].elements.at(-1)).toMatchObject({ id: ids.breakB, sectionId: ids.a4, type: 'PERM', name: 'Commercial Break', behavior: 'clip', ddrItem: 0 });
+    const engine = new CueEngine(plan);
+    engine.sectionStarted(ids.a4);
+    engine.cueReached(ids.sot);
+    engine.clipEnded();
+    expect(engine.cueReached(ids.breakB)).toEqual([{ kind: 'dsk', on: true }]);
+    // B1 starts during the break: its camera is taken underneath, and its FSG waits for the break to end.
+    expect(engine.sectionStarted(ids.b1)).toEqual([{ kind: 'camera', input: 3 }]);
+    expect(engine.clipEnded()).toEqual([
+      { kind: 'dsk', on: false },
       { kind: 'cueClip', item: 7 },
     ]);
   });
@@ -167,7 +192,7 @@ describe('the cue engine', () => {
     const { plan, ids } = show();
     const engine = new CueEngine(plan);
     engine.sectionStarted(ids.a3);
-    expect(engine.upNext().map((e) => e.id)).toEqual([ids.l3, ids.vo, ids.sot, ids.fsg]);
+    expect(engine.upNext().map((e) => e.id)).toEqual([ids.l3, ids.vo, ids.sot, ids.breakB, ids.fsg]);
     engine.skip(ids.l3);
     expect(engine.fireNext()).toEqual([
       { kind: 'cueClip', item: 4 },
@@ -244,7 +269,11 @@ describe('the cue engine', () => {
     engine.setManual(true);
     engine.chooseNext(ids.sot);
     engine.fireNext();
-    expect(engine.clipEnded()).toEqual([{ kind: 'dsk', on: false }]);
+    // It comes off, and the commercial break after it is cued.
+    expect(engine.clipEnded()).toEqual([
+      { kind: 'dsk', on: false },
+      { kind: 'cueClip', item: 0 },
+    ]);
   });
 
   it('doesn’t restart a graphic the producer already put up when the prompter reaches its cue', () => {

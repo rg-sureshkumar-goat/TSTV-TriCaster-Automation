@@ -479,7 +479,8 @@ function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof 
       );
     case 'break':
       return (
-        <div className="p-break" data-key={line.key}>
+        // The break's line fires its cue, so the show app plays the show's break graphic (RG, Oct 29, 2026).
+        <div className="p-break" data-key={line.key} data-marker="cue" data-section="" data-element={line.key} data-label="Commercial break">
           COMMERCIAL BREAK{line.seconds > 0 ? ` · ${formatDuration(line.seconds)}` : ''}
         </div>
       );

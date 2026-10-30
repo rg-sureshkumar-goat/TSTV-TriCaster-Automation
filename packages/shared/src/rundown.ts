@@ -44,6 +44,18 @@ export function elementKind(type: ElementType): 'graphic' | 'clip' | 'music' | '
 }
 
 /** How a cue chip reads in a script: "Take L3 Score", "★ Station ID" or "♪ PrimeTime Main". */
+/**
+ * The id of the cue for the commercial break just before a row: the prompter fires it when the break's
+ * line reaches the reading line, and the show app plays the show's break graphic (RG, Oct 29, 2026).
+ */
+export function breakCueId(rowId: string): string {
+  return `break-${rowId}`;
+}
+
+export function isBreakCue(id: string): boolean {
+  return id.startsWith('break-');
+}
+
 export function cueLabel(e: Pick<Element, 'type' | 'name'>): string {
   if (e.type === 'PERM') return `★ ${e.name || 'Permanent graphic'}`;
   if (e.type === 'MUSIC') return `♪ ${e.name || 'Music'}`;

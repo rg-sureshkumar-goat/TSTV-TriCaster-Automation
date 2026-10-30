@@ -5,8 +5,8 @@
 //
 // Every element except music plays from DDR 2 through DSK 2, one at a time: a new cue replaces whatever
 // is up. Music plays from the Sound player alongside it.
-import { cueLabel, type ElementType, type RundownTiming, type SectionRow } from './rundown.ts';
-import { cameraInput, type ShowSettings } from './show.ts';
+import { breakCueId, cueLabel, type ElementType, type RundownTiming, type SectionRow } from './rundown.ts';
+import { breakGraphic, cameraInput, type ShowSettings } from './show.ts';
 
 /**
  * How an element behaves on air (RG, Oct 28–29, 2026):
@@ -92,8 +92,12 @@ export function clipKey(name: string): string {
 
 /**
  * The show as the engine runs it: the sections that air, in order, each element with how it behaves and
- * where its file sits in DDR 2's playlist. files maps element ids to their file names; ddrPlaylist and
- * soundTracks are the names in DDR 2 and the Sound player, as the switcher reports them.
+ * where its file sits in DDR 2's playlist. files maps element ids to their file names (a commercial
+ * break's by its breakCueId); ddrPlaylist and soundTracks are the names in DDR 2 and the Sound player, as
+ * the switcher reports them.
+ *
+ * Each commercial break is a cue for the show's break graphic (RG, Oct 29, 2026), at the end of the
+ * section before it, so it comes next after that section's cues. The prompter fires it at the break's line.
  */
 export function buildShowPlan(
   timing: RundownTiming,
@@ -104,25 +108,29 @@ export function buildShowPlan(
   music?: { in: CuePoint | null; out: CuePoint | null; track?: string | null },
 ): ShowPlan {
   const playlist = ddrPlaylist.map(clipKey);
-  const sections: ShowSection[] = timing.rows
-    .filter((c) => c.row.kind === 'section' && !c.row.floated)
-    .map((c) => {
-      const row = c.row as SectionRow;
-      const camera = row.camera || settings.defaultCamera;
-      return {
-        id: row.id,
-        label: c.label,
-        slug: row.slug,
-        type: row.type,
-        camera,
-        input: cameraInput(settings, camera),
-        elements: row.elements.map((e) => {
-          const file = files[e.id];
-          const index = file ? playlist.indexOf(clipKey(file)) : -1;
-          return { id: e.id, sectionId: row.id, type: e.type, name: e.name, behavior: cueBehavior(e.type, e.name, settings.permanentWithSound), ddrItem: e.type === 'MUSIC' || index < 0 ? null : index };
-        }),
-      };
-    });
+  const element = (id: string, sectionId: string, type: ElementType, name: string): ShowElement => {
+    const file = files[id];
+    const index = file ? playlist.indexOf(clipKey(file)) : -1;
+    return { id, sectionId, type, name, behavior: cueBehavior(type, name, settings.permanentWithSound), ddrItem: type === 'MUSIC' || index < 0 ? null : index };
+  };
+  const breakName = breakGraphic(settings);
+  const sections: ShowSection[] = [];
+  // A break before the first section that airs goes at the start of that section instead.
+  let breakFirst: string | null = null;
+  for (const c of timing.rows) {
+    if (c.breakBefore && breakName) {
+      const before = sections.at(-1);
+      if (before) before.elements.push(element(breakCueId(c.row.id), before.id, 'PERM', breakName));
+      else breakFirst = breakCueId(c.row.id);
+    }
+    if (c.row.kind !== 'section' || c.row.floated) continue;
+    const row = c.row as SectionRow;
+    const camera = row.camera || settings.defaultCamera;
+    const elements = row.elements.map((e) => element(e.id, row.id, e.type, e.name));
+    if (breakFirst && breakName) elements.unshift(element(breakFirst, row.id, 'PERM', breakName));
+    breakFirst = null;
+    sections.push({ id: row.id, label: c.label, slug: row.slug, type: row.type, camera, input: cameraInput(settings, camera), elements });
+  }
   // The track the producer dropped on the show app's Music box wins (RG, Oct 29, 2026); otherwise the
   // Sound player track named like the MUSIC element; otherwise the first one.
   const musicElement = sections.flatMap((s) => s.elements).find((e) => e.type === 'MUSIC');

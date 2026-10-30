@@ -2,7 +2,7 @@
 // section starts with its number, who reads it and the camera to look at; cue chips become markers, and a
 // speaker tag line like {JORDAN} becomes a speaker marker. Floated sections are skipped.
 import * as Y from 'yjs';
-import { isCrossTalk, type Element, type RundownTiming, type SectionRow } from './rundown.ts';
+import { breakCueId, isCrossTalk, type Element, type RundownTiming, type SectionRow } from './rundown.ts';
 import { readScriptLines, scriptBody, speakerTagLine } from './script.ts';
 
 export type PrompterLine =
@@ -19,7 +19,7 @@ export type PrompterLine =
 export function prompterLines(doc: Y.Doc, timing: RundownTiming, defaultCamera: string): PrompterLine[] {
   const lines: PrompterLine[] = [];
   for (const c of timing.rows) {
-    if (c.breakBefore) lines.push({ kind: 'break', key: `break-${c.row.id}`, seconds: c.breakBefore.seconds });
+    if (c.breakBefore) lines.push({ kind: 'break', key: breakCueId(c.row.id), seconds: c.breakBefore.seconds });
     if (c.row.kind === 'block') {
       lines.push({ kind: 'block', key: c.row.id, label: c.label, title: c.row.title });
       continue;

@@ -68,6 +68,7 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 | L3, NAMES, OTS, RDR, FSG, lower-third permanent graphics | Its cue | Its section ends |
 | VO, TEASE, LITES | Its cue (the anchor reads over it) | The clip or the section ends, whichever is first. If the clip ends first, the section's L3 comes back |
 | SOT, PKG, permanent graphics with their own audio | Its cue | The clip ends, then back to the anchors |
+| Commercial break (the show's Commercial Break graphic, RG, Oct 29, 2026) | The prompter's **COMMERCIAL BREAK** line reaches the reading line | Its clip ends (the next block's camera is taken underneath it) |
 | MUSIC | Its cue, or the music-in point | The music-out point |
 
 When a section starts, the app takes its camera (the show's default camera when it doesn't name one) and cues its first clip in DDR 2.
@@ -120,6 +121,7 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
    - each cue goes up as it crosses the reading line, and plays in the Program box over the camera (or full screen), and the right ones come off (see the table above)
    - a VO over an L3 brings the L3 back when it ends first
    - SOTs and the Show Intro play to their end, then back to the anchors
+   - at each **COMMERCIAL BREAK** line, the Commercial Break graphic plays (it shows in Up next as **★ Commercial Break** with **Break** beside it)
    - the music starts with the tease and stops just before the Show Intro
    - the latency stays green
 7. **Producer controls:** try **Skip**, **Play next**, **Fire next** with the Space bar, and the camera buttons.
