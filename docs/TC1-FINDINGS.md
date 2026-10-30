@@ -116,6 +116,8 @@ RG at the studio, laptop on the TC1's cable (laptop 169.254.41.47, TC1 169.254.1
 
 ## Network notes
 
+- **Oct 30, 2026 (Phase 5): the Mac sent the TC1's traffic over Wi-Fi.** After working all session, the laptop suddenly couldn't reach 169.254.193.52: macOS had routed the self-assigned range to Wi-Fi (`route get` showed en0). Sending from the cable's own address (curl `--interface`, Node `localAddress`) reached it at once. The show app's live mode now sends everything to the TC1 (web control, state stream, change notifications) from the cable's address, as the probe does.
+
 - The laptop's USB Ethernet adapter linked at 1 gigabit, full duplex.
 - **On a Mac, the automatic-address range is also attached to Wi-Fi.** A first version of the probe searched all 65,000 automatic addresses. That burst of traffic coincided with campus Wi-Fi dropping twice, and the search missed the TC1. The search was removed. The probe and the show app now wait quietly for the TC1 to announce itself, and the show app will remember the TC1's last address.
 - Reading the Mac's device list with plain `arp -a` stalls when Wi-Fi is down, because it looks up names. Use `arp -an`.

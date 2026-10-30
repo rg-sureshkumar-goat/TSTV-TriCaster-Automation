@@ -9,6 +9,7 @@
 // (decided Oct 30, 2026): cameras and DSK 2 are TC1 commands; cueing, playing and stopping clips, and the
 // music, go to the playout.
 import { EventEmitter } from 'node:events';
+import http from 'node:http';
 import net from 'node:net';
 import WebSocket from 'ws';
 import type { SwitcherCommand } from '@tstv/shared';
@@ -17,6 +18,29 @@ import type { Playout } from './playout.ts';
 export const SIMULATOR_NAME = 'TSTV Simulator';
 export const TC1_NAME = 'TriCaster TC1';
 export type SwitcherMode = 'simulator' | 'live';
+
+/**
+ * Asks the switcher's web control for a page, sent from localAddress when given: on a Mac, the self-
+ * assigned range (169.254.x.x) is attached to Wi-Fi too, and the Mac can send the TC1's traffic there
+ * instead of the cable (seen at the studio Oct 30, 2026), unless it goes from the cable's own address.
+ */
+export async function askSwitcher(address: string, page: string, timeoutMs: number, localAddress?: string): Promise<{ ok: boolean; text: string }> {
+  if (!localAddress) {
+    const response = await fetch(`http://${address}${page}`, { signal: AbortSignal.timeout(timeoutMs) });
+    return { ok: response.ok, text: await response.text() };
+  }
+  const [host, port] = address.split(':');
+  return new Promise((resolve, reject) => {
+    const request = http.get({ host, port: port ? Number(port) : 80, path: page, localAddress, timeout: timeoutMs }, (response) => {
+      let text = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk: string) => (text += chunk));
+      response.on('end', () => resolve({ ok: (response.statusCode ?? 500) < 400, text }));
+    });
+    request.on('timeout', () => request.destroy(new Error('timed out')));
+    request.on('error', reject);
+  });
+}
 
 /** A clip for DDR 2 (the simulator) or the playout (live mode); path only matters to the playout. */
 export interface PlaylistClip {
@@ -67,13 +91,15 @@ export class Switcher extends EventEmitter {
 
   /**
    * address is host:port of the web control; the state stream is on statePort (5951 on the TC1). In live
-   * mode, playout plays the show's clips and music.
+   * mode, playout plays the show's clips and music, and everything goes to the TC1 from localAddress, the
+   * cable's own address (see askSwitcher).
    */
   constructor(
     address: string,
     private statePort = 5951,
     readonly mode: SwitcherMode = 'simulator',
     private playout: Playout | null = null,
+    private localAddress?: string,
   ) {
     super();
     this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, playlist: [], soundTracks: [] };
@@ -103,7 +129,7 @@ export class Switcher extends EventEmitter {
   async connect(): Promise<void> {
     this.set({ status: 'connecting', error: null });
     try {
-      const version = await (await fetch(`${this.base}/v1/version`, { signal: AbortSignal.timeout(4000) })).text();
+      const version = (await askSwitcher(this.snapshot.address, '/v1/version', 4000, this.localAddress)).text;
       const product = /<product_name>([^<]*)<\/product_name>/.exec(version)?.[1] ?? '';
       // The lock: each mode talks only to its own switcher.
       if (!this.live && product !== SIMULATOR_NAME) {
@@ -129,7 +155,7 @@ export class Switcher extends EventEmitter {
   /** The state stream (port 5951) and change notifications, which report everything the switcher does. */
   private listen(): void {
     const [host] = this.snapshot.address.split(':');
-    const socket = net.connect({ host, port: this.statePort });
+    const socket = net.connect({ host, port: this.statePort, localAddress: this.localAddress });
     this.socket = socket;
     let buffer = '';
     socket.setEncoding('utf8');
@@ -157,7 +183,7 @@ export class Switcher extends EventEmitter {
       if (!this.closed) this.set({ status: 'error', error: 'Lost the connection to the switcher.' });
     });
 
-    const notifications = new WebSocket(`ws://${this.snapshot.address}/v1/change_notifications`);
+    const notifications = new WebSocket(`ws://${this.snapshot.address}/v1/change_notifications`, { localAddress: this.localAddress });
     this.notifications = notifications;
     notifications.on('message', (data) => {
       const key = String(data).replace(/\0/g, '');
@@ -199,7 +225,7 @@ export class Switcher extends EventEmitter {
   /** Seconds left in DDR 2's clip. */
   private async readTimecode(): Promise<number | null> {
     try {
-      const xml = await (await fetch(`${this.base}/v1/dictionary?key=ddr_timecode`)).text();
+      const xml = (await askSwitcher(this.snapshot.address, '/v1/dictionary?key=ddr_timecode', 2000, this.localAddress)).text;
       const remaining = Number(attr(/<ddr2\b([^>]*)\/?>/.exec(xml)?.[1] ?? '', 'clip_seconds_remaining'));
       const value = Number.isFinite(remaining) ? remaining : null;
       this.set({ ddrRemaining: value });
@@ -218,7 +244,7 @@ export class Switcher extends EventEmitter {
 
   async readPlaylists(): Promise<void> {
     try {
-      const xml = await (await fetch(`${this.base}/v1/dictionary?key=ddr_playlist`)).text();
+      const xml = (await askSwitcher(this.snapshot.address, '/v1/dictionary?key=ddr_playlist', 3000, this.localAddress)).text;
       this.set({ playlist: playlistNames(xml, 'ddr2'), soundTracks: playlistNames(xml, 'sound') });
     } catch {
       // Kept as it was; it's read again when the playlist changes.
@@ -240,8 +266,7 @@ export class Switcher extends EventEmitter {
     if (this.snapshot.status !== 'connected') return false;
     const query = new URLSearchParams({ name, ...(value === undefined ? {} : { value }) });
     try {
-      const response = await fetch(`${this.base}/v1/shortcut?${query}`, { signal: AbortSignal.timeout(2000) });
-      return response.ok;
+      return (await askSwitcher(this.snapshot.address, `/v1/shortcut?${query}`, 2000, this.localAddress)).ok;
     } catch {
       return false;
     }

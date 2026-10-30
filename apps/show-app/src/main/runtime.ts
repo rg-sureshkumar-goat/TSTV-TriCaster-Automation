@@ -32,7 +32,7 @@ import { cableAddresses, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
 import { Feeds } from './feeds.ts';
 import { Playout } from './playout.ts';
 import { DEFAULT_SETTINGS, type Settings, type Store } from './store.ts';
-import { Switcher, type PlaylistClip, type SwitcherMode } from './switcher.ts';
+import { askSwitcher, Switcher, type PlaylistClip, type SwitcherMode } from './switcher.ts';
 import { WebsiteLink, type CueEvent } from './website.ts';
 
 /** The clip TSTV holds during each commercial break, at the start of every block in DDR 2 (probe, Oct 28, 2026). */
@@ -128,8 +128,8 @@ export class Runtime extends EventEmitter {
     this.changed();
   }
 
-  private newSwitcher(address: string, statePort?: number, mode: SwitcherMode = 'simulator', playout: Playout | null = null): Switcher {
-    const switcher = new Switcher(address, statePort, mode, playout);
+  private newSwitcher(address: string, statePort?: number, mode: SwitcherMode = 'simulator', playout: Playout | null = null, localAddress?: string): Switcher {
+    const switcher = new Switcher(address, statePort, mode, playout, localAddress);
     let playlist = '';
     switcher.on('change', () => {
       const now = `${switcher.snapshot.playlist.join('\n')}|${switcher.snapshot.soundTracks.join('\n')}`;
@@ -661,22 +661,23 @@ export class Runtime extends EventEmitter {
       return this.changed();
     }
     keepNdiOnCable(this.deps.store.ndiFolder(), cable);
-    let address: string | null;
+    let found: { address: string; localAddress: string } | null;
     try {
-      address = await this.findTc1();
+      found = await this.findTc1(cable);
     } catch (e) {
       this.liveError = e instanceof Error ? e.message : String(e);
       return this.changed();
     }
-    if (!address) {
+    if (!found) {
       this.liveError = 'Couldn’t find the TC1 on the cable. Check it’s on, wait a minute after plugging in, and try again.';
       return this.changed();
     }
+    const { address, localAddress } = found;
     const playout = new Playout('TSTV Show App');
     playout.on('level', (db: number) => this.emit('level', db));
     playout.fader(this.fader);
     playout.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
-    const live = this.newSwitcher(address, 5951, 'live', playout);
+    const live = this.newSwitcher(address, 5951, 'live', playout, localAddress);
     await live.connect();
     if (live.snapshot.status !== 'connected') {
       this.liveError = live.snapshot.error;
@@ -725,23 +726,31 @@ export class Runtime extends EventEmitter {
     this.changed();
   }
 
-  /** The TC1 on the cable: at its last address, or found by the NDI feeds it announces there. */
-  private async findTc1(): Promise<string | null> {
-    const answers = async (host: string) => {
-      try {
-        const version = await (await fetch(`http://${host}/v1/version`, { signal: AbortSignal.timeout(1500) })).text();
-        return version.includes('<product_name>');
-      } catch {
-        return false;
+  /**
+   * The TC1 on the cable, and which of the laptop's cable addresses reaches it: at its last address, or
+   * found by the NDI feeds it announces there. Asked from each cable address, never across Wi-Fi.
+   */
+  private async findTc1(cable: string[]): Promise<{ address: string; localAddress: string } | null> {
+    const reach = async (host: string) => {
+      for (const localAddress of cable) {
+        try {
+          if ((await askSwitcher(host, '/v1/version', 1500, localAddress)).text.includes('<product_name>')) return { address: host, localAddress };
+        } catch {
+          // Not from this one.
+        }
       }
+      return null;
     };
-    if (this.settings.tc1Address && (await answers(this.settings.tc1Address))) return this.settings.tc1Address;
+    if (this.settings.tc1Address) {
+      const remembered = await reach(this.settings.tc1Address);
+      if (remembered) return remembered;
+    }
     const ndi = loadNdi();
     const finder = ndi.findCreate({ show_local_sources: false, p_groups: null, p_extra_ips: null });
     try {
       for (let i = 0; i < 20; i++) {
         const tc1 = listSources(ndi, finder).find((s) => /^TC1-/i.test(s.p_ndi_name));
-        if (tc1) return tc1.p_url_address.split(':')[0];
+        if (tc1) return await reach(tc1.p_url_address.split(':')[0]);
         await new Promise((r) => setTimeout(r, 250));
       }
       return null;
