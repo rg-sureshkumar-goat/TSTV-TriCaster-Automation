@@ -3,14 +3,17 @@ import { api } from '../lib/api.ts';
 
 interface Options {
   google: boolean;
+  microsoft?: boolean;
   dev: { email: string; name: string }[] | null;
 }
 
 const ERRORS: Record<string, string> = {
-  'not-invited': 'That Google account isn’t on the invite list yet. Ask an admin to invite you, then try again.',
+  'not-invited': 'That account isn’t on the invite list yet. Ask an admin to invite you at that email, then try again.',
   expired: 'Sign-in took too long. Please try again.',
   google: 'Google sign-in didn’t work. Please try again.',
-  'not-configured': 'Google sign-in isn’t set up yet. Ask an admin.',
+  microsoft: 'Microsoft sign-in didn’t work. Please try again.',
+  'microsoft-school': 'Your school hasn’t allowed TSTV Rundowns to use its Microsoft accounts yet. Sign in with Google instead, or ask an admin.',
+  'not-configured': 'That sign-in isn’t set up yet. Ask an admin.',
 };
 
 export function SignInPage() {
@@ -40,7 +43,12 @@ export function SignInPage() {
             Sign in with Google
           </a>
         )}
-        {options && !options.google && !options.dev && <p className="muted">Sign-in isn’t set up yet.</p>}
+        {options?.microsoft && (
+          <a className="button microsoft" href={`/api/auth/microsoft/start?returnTo=${encodeURIComponent(returnTo)}`}>
+            Sign in with Microsoft
+          </a>
+        )}
+        {options && !options.google && !options.microsoft && !options.dev && <p className="muted">Sign-in isn’t set up yet.</p>}
         {options?.dev && (
           <div className="dev-signin">
             <p className="muted small">Local development only: sign in as a pretend person.</p>

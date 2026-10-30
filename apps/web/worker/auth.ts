@@ -1,4 +1,5 @@
-// Sign-in: "Sign in with Google", limited to people an admin has invited, plus a pretend sign-in for local
+// Sign-in: "Sign in with Google" or "Sign in with Microsoft" (school Microsoft 365 accounts and personal
+// ones, added Oct 29, 2026), limited to people an admin has invited, plus a pretend sign-in for local
 // development only. Sessions are random tokens in an HttpOnly cookie; the database stores only their hash.
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
@@ -107,7 +108,7 @@ async function startSession(c: AppContext, userId: string): Promise<void> {
 async function admitPerson(env: Env, email: string, name: string, picture: string | null): Promise<User | null> {
   const db = env.DB;
   const isAdminEmail = adminEmails(env).has(email.toLowerCase());
-  const existing = await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first<Record<string, unknown>>();
+  const existing = await db.prepare('SELECT * FROM users WHERE lower(email) = lower(?)').bind(email).first<Record<string, unknown>>();
   if (existing) {
     // The name they typed in wins over Google's.
     const current = existing.first_name && existing.last_name ? String(existing.name) : name;
@@ -117,7 +118,7 @@ async function admitPerson(env: Env, email: string, name: string, picture: strin
       .run();
     return rowToUser({ ...existing, name: current, picture, is_admin: isAdminEmail ? 1 : existing.is_admin });
   }
-  const invite = await db.prepare('SELECT email, as_admin FROM invites WHERE email = ?').bind(email).first<{ as_admin: number }>();
+  const invite = await db.prepare('SELECT email, as_admin FROM invites WHERE lower(email) = lower(?)').bind(email).first<{ as_admin: number }>();
   if (!invite && !isAdminEmail) return null;
   const isAdmin = isAdminEmail || invite?.as_admin === 1;
   const user: User = { id: crypto.randomUUID(), email, name, picture, isAdmin, needsName: true };
@@ -125,7 +126,7 @@ async function admitPerson(env: Env, email: string, name: string, picture: strin
     .prepare('INSERT INTO users (id, email, name, picture, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(user.id, email, name, picture, isAdmin ? 1 : 0, Date.now())
     .run();
-  await db.prepare('DELETE FROM invites WHERE email = ?').bind(email).run();
+  await db.prepare('DELETE FROM invites WHERE lower(email) = lower(?)').bind(email).run();
   return user;
 }
 
@@ -136,6 +137,7 @@ authRoutes.get('/options', (c) => {
   const url = new URL(c.req.url);
   return c.json({
     google: Boolean(c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET),
+    microsoft: Boolean(c.env.MICROSOFT_CLIENT_ID && c.env.MICROSOFT_CLIENT_SECRET),
     dev: devLoginEnabled(c.env, url) ? DEV_USERS : null,
   });
 });
@@ -211,6 +213,113 @@ authRoutes.get('/google/callback', async (c) => {
   await startSession(c, user.id);
   return c.redirect(saved.returnTo);
 });
+
+// ---- Sign in with Microsoft (the same flow, with Microsoft's "common" sign-in for any school, work or
+// personal Microsoft account) ----
+
+const MICROSOFT = 'https://login.microsoftonline.com/common/oauth2/v2.0';
+/** The directory every personal Microsoft account (Outlook.com, Hotmail) belongs to. */
+const PERSONAL_ACCOUNTS = '9188040d-6c67-4c5b-b112-36a304b66dad';
+
+authRoutes.get('/microsoft/start', async (c) => {
+  if (!c.env.MICROSOFT_CLIENT_ID) return c.text('Microsoft sign-in is not set up yet.', 503);
+  const url = new URL(c.req.url);
+  const state = randomToken();
+  const verifier = randomToken();
+  const challenge = base64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  const returnTo = safeReturnTo(c.req.query('returnTo'));
+  setCookie(c, OAUTH_COOKIE, JSON.stringify({ state, verifier, returnTo }), cookieOptions(url, 600));
+  const microsoft = new URL(`${MICROSOFT}/authorize`);
+  microsoft.search = new URLSearchParams({
+    client_id: c.env.MICROSOFT_CLIENT_ID,
+    redirect_uri: `${url.origin}/api/auth/microsoft/callback`,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    prompt: 'select_account',
+  }).toString();
+  return c.redirect(microsoft.toString());
+});
+
+authRoutes.get('/microsoft/callback', async (c) => {
+  const url = new URL(c.req.url);
+  const fail = (reason: string) => c.redirect(`/signin?error=${reason}`);
+  const saved = (() => {
+    try {
+      return JSON.parse(getCookie(c, OAUTH_COOKIE) ?? '') as { state: string; verifier: string; returnTo: string };
+    } catch {
+      return null;
+    }
+  })();
+  deleteCookie(c, OAUTH_COOKIE, { path: '/' });
+  // A school that hasn't allowed apps like this one sends the person back with an error instead of a code.
+  if (c.req.query('error')) return fail(c.req.query('error_description')?.includes('AADSTS65001') || c.req.query('error') === 'consent_required' ? 'microsoft-school' : 'microsoft');
+  const code = c.req.query('code');
+  if (!saved || !code || c.req.query('state') !== saved.state) return fail('expired');
+  if (!c.env.MICROSOFT_CLIENT_ID || !c.env.MICROSOFT_CLIENT_SECRET) return fail('not-configured');
+
+  const tokenResponse = await fetch(`${MICROSOFT}/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: c.env.MICROSOFT_CLIENT_ID,
+      client_secret: c.env.MICROSOFT_CLIENT_SECRET,
+      redirect_uri: `${url.origin}/api/auth/microsoft/callback`,
+      grant_type: 'authorization_code',
+      code_verifier: saved.verifier,
+      scope: 'openid email profile',
+    }),
+  });
+  if (!tokenResponse.ok) return fail('microsoft');
+  const { id_token: idToken } = (await tokenResponse.json()) as { id_token?: string };
+  // Straight from Microsoft over HTTPS, like Google's (see above). We check who it's for and who issued it.
+  const claims = decodeJwtPayload(idToken);
+  if (
+    !claims ||
+    claims.aud !== c.env.MICROSOFT_CLIENT_ID ||
+    typeof claims.tid !== 'string' ||
+    claims.iss !== `https://login.microsoftonline.com/${claims.tid}/v2.0` ||
+    Number(claims.exp) * 1000 < Date.now()
+  ) {
+    return fail('microsoft');
+  }
+  const email = await microsoftEmail(c.env, claims);
+  if (!email) return fail('microsoft');
+  const user = await admitPerson(c.env, email, String(claims.name ?? email), null);
+  if (!user) return fail('not-invited');
+  await startSession(c, user.id);
+  return c.redirect(saved.returnTo);
+});
+
+/**
+ * The email a Microsoft account signs in as. Its sign-in name (preferred_username) can be trusted: a school
+ * can only give its people names in domains it has proved it owns, and a personal account's is its own
+ * email. Its email field can be typed in by any school's IT, so it's only used when its domain is the sign-in
+ * name's or one above it: UT's people sign in as abc123@eid.utexas.edu, but are invited at name@utexas.edu.
+ * The one that's already a person, an invite or an admin wins.
+ */
+export async function microsoftEmail(env: Env, claims: Record<string, unknown>): Promise<string | null> {
+  const isEmail = (value: unknown): value is string => typeof value === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
+  const signInName = isEmail(claims.preferred_username) ? claims.preferred_username.toLowerCase() : null;
+  if (!signInName) return null;
+  const candidates = [signInName];
+  const domain = signInName.split('@')[1];
+  if (claims.tid !== PERSONAL_ACCOUNTS && isEmail(claims.email)) {
+    const email = claims.email.toLowerCase();
+    const emailDomain = email.split('@')[1];
+    if (email !== signInName && (domain === emailDomain || domain.endsWith(`.${emailDomain}`))) candidates.unshift(email);
+  }
+  const admins = adminEmails(env);
+  for (const candidate of candidates) {
+    if (admins.has(candidate)) return candidate;
+    const known = await env.DB.prepare('SELECT 1 FROM users WHERE lower(email) = ? UNION SELECT 1 FROM invites WHERE lower(email) = ?').bind(candidate, candidate).first();
+    if (known) return candidate;
+  }
+  return candidates[0];
+}
 
 function decodeJwtPayload(token: string | undefined): Record<string, unknown> | null {
   const part = token?.split('.')[1];

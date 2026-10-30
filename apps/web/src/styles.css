@@ -571,7 +571,8 @@ table.simple td {
   font-weight: 600;
 }
 
-.google {
+.google,
+.microsoft {
   padding: 10px 16px;
 }
 

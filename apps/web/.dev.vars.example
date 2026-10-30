@@ -6,3 +6,6 @@ ADMIN_EMAILS=rg@dev.local
 # Fill these in to try real Google sign-in locally (see docs/PHASE-1-SETUP.md).
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+# Fill these in to try Microsoft sign-in locally (school and personal Microsoft accounts).
+MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=

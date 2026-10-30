@@ -135,6 +135,29 @@ npx wrangler secret put ADMIN_EMAILS
 
 For `ADMIN_EMAILS`, type the Gmail address you'll sign in with. That account is always allowed in and is the admin.
 
+### Optional: also "Sign in with Microsoft" (added Oct 29, 2026)
+
+So people can sign in with their school Microsoft 365 account (UT's), or a personal Microsoft account. Microsoft's screens change from time to time, so the wording might differ a little.
+
+1. Go to <https://entra.microsoft.com> (or <https://portal.azure.com>) and sign in with a **personal** Microsoft account you own (Outlook.com works; a free account is fine). A UT account may not be allowed to register apps.
+2. Open **App registrations**, then **New registration**:
+   - Name: `TSTV Rundowns`
+   - Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**
+   - Redirect URI: **Web**, your website's address followed by `/api/auth/microsoft/callback`, for example `https://tstv-show.tstv-rundown.workers.dev/api/auth/microsoft/callback`
+   - Click **Register**, and copy the **Application (client) ID**.
+3. Open **Certificates & secrets**, then **New client secret**. Pick the longest expiry offered (it has to be renewed when it runs out), click **Add**, and copy its **Value** right away (it's shown once).
+4. In `apps/web`, type them in, one at a time:
+
+```bash
+npx wrangler secret put MICROSOFT_CLIENT_ID
+```
+
+```bash
+npx wrangler secret put MICROSOFT_CLIENT_SECRET
+```
+
+The **Sign in with Microsoft** button appears on the sign-in page once both are set (and the website is deployed). Invite people at the email they'll sign in with: for UT, either their `name@utexas.edu` email or their `eid@eid.utexas.edu` sign-in name works. If UT hasn't allowed outside apps, a UT person sees a message to sign in with Google instead, or UT's IT can approve **TSTV Rundowns**.
+
 ### F. Sign in
 
 Open your website and click **Sign in with Google**. You're the admin. Use **People** to invite everyone else by the email of their Google account (personal Gmail works).
