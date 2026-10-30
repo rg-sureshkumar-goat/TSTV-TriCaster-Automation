@@ -44,7 +44,7 @@ export function PeoplePage({ me }: { me: User }) {
         setEmail('');
         setAsAdmin(false);
       },
-      `Invited ${email} with ${asAdmin ? 'an admin' : 'a contributor'} account. They can now sign in with the Google account for that email.`,
+      `Invited ${email} with ${asAdmin ? 'an admin' : 'a contributor'} account. No email is sent: tell them to sign in with Google or Microsoft using that email.`,
     );
   };
 
@@ -55,7 +55,7 @@ export function PeoplePage({ me }: { me: User }) {
     <div className="page">
       <h1>People</h1>
       <p className="muted">
-        Only people listed here can sign in. Invite someone with the email of their Google account (a personal Gmail works). Admins can do
+        Only people listed here can sign in. Invite someone with the email of their Google or Microsoft account (a personal Gmail, or a UT account at name@utexas.edu or eid@eid.utexas.edu). No email is sent; tell them to sign in. Admins can do
         everything; contributors can build rundowns and write scripts.
       </p>
       <form className="inline-form" onSubmit={invite}>
