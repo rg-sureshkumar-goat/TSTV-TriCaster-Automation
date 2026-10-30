@@ -1,5 +1,6 @@
 /* The producer screen: dark, like the control room, with the tally colors the crew already knows
-   (red on air, green ready, amber warning). */
+   (red on air, green ready, amber warning). The switch at the top left turns on light mode (RG, Oct 29,
+   2026); the camera, program and preview boxes stay black in both, like video. */
 
 :root {
   --bg: #111317;
@@ -13,8 +14,40 @@
   --amber: #d97706;
   --blue: #2563eb;
   --purple: #9333ea;
+  /* Text colors that change with the mode. */
+  --link: #8ab4ff;
+  --error-text: #f87171;
+  --missing-text: #fca5a5;
+  --missing-border: #7f1d1d;
+  --ready-text: #4ade80;
+  --problems-bg: #3b2a12;
   color-scheme: dark;
   font: 15px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root[data-theme='light'] {
+  --bg: #f3f4f6;
+  --panel: #ffffff;
+  --panel-2: #e9ecf1;
+  --border: #cfd4dc;
+  --text: #111827;
+  --muted: #586170;
+  --link: #1d4ed8;
+  --error-text: #b91c1c;
+  --missing-text: #b91c1c;
+  --missing-border: #fca5a5;
+  --ready-text: #15803d;
+  --problems-bg: #fef3c7;
+  color-scheme: light;
+}
+
+/* Video boxes keep dark colors in both modes. */
+.program,
+.thumb,
+.cameras .camera {
+  --muted: #9aa2ae;
+  --border: #333943;
+  color: #e9ebef;
 }
 
 * {
@@ -57,7 +90,7 @@ button.primary {
 button.link {
   border: none;
   background: none;
-  color: #8ab4ff;
+  color: var(--link);
   padding: 0 4px;
 }
 
@@ -115,7 +148,7 @@ h3 {
 }
 
 .error {
-  color: #f87171;
+  color: var(--error-text);
 }
 
 .row {
@@ -282,11 +315,11 @@ h3 {
   background: var(--purple);
 }
 .missing {
-  color: #fca5a5;
+  color: var(--missing-text);
   font-size: 13px;
 }
 .ready {
-  color: #4ade80;
+  color: var(--ready-text);
   font-weight: 800;
 }
 .preview .thumb {
@@ -336,7 +369,7 @@ h3 {
   gap: 8px;
   margin: 10px 0 14px;
   padding: 12px;
-  background: #3b2a12;
+  background: var(--problems-bg);
   border-radius: 8px;
 }
 .problem {
@@ -810,8 +843,49 @@ h3 {
 }
 
 .missing-button {
-  color: #fca5a5;
-  border-color: #7f1d1d;
+  color: var(--missing-text);
+  border-color: var(--missing-border);
+}
+
+/* The light and dark switch at the top left, like the website's. */
+.theme-switch {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.theme-track {
+  display: flex;
+  align-items: center;
+  width: 44px;
+  height: 24px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+
+.theme-thumb {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  transition: transform 0.15s;
+}
+
+.theme-switch[aria-checked='true'] .theme-thumb {
+  transform: translateX(20px);
+}
+
+.theme-switch:focus-visible .theme-track {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
 
 .small-window {

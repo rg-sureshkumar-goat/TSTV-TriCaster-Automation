@@ -7,6 +7,7 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
+import { useTheme } from './theme.ts';
 
 declare global {
   interface Window {
@@ -113,6 +114,7 @@ function Header({ state }: { state: AppState }) {
   }, [episode?.id]);
   return (
     <header className="topbar">
+      <ThemeSwitch />
       <span className="title">{episode ? `${episode.showName} · ${episode.title}` : 'TSTV Show App'}</span>
       <span className="mode" title="Phase 4 runs the simulator only. Live mode for the real TC1 comes in Phase 5.">
         SIMULATOR
@@ -130,6 +132,19 @@ function Header({ state }: { state: AppState }) {
       {open === 'key' && <KeyPanel state={state} onDone={() => setOpen(null)} />}
       {open === 'simulator' && <SimulatorPanel state={state} />}
     </header>
+  );
+}
+
+/** Switches the app between light and dark mode, like the website's switch. */
+function ThemeSwitch() {
+  const [theme, setTheme] = useTheme();
+  const dark = theme === 'dark';
+  return (
+    <button className="theme-switch" role="switch" aria-checked={dark} aria-label="Dark mode" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme(dark ? 'light' : 'dark')}>
+      <span className="theme-track">
+        <span className="theme-thumb">{dark ? '☾' : '☀'}</span>
+      </span>
+    </button>
   );
 }
 
