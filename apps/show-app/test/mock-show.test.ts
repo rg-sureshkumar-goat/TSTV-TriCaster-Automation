@@ -145,18 +145,29 @@ describe('a mock show on the simulator', () => {
     expect(runtime.state().lastCue?.label).toBe('Take SOT (A4)');
   }, 30_000);
 
-  it('sends nothing at all while automation is paused', async () => {
-    await runtime.act({ kind: 'pause', paused: true });
+  it('in manual mode, fires only what the producer presses, and Continue hands the show back to the prompter', async () => {
+    await runtime.act({ kind: 'setManual', manual: true });
+    expect(runtime.state().automation.manual).toBe(true);
     const before = sim.externalCommands().length;
     cue('section', ids.a1);
     cue('cue', ids.tease);
-    await runtime.act({ kind: 'takeCamera', input: 3 });
-    await runtime.act({ kind: 'fireNext' });
     await new Promise((r) => setTimeout(r, 300));
     expect(sim.externalCommands().length).toBe(before);
-    await runtime.act({ kind: 'pause', paused: false });
+    // Left arrow twice, from the SOT: the VO, then the L3, go up again. Down arrow takes the L3 off.
+    await runtime.act({ kind: 'fireBack' });
+    await waitFor(() => clipOnAir() === 'A3_VO_Highlights');
+    await runtime.act({ kind: 'fireBack' });
+    await waitFor(() => clipOnAir() === 'A3_L3_Score');
+    await runtime.act({ kind: 'takeOff' });
+    await waitFor(() => !state().dsks.main_dsk2.onAir);
+    // A click on a camera takes it.
     await runtime.act({ kind: 'takeCamera', input: 3 });
     await waitFor(() => state().mes.v1.a === 'input3');
+    // Continue: up next is from the prompter's place (after A1's tease), and its next section takes its camera.
+    await runtime.act({ kind: 'setManual', manual: false });
+    expect(runtime.state().automation.upNext[0].id).toBe(ids.intro);
+    cue('section', ids.a2);
+    await waitFor(() => state().mes.v1.a === 'input1');
   });
 
   it('plays the music track the producer dropped on the Music box', async () => {

@@ -183,20 +183,80 @@ describe('the cue engine', () => {
     expect(engine.state.sectionId).toBe(ids.b1);
   });
 
-  it('sends nothing while paused, and doesn’t fire the cues passed while paused', () => {
+  it('in manual mode, ignores the prompter; Continue picks up from its place without firing what it passed', () => {
     const { plan, ids } = show();
     const engine = new CueEngine(plan);
     engine.sectionStarted(ids.a3);
-    engine.setPaused(true);
+    engine.setManual(true);
     expect(engine.cueReached(ids.l3)).toEqual([]);
     expect(engine.sectionStarted(ids.a4)).toEqual([]);
-    expect(engine.takeCamera(2)).toEqual([]);
-    engine.setPaused(false, { dskOn: false, camera: 2 });
+    // The producer's place, not the prompter's: the L3 is still next.
+    expect(engine.upNext()[0].id).toBe(ids.l3);
+    // Cameras change only when the producer clicks one.
+    expect(engine.takeCamera(2)).toEqual([{ kind: 'camera', input: 2 }]);
+    engine.setManual(false, { dskOn: false, camera: 2 });
+    expect(engine.state.sectionId).toBe(ids.a4);
     expect(engine.upNext()[0].id).toBe(ids.sot);
     expect(engine.cueReached(ids.sot)).toEqual([
       { kind: 'cueClip', item: 5 },
       { kind: 'dsk', on: true },
     ]);
+  });
+
+  it('in manual mode, the producer fires the next graphic, goes back one, and takes it off', () => {
+    const { plan, ids } = show();
+    const engine = new CueEngine(plan);
+    engine.setManual(true);
+    engine.sectionStarted(ids.a3);
+    // The prompter doesn't move the producer's place: the show's first cue is next, with nothing before it.
+    expect(engine.upNext()[0].id).toBe(ids.tease);
+    expect(engine.fireBack()).toEqual([]);
+    engine.chooseNext(ids.l3);
+    expect(engine.fireNext()).toEqual([
+      { kind: 'cueClip', item: 3 },
+      { kind: 'dsk', on: true },
+    ]);
+    expect(engine.fireNext()).toEqual([
+      { kind: 'dsk', on: false },
+      { kind: 'cueClip', item: 4 },
+      { kind: 'dsk', on: true },
+    ]);
+    expect(engine.state.onAir).toBe(ids.vo);
+    // Back: the L3 goes up again, and the VO is next again.
+    expect(engine.fireBack()).toEqual([
+      { kind: 'dsk', on: false },
+      { kind: 'cueClip', item: 3 },
+      { kind: 'dsk', on: true },
+    ]);
+    expect(engine.state.onAir).toBe(ids.l3);
+    expect(engine.upNext()[0].id).toBe(ids.vo);
+    // Back again goes past the start of the section, to A2's Show Intro.
+    expect(engine.previous()?.id).toBe(ids.intro);
+    // Down arrow: the graphic comes off.
+    expect(engine.takeOff()).toEqual([{ kind: 'dsk', on: false }]);
+    expect(engine.state.onAir).toBeNull();
+    expect(engine.takeOff()).toEqual([]);
+  });
+
+  it('plays a clip the producer fired in manual mode to its end', () => {
+    const { plan, ids } = show();
+    const engine = new CueEngine(plan);
+    engine.setManual(true);
+    engine.chooseNext(ids.sot);
+    engine.fireNext();
+    expect(engine.clipEnded()).toEqual([{ kind: 'dsk', on: false }]);
+  });
+
+  it('doesn’t restart a graphic the producer already put up when the prompter reaches its cue', () => {
+    const { plan, ids } = show();
+    const engine = new CueEngine(plan);
+    engine.sectionStarted(ids.a3);
+    engine.setManual(true);
+    engine.chooseNext(ids.l3);
+    engine.fireNext();
+    engine.setManual(false, { dskOn: true, camera: 1 });
+    expect(engine.cueReached(ids.l3)).toEqual([]);
+    expect(engine.state.onAir).toBe(ids.l3);
   });
 
   it('leaves out cues whose file is missing, and the producer’s camera wins', () => {

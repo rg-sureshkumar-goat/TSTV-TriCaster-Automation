@@ -35,10 +35,10 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 - **Program:** a placeholder for live video from the TriCaster (a later upgrade). For now it names the camera on air and the graphic over it. The **● LIVE** dot is red once the producer presses Start live broadcast.
 - **Cameras:** one box per camera from the show's settings, playing that camera's picture. Click one to take it; the one on air has a red frame. On the simulator each camera plays a moving test picture. Getting the real cameras' video from the TC1 is still to be worked out at the station (see below).
 - **Playlist:** what's on DSK 2 now, and the cues coming up. Next to each cue's section number is the file that will play (RG, Oct 29, 2026), or the music track for a music cue; hover over a long name to see all of it. Each upcoming cue has **Skip** (it won't fire; skipped cues can be put back) and **Play next** (it fires next, out of order). **Fire next** (or the **Space** bar) fires the next cue by hand.
-- **Pause automation** (or **P**): the app sends nothing at all, and the TD runs the switcher by hand. Resume picks up from the prompter's place, without firing the cues passed while paused.
+- **Pause automation** (or **P**) switches to **manual mode** (RG, Oct 29, 2026): the prompter's cues fire nothing and take no cameras, and the producer runs the graphics. **Space** or **→** fires the next graphic, **←** puts the previous one up again, and **↓** takes the graphic off (the Playlist also has **← Back** and **Take off ↓** buttons). Click a camera to take it. A SOT, package or VO you fire still comes off when its clip ends. The button turns into **Continue automation**, which hands the show back to the prompter from its current place, without firing the cues it passed in manual mode. Before Start live broadcast, the arrow keys work too, since the app isn't following the prompter yet.
 - **Section, Elapsed** (since Start live broadcast) and **Time left on current GFX** (the clip playing on DSK 2). Under them, the last cue and how long it took from the reading line to the switcher: green under 0.3 s, amber up to 0.5 s.
 - **Up next preview:** what the next cue will look like on air: the camera it plays over, playing, with the graphic on top (RG, Oct 29, 2026). Graphics keep their see-through parts, so an L3 or OTS sits over the camera, while a VO, SOT or package fills the screen. Thumbnails made before this change are remade by themselves when the app connects.
-- **Banners:** "Not live yet" before the broadcast starts, "Automation is paused" while paused, and "The prompter isn't connected" during a live show without a prompter.
+- **Banners:** "Not live yet" before the broadcast starts, "Manual mode" (with the keys) in manual mode, and "The prompter isn't connected" during a live show without a prompter.
 
 ### Graphics
 
@@ -121,11 +121,17 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
    - SOTs and the Show Intro play to their end, then back to the anchors
    - the music starts with the tease and stops just before the Show Intro
    - the latency stays green
-7. **Producer controls:** try **Skip**, **Play next**, **Fire next** with the Space bar, the camera buttons, and **Pause automation** (check nothing changes on the simulator while paused, then Resume).
-8. **No prompter:** close the prompter. The banner should appear, and Space should keep the show going.
-9. **Practice problems:** the simulator page can unplug the fake TC1 or end a clip early. Try both.
-10. **End live broadcast** on the website, and check the app stops following the prompter.
-11. **Tell me** what's missing or awkward, and whether Phase 4 is approved.
+7. **Producer controls:** try **Skip**, **Play next**, **Fire next** with the Space bar, and the camera buttons.
+8. **Manual mode:** during the show, click **Pause automation**. Check:
+   - the button turns green and says **Continue automation**, and a red banner lists the keys
+   - the prompter's cues no longer change anything on the simulator page, and the cameras don't switch by themselves
+   - **Space** or **→** puts the next graphic up, **←** puts the previous one back up, and **↓** takes it off
+   - clicking a camera takes it
+   - **Continue automation** hands back to the prompter: the next cue it reaches fires, and the next section takes its camera
+9. **No prompter:** close the prompter. The banner should appear, and Space should keep the show going.
+10. **Practice problems:** the simulator page can unplug the fake TC1 or end a clip early. Try both.
+11. **End live broadcast** on the website, and check the app stops following the prompter.
+12. **Tell me** what's missing or awkward, and whether Phase 4 is approved.
 
 ## Not yet
 
@@ -137,7 +143,7 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
 
 - **Colors:** the app colors cues the way the rundown and the prompter do: graphics blue, video red, music purple, permanent graphics green.
 - **Episode key.** The app reads the episode with its key (Bearer token) and joins the episode room read-only, so it can't change the rundown. It reports files and lengths with a message the room writes into the episode.
-- **The cue engine** (`packages/shared/src/engine.ts`) is pure logic with automatic tests for every rule. The switcher driver (`apps/show-app/src/main/switcher.ts`) is the only code that talks to a switcher. It refuses anything that doesn't call itself the TSTV Simulator, and Pause stops it sending entirely.
+- **The cue engine** (`packages/shared/src/engine.ts`) is pure logic with automatic tests for every rule. The switcher driver (`apps/show-app/src/main/switcher.ts`) is the only code that talks to a switcher. It refuses anything that doesn't call itself the TSTV Simulator. In manual mode the engine ignores the prompter, so only the producer's keys and clicks send anything.
 - **TC1 commands** used: `v1_a_row` (cameras on M/E 1), `ddr2_select_clips` (cue a clip), `main_dsk2_value` (DSK 2 on and off; DDR 2's AutoPlay plays and stops the clip), and `sound_select_clips` / `sound_play` / `sound_stop` (music). A clip's end is DDR 2 stopping by itself, with the seconds remaining at zero. The DDR and Sound player command names get confirmed on the real TC1 in Phase 5.
 - **FFmpeg** reads lengths and makes thumbnails, ProRes 4444 included.
-- **A mock-show test** runs the app's core against the simulator with real (tiny) clips: import, load, every cue rule, Pause, and the simulator-only lock.
+- **A mock-show test** runs the app's core against the simulator with real (tiny) clips: import, load, every cue rule, manual mode, and the simulator-only lock.

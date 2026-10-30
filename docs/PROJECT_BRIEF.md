@@ -12,7 +12,7 @@ The project is done when a producer can run a full 30-minute live show from her 
 - **Cues fire themselves.** Each graphic or clip fires when its cue reaches the prompter's reading line.
 - **Write from anywhere.** Writers type scripts from any location at any time. The producer edits live during the show, and the prompter updates without losing its place.
 - **Rundown Creator retired.** Everything TSTV uses in Rundown Creator today exists in the new website.
-- **Safe hand-off.** Pause Automation stops the tool instantly. Every file and setting is already loaded on the TC1, so the TD takes over on the physical panel without hunting for anything.
+- **Safe hand-off.** Pause Automation stops the tool following the prompter instantly. After that it sends only what the producer presses (manual mode, decided Oct 29, 2026). Every file and setting is already loaded on the TC1, so the TD takes over on the physical panel without hunting for anything.
 - **$0 to run.** Free hosting only, no paid services, no paid code signing.
 - **Mac and Windows.** Both the website and the laptop app work on either.
 
@@ -167,7 +167,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 - **Camera buttons:** each shows that camera's live picture (decided Oct 29, 2026; how the TC1 sends it is an open question below), one per camera, with names the producer sets (Anchor Camera, Weather Camera, Guest Camera). One click takes that camera to air. Input numbers are mapped once in settings.
 - **On air / Up next:** what's on air now, and the queue of upcoming cues. The producer can skip an element, pick a different one to play next, or fire the next cue by hand, all without touching the TriCaster.
 - **Preview:** what the next element will look like on air: the camera it plays over (its live picture), with the graphic laid on top, keeping the graphic's see-through parts (decided Oct 29, 2026). Until the TC1's camera video reaches the app (Phase 5), the simulator's test pictures stand in. A live video preview from the TriCaster is a possible later upgrade.
-- **Pause Automation:** a large button plus a keyboard shortcut (see below).
+- **Pause Automation:** a large button plus a keyboard shortcut (see below). In manual mode it becomes **Continue Automation**.
 - **Record:** starts and stops the TC1 recording, after the producer picks where the file should be saved.
 - **Show clock:** elapsed time, the current section, and over/under.
 
@@ -209,8 +209,8 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 **Pause Automation and failures**
 
-- **Pause** stops every command from the app at once. The prompter keeps scrolling, and the TD takes over on the physical panel. Pause goes over the cable, so it works even if the internet is down.
-- **Resume** picks up from the prompter's current position and does not fire any cues that were passed while paused.
+- **Pause** switches the app to **manual mode** at once (decided Oct 29, 2026; until then Pause stopped every command). The prompter keeps scrolling, but its cues fire nothing and take no cameras, so the app sends nothing on its own. The producer runs the graphics from the keyboard: **Space** or **→** fires the next graphic, **←** puts the previous one up again, and **↓** takes the graphic off. Cameras change only when the producer clicks one. A SOT, package or VO the producer fires still comes off when its clip ends. The TD can still take over on the physical panel. Pause goes over the cable, so it works even if the internet is down.
+- **Continue Automation** (the same button, or the same key) hands the show back to the prompter: the app picks up from the prompter's current position and fires the graphics as its cues reach the reading line. It doesn't fire the cues passed in manual mode.
 - **Lost prompter link:** if prompter events stop arriving, the app shows a banner. The producer can keep the show going by firing the next cue with the spacebar.
 - **Simulator mode:** the app can run against a fake TriCaster for practice and testing. It talks to the real TC1 only when someone switches to live mode on purpose.
 

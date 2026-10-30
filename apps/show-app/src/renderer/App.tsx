@@ -1,8 +1,9 @@
 // The producer screen, laid out from RG's sketch (docs/show-app-sketch.pdf, Oct 29, 2026):
-//   top:    Program with the cameras under it · the Playlist (on air, up next) · Pause, section, elapsed, time left
+//   top:    Program with the cameras under it · the Playlist (on air, up next) · Pause/Continue, section, elapsed, time left
 //   bottom: Up next preview · Permanent graphics drop box · Green screen drop box · Music
 // The episode key is at the top right. Import graphics opens a window that matches files to cues.
-// Keys: Space fires the next cue, P pauses.
+// Keys: Space fires the next cue, and P switches between manual mode and automation. In manual mode (and
+// before the show is live), → fires the next graphic too, ← goes back one, and ↓ takes it off.
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
@@ -46,17 +47,27 @@ export function App() {
   const [graphicsOpen, setGraphicsOpen] = useState<'edit' | 'missing' | false>(false);
   useEffect(() => window.showApp.onState(setState), []);
 
-  // Space fires the next cue; P pauses and resumes. Not while typing in a box or with a window open.
+  // The show's keys (see the top of this file). Not while typing in a box or with a window open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest('input, select, textarea') || !state?.episode || graphicsOpen) return;
-      if (e.key === ' ') {
-        e.preventDefault();
-        void act({ kind: 'fireNext' });
-      } else if (e.key === 'p' || e.key === 'P') {
-        e.preventDefault();
-        void act({ kind: 'pause', paused: !state.automation.paused });
-      }
+      // The arrows work only while the app isn't following the prompter, so a stray press can't upset it.
+      const byHand = state.automation.manual || !state.live.on;
+      const action: Action | null =
+        e.key === ' ' || (byHand && e.key === 'ArrowRight')
+          ? { kind: 'fireNext' }
+          : byHand && e.key === 'ArrowLeft'
+            ? { kind: 'fireBack' }
+            : byHand && e.key === 'ArrowDown'
+              ? { kind: 'takeOff' }
+              : e.key === 'p' || e.key === 'P'
+                ? { kind: 'setManual', manual: !state.automation.manual }
+                : null;
+      if (!action) return;
+      e.preventDefault();
+      // The button clicked last still has the keyboard; let go of it, so Space doesn't press it as well.
+      if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
+      void act(action);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -75,7 +86,7 @@ export function App() {
     setGraphicsOpen(from);
   };
   return (
-    <div className={`app${state.automation.paused ? ' paused' : ''}`}>
+    <div className={`app${state.automation.manual ? ' manual' : ''}`}>
       <Header state={state} />
       {!state.episode ? (
         <main className="empty">
@@ -193,13 +204,14 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
   const { automation, website, prompter, live } = state;
   return (
     <main className="show">
-      {automation.paused ? (
-        <div className="banner paused-banner" role="alert">
-          Automation is paused: the app sends nothing, and the TD runs the switcher. Press <kbd>P</kbd> to resume from the prompter’s place.
+      {automation.manual ? (
+        <div className="banner manual-banner" role="alert">
+          Manual mode: the prompter fires nothing. <kbd>Space</kbd> or <kbd>→</kbd> fires the next graphic, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off. Click a camera to take it.{' '}
+          <strong>Continue automation</strong> (<kbd>P</kbd>) lets the prompter’s cues fire them again.
         </div>
       ) : !live.on ? (
         <div className="banner quiet" role="status">
-          Not live yet. The app follows the prompter once the producer presses <strong>Start live broadcast</strong> on the website. Until then, the cameras and Fire next work by hand.
+          Not live yet. The app follows the prompter once the producer presses <strong>Start live broadcast</strong> on the website. Until then, the cameras, Fire next and the arrow keys work by hand.
         </div>
       ) : (
         website.status === 'connected' &&
@@ -250,7 +262,6 @@ function Cameras({ state }: { state: AppState }) {
           key={c.name}
           className={`camera${state.switcher.programInput === c.input ? ' on-air' : ''}`}
           onClick={() => act({ kind: 'takeCamera', input: c.input })}
-          disabled={state.automation.paused}
           aria-label={`Take ${c.name}`}
         >
           <CameraPicture src={c.video} />
@@ -284,6 +295,9 @@ function Panel({ title, actions, className = '', children }: { title: string; ac
 
 function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onImport: () => void; onEdit: () => void; onMissing: () => void }) {
   const { automation } = state;
+  // Back and Take off are for when the producer runs the graphics: manual mode, or before the show is live.
+  const byHand = automation.manual || !state.live.on;
+  const previous = automation.previous;
   const missing = state.sections.flatMap((s) => s.elements).filter((e) => e.behavior !== 'music' && !e.file).length;
   return (
     <Panel
@@ -303,13 +317,32 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
         </>
       }
     >
-      <h3>On air</h3>
+      <h3>
+        On air
+        {byHand && (
+          <button className="fire" onClick={() => act({ kind: 'takeOff' })} disabled={!automation.onAir}>
+            Take off <kbd>↓</kbd>
+          </button>
+        )}
+      </h3>
       <div className="on-air">{automation.onAir ? <Item element={automation.onAir} musicTrack={state.musicTrack?.file} /> : <span className="muted">Nothing on DSK 2</span>}</div>
       <h3>
         Up next
-        <button className="fire" onClick={() => act({ kind: 'fireNext' })} disabled={automation.upNext.length === 0 || automation.paused}>
-          Fire next <kbd>Space</kbd>
-        </button>
+        <span className="hand-buttons">
+          {byHand && (
+            <button
+              className="fire"
+              onClick={() => act({ kind: 'fireBack' })}
+              disabled={!previous}
+              title={previous ? `Puts ${previous.label} (${previous.sectionLabel}) up again` : 'Nothing to go back to'}
+            >
+              <kbd>←</kbd> Back
+            </button>
+          )}
+          <button className="fire" onClick={() => act({ kind: 'fireNext' })} disabled={automation.upNext.length === 0}>
+            Fire next <kbd>{byHand ? 'Space / →' : 'Space'}</kbd>
+          </button>
+        </span>
       </h3>
       <ol className="queue">
         {automation.upNext.map((e, i) => (
@@ -373,8 +406,8 @@ function Status({ state }: { state: AppState }) {
   const ms = lastCue?.latencyMs ?? null;
   return (
     <section className="cell panel status">
-      <button className={`pause${automation.paused ? ' resume' : ''}`} onClick={() => act({ kind: 'pause', paused: !automation.paused })}>
-        {automation.paused ? 'Resume automation' : 'Pause automation'} <kbd>P</kbd>
+      <button className={`pause${automation.manual ? ' resume' : ''}`} onClick={() => act({ kind: 'setManual', manual: !automation.manual })}>
+        {automation.manual ? 'Continue automation' : 'Pause automation'} <kbd>P</kbd>
       </button>
       <dl>
         <dt>Section</dt>

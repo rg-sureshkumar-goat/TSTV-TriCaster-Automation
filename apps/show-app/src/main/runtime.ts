@@ -66,12 +66,17 @@ export class Runtime extends EventEmitter {
   }
 
   /**
-   * Start live broadcast: automation starts following the prompter, from a clean slate, and the clock
-   * starts. End live broadcast: it stops (the producer's own buttons keep working).
+   * Start live broadcast: automation starts following the prompter, from a clean slate (still in manual
+   * mode if the producer chose it), and the clock starts. End live broadcast: it stops (the producer's own
+   * buttons keep working).
    */
   private onBroadcast(broadcast: Broadcast): void {
     if (broadcast.live) {
-      if (this.plan) this.engine = new CueEngine(this.plan);
+      if (this.plan) {
+        const manual = this.engine?.state.manual ?? false;
+        this.engine = new CueEngine(this.plan);
+        this.engine.setManual(manual);
+      }
       this.clock = { startedAt: broadcast.startedAt ?? Date.now(), sectionLabel: null, overUnderSeconds: null };
       this.note('Live: automation is following the prompter');
     } else {
@@ -121,7 +126,7 @@ export class Runtime extends EventEmitter {
   }
 
   private reportStatus(): void {
-    this.website.setAppStatus({ mode: 'simulator', switcherConnected: this.switcher.snapshot.status === 'connected', paused: this.engine?.state.paused ?? false });
+    this.website.setAppStatus({ mode: 'simulator', switcherConnected: this.switcher.snapshot.status === 'connected', paused: this.engine?.state.manual ?? false });
   }
 
   // ---- The show ----
@@ -189,7 +194,7 @@ export class Runtime extends EventEmitter {
     }
     // Clocks differ a little between computers, so very large or negative numbers aren't shown.
     this.lastCue = { label, latencyMs: latencyMs >= 0 && latencyMs < 10_000 ? latencyMs : null, at: Date.now() };
-    await this.run(commands, this.engine.state.paused ? `${label} (paused: not fired)` : label);
+    await this.run(commands, label);
   }
 
   // ---- Files ----
@@ -416,12 +421,13 @@ export class Runtime extends EventEmitter {
       switcher: { ...this.switcher.snapshot },
       prompter: { connected: p !== null, label: p?.label ?? '', speed: p?.speed ?? 0, paused: p?.paused ?? false },
       automation: {
-        paused: engine?.state.paused ?? false,
+        manual: engine?.state.manual ?? false,
         sectionId: engine?.state.sectionId ?? null,
         sectionLabel: plan?.sections.find((s) => s.id === engine?.state.sectionId)?.label ?? null,
         onAir: this.view(engine?.state.onAir ?? null) ?? null,
         upNext: engine ? engine.upNext().slice(0, 8).map((e) => this.toView(e, plan?.sections.find((s) => s.id === e.sectionId)?.label ?? '')) : [],
         nextChoice: engine?.state.nextChoice ?? null,
+        previous: this.view(engine?.previous()?.id ?? null) ?? null,
       },
       sections,
       problems: this.problems,
@@ -517,6 +523,14 @@ export class Runtime extends EventEmitter {
         const label = next ? this.view(next.id) : undefined;
         return this.run(engine.fireNext(), label ? `${label.label} (${label.sectionLabel}) fired by hand` : 'Nothing left to fire');
       }
+      case 'fireBack': {
+        if (!engine) return;
+        const back = this.view(engine.previous()?.id ?? null);
+        return this.run(engine.fireBack(), back ? `Back to ${back.label} (${back.sectionLabel}) by hand` : 'Nothing to go back to');
+      }
+      case 'takeOff':
+        if (!engine) return;
+        return this.run(engine.takeOff(), 'Graphic taken off by hand');
       case 'skip':
         engine?.skip(action.elementId, action.skipped);
         return this.changed();
@@ -526,10 +540,9 @@ export class Runtime extends EventEmitter {
       case 'takeCamera':
         if (!engine) return this.switcher.run([{ kind: 'camera', input: action.input }]);
         return this.run(engine.takeCamera(action.input), `Camera ${action.input} taken by hand`);
-      case 'pause':
-        engine?.setPaused(action.paused, { dskOn: this.switcher.snapshot.dskOn, camera: this.switcher.snapshot.programInput });
-        this.switcher.paused = action.paused;
-        this.note(action.paused ? 'Automation paused: the TD runs the switcher' : 'Automation resumed from the prompter’s place');
+      case 'setManual':
+        engine?.setManual(action.manual, { dskOn: this.switcher.snapshot.dskOn, camera: this.switcher.snapshot.programInput });
+        this.note(action.manual ? 'Manual mode: the producer fires the graphics' : 'Automation continued from the prompter’s place');
         this.reportStatus();
         return this.changed();
       case 'importFiles':

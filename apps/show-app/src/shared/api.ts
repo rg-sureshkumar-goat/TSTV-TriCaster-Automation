@@ -75,12 +75,15 @@ export interface AppState {
   };
   prompter: { connected: boolean; label: string; speed: number; paused: boolean };
   automation: {
-    paused: boolean;
+    /** Manual mode (Pause Automation): the producer fires the graphics and takes the cameras. */
+    manual: boolean;
     sectionId: string | null;
     sectionLabel: string | null;
     onAir: ElementView | null;
     upNext: ElementView[];
     nextChoice: string | null;
+    /** What going back (the left arrow) puts up again. */
+    previous: ElementView | null;
   };
   sections: SectionView[];
   problems: FileProblem[];
@@ -96,10 +99,12 @@ export type Action =
   | { kind: 'disconnect' }
   | { kind: 'connectSwitcher'; address: string }
   | { kind: 'fireNext' }
+  | { kind: 'fireBack' }
+  | { kind: 'takeOff' }
   | { kind: 'skip'; elementId: string; skipped: boolean }
   | { kind: 'chooseNext'; elementId: string | null }
   | { kind: 'takeCamera'; input: number }
-  | { kind: 'pause'; paused: boolean }
+  | { kind: 'setManual'; manual: boolean }
   | { kind: 'importFiles' }
   | { kind: 'addFiles'; paths: string[] }
   | { kind: 'chooseFile'; elementId: string }

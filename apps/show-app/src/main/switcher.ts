@@ -46,8 +46,6 @@ export class Switcher extends EventEmitter {
   private closed = false;
   private timecodeTimer: ReturnType<typeof setInterval> | null = null;
   snapshot: SwitcherSnapshot;
-  /** Pause Automation: nothing is sent while it's on. */
-  paused = false;
 
   /** address is host:port of the web control; the state stream is on statePort (5951 on the TC1). */
   constructor(address: string, private statePort = 5951) {
@@ -182,9 +180,9 @@ export class Switcher extends EventEmitter {
     return this.snapshot.status === 'connected' && input >= 1 && input <= 3 ? `${this.base}/sim/video/input${input}` : null;
   }
 
-  /** Sends one TC1 command, like v1_a_row=INPUT2. Nothing goes out while paused or to anything but the simulator. */
+  /** Sends one TC1 command, like v1_a_row=INPUT2. Nothing goes out to anything but the simulator. */
   async send(name: string, value?: string): Promise<boolean> {
-    if (this.paused || this.snapshot.status !== 'connected') return false;
+    if (this.snapshot.status !== 'connected') return false;
     const query = new URLSearchParams({ name, ...(value === undefined ? {} : { value }) });
     try {
       const response = await fetch(`${this.base}/v1/shortcut?${query}`, { signal: AbortSignal.timeout(2000) });

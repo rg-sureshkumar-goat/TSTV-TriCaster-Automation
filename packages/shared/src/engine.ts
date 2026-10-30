@@ -1,7 +1,7 @@
 // The cue engine (Phase 4): the brief's cue rules as plain logic. It hears what the prompter reports
 // (a section starting, a cue crossing the reading line), what the switcher reports (a clip ending) and
-// what the producer does (fire the next cue, skip one, take a camera, pause), and answers with the
-// switcher commands to send. It has no network code, so every rule has automatic tests.
+// what the producer does (fire the next cue or go back one, take a graphic off, skip one, take a camera,
+// switch to manual mode), and answers with the switcher commands to send. It has no network code, so every rule has automatic tests.
 //
 // Every element except music plays from DDR 2 through DSK 2, one at a time: a new cue replaces whatever
 // is up. Music plays from the Sound player alongside it.
@@ -159,12 +159,32 @@ export interface EngineState {
   nextChoice: string | null;
   /** The last element fired, by the prompter or the producer. */
   lastFired: string | null;
-  paused: boolean;
+  /**
+   * Manual mode (Pause Automation; RG, Oct 29, 2026): the prompter fires nothing and takes no cameras. The
+   * producer fires the graphics from the keyboard and takes the cameras by clicking them.
+   */
+  manual: boolean;
+  /** Where the prompter is (its last section and cue), followed in manual mode too, for Continue Automation. */
+  prompterSection: string | null;
+  prompterCue: string | null;
 }
 
 export class CueEngine {
   plan: ShowPlan;
-  state: EngineState = { sectionId: null, onAir: null, cued: null, returnTo: null, musicPlaying: false, camera: null, skipped: [], nextChoice: null, lastFired: null, paused: false };
+  state: EngineState = {
+    sectionId: null,
+    onAir: null,
+    cued: null,
+    returnTo: null,
+    musicPlaying: false,
+    camera: null,
+    skipped: [],
+    nextChoice: null,
+    lastFired: null,
+    manual: false,
+    prompterSection: null,
+    prompterCue: null,
+  };
   /** A clip to cue in DDR 2 once the one playing ends (cueing it now would cut that one off). */
   private waitingToCue: number | null = null;
 
@@ -235,11 +255,10 @@ export class CueEngine {
   sectionStarted(sectionId: string): SwitcherCommand[] {
     const section = this.section(sectionId);
     if (!section) return [];
-    // Paused: the TD runs the switcher by hand. The engine just follows the prompter's place.
-    if (this.state.paused) {
-      this.state.sectionId = sectionId;
-      return [];
-    }
+    this.state.prompterSection = sectionId;
+    this.state.prompterCue = null;
+    // Manual mode: the producer runs the show. The engine just notes the prompter's place.
+    if (this.state.manual) return [];
     const commands: SwitcherCommand[] = [];
     if (this.isPoint(this.plan.music.out, 'section', sectionId)) commands.push(...this.musicCommands(false));
     // The section that just ended takes its graphic or voiceover off. A SOT or package plays to its end.
@@ -261,15 +280,25 @@ export class CueEngine {
     return commands;
   }
 
-  /** A cue chip crossed the reading line (or the producer fired it). */
+  /** A cue chip crossed the prompter's reading line. */
   cueReached(elementId: string): SwitcherCommand[] {
     const element = this.element(elementId);
-    if (!element || this.state.skipped.includes(elementId)) return [];
+    if (!element) return [];
+    this.state.prompterSection = element.sectionId;
+    this.state.prompterCue = elementId;
+    // Manual mode: the cue is passed without firing, and isn't fired later either.
+    if (this.state.manual || this.state.skipped.includes(elementId)) return [];
+    return this.fire(element);
+  }
+
+  /** Puts an element on air (or starts the music), whether the prompter or the producer fired it. */
+  private fire(element: ShowElement): SwitcherCommand[] {
+    const elementId = element.id;
     if (this.state.nextChoice === elementId) this.state.nextChoice = null;
     this.state.lastFired = elementId;
-    // Paused: the cue is passed without firing, and isn't fired later either.
-    if (this.state.paused) return [];
-    // Fired ahead of the prompter: the engine follows along.
+    // Already up (the producer fired it ahead of the prompter): it isn't restarted.
+    if (this.state.onAir === elementId) return [];
+    // Fired ahead of (or behind) the prompter: the engine follows along.
     if (element.sectionId !== this.state.sectionId) this.state.sectionId = element.sectionId;
     const commands: SwitcherCommand[] = [];
     // The music stops just before its out cue fires (RG: right before the Show Intro begins).
@@ -292,10 +321,10 @@ export class CueEngine {
     return commands;
   }
 
-  /** The clip on DDR 2 played to its end. */
+  /** The clip on DDR 2 played to its end (in manual mode too: a SOT the producer fired still comes off). */
   clipEnded(): SwitcherCommand[] {
     const ended = this.element(this.state.onAir);
-    if (this.state.paused || !ended || ended.behavior === 'graphic') return [];
+    if (!ended || ended.behavior === 'graphic') return [];
     const commands: SwitcherCommand[] = [{ kind: 'dsk', on: false }];
     this.state.onAir = null;
     this.state.cued = null;
@@ -314,10 +343,37 @@ export class CueEngine {
     return commands;
   }
 
-  /** The producer fires the next cue by hand (the spacebar). */
+  /** The producer fires the next cue by hand (the spacebar, or the right arrow in manual mode). */
   fireNext(): SwitcherCommand[] {
     const next = this.upNext()[0];
-    return next ? this.cueReached(next.id) : [];
+    return next ? this.fire(next) : [];
+  }
+
+  /** The graphic before the last one fired: one with a file, not skipped, and not music. */
+  previous(): ShowElement | undefined {
+    const all = this.elements();
+    const last = all.findIndex((e) => e.id === this.state.lastFired);
+    return all
+      .slice(0, Math.max(last, 0))
+      .reverse()
+      .find((e) => e.behavior !== 'music' && e.ddrItem !== null && !this.state.skipped.includes(e.id));
+  }
+
+  /** The producer goes back to the previous graphic (the left arrow in manual mode): it goes up again. */
+  fireBack(): SwitcherCommand[] {
+    const previous = this.previous();
+    return previous ? this.fire(previous) : [];
+  }
+
+  /** The producer takes the graphic on DSK 2 off (the down arrow in manual mode). */
+  takeOff(): SwitcherCommand[] {
+    if (!this.state.onAir) return [];
+    this.state.onAir = null;
+    this.state.returnTo = null;
+    this.waitingToCue = null;
+    // DSK 2 off also stops DDR 2 and moves it to its next item.
+    this.state.cued = null;
+    return [{ kind: 'dsk', on: false }];
   }
 
   skip(elementId: string, skipped = true): void {
@@ -333,22 +389,27 @@ export class CueEngine {
 
   /** The producer takes a camera by hand. */
   takeCamera(input: number): SwitcherCommand[] {
-    if (this.state.paused) return [];
     this.state.camera = input;
     return [{ kind: 'camera', input }];
   }
 
   /**
-   * Pause Automation: nothing goes to the switcher, and the TD runs it by hand. Resume picks up from the
-   * prompter's place without firing the cues passed while paused; dskOn says whether DSK 2 is on now.
+   * Pause Automation switches to manual mode; Continue Automation switches back. The prompter's cues then
+   * fire again from its current place, without firing the ones it passed in manual mode. now says what's
+   * on the switcher, since the producer (or the TD) may have changed it.
    */
-  setPaused(paused: boolean, now?: { dskOn: boolean; camera: number | null }): void {
-    this.state.paused = paused;
-    if (!paused && now) {
+  setManual(manual: boolean, now?: { dskOn: boolean; camera: number | null }): void {
+    this.state.manual = manual;
+    if (manual) return;
+    if (now) {
       if (!now.dskOn) this.state.onAir = null;
       this.state.camera = now.camera;
-      this.state.cued = null;
-      this.state.returnTo = null;
+    }
+    this.state.cued = null;
+    this.state.returnTo = null;
+    if (this.state.prompterSection) {
+      this.state.sectionId = this.state.prompterSection;
+      this.state.lastFired = this.state.prompterCue;
     }
   }
 }
