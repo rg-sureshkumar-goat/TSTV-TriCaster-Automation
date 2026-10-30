@@ -61,6 +61,8 @@ export interface SwitcherSnapshot {
   ddrPlaying: boolean;
   ddrRemaining: number | null;
   musicPlaying: boolean;
+  /** DSK 2's source as the TC1 names it, like "input4" or "ddr2" (live mode checks it's input 4). */
+  dskSource: string | null;
   playlist: string[];
   soundTracks: string[];
 }
@@ -102,7 +104,7 @@ export class Switcher extends EventEmitter {
     private localAddress?: string,
   ) {
     super();
-    this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, playlist: [], soundTracks: [] };
+    this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, dskSource: null, playlist: [], soundTracks: [] };
     if (playout) {
       // The playout stands in for DDR 2 and the Sound player.
       const follow = () => this.set({ ddrItem: playout.state.item, ddrPlaying: playout.state.playing, ddrRemaining: playout.state.remaining, musicPlaying: playout.state.musicPlaying });
@@ -197,7 +199,7 @@ export class Switcher extends EventEmitter {
     const input = /^INPUT(\d+)$/i.exec(this.states.get('v1_a_row_named_input') ?? '');
     const dskOn = this.states.get('main_dsk2_value') === '1' || this.states.get('main_dsk2_take') === 'true';
     // Live mode: the TC1's DDR 2 and Sound player aren't used; the playout reports instead.
-    if (this.live) return this.set({ programInput: input ? Number(input[1]) : null, dskOn });
+    if (this.live) return this.set({ programInput: input ? Number(input[1]) : null, dskOn, dskSource: this.states.get('main_dsk2_select_named_input')?.toLowerCase() ?? null });
     const ddrPlaying = this.states.get('ddr2_play') === 'true';
     const item = Number.parseInt(this.states.get('ddr2_select_clips') ?? '', 10);
     this.set({

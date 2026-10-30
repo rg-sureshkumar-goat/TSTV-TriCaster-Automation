@@ -203,10 +203,16 @@ function LiveSwitch({ state }: { state: AppState }) {
 function LiveBar({ state }: { state: AppState }) {
   if (state.mode !== 'live') return null;
   const connections = state.playout?.connections ?? 0;
+  const dskSource = state.switcher.dskSource;
   return (
     <div className="live-bar" role="status">
       <strong>LIVE: TC1</strong>
       <span>The app is running the real TriCaster.</span>
+      {dskSource && dskSource !== 'input4' && (
+        <span className="live-warning" role="alert">
+          DSK 2’s source on the TC1 is {dskSource.toUpperCase()}, not input 4, so the graphics won’t show. Set DSK 2’s source to input 4.
+        </span>
+      )}
       <span className="small">
         {state.playout?.error ?? (connections > 0 ? `Input 4 is taking the laptop’s graphics (${connections} connection${connections === 1 ? '' : 's'}).` : 'Waiting for the TC1’s input 4 to take the laptop’s graphics…')}
       </span>

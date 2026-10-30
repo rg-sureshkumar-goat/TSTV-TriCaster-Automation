@@ -1073,3 +1073,11 @@ button.danger {
   border-color: var(--red);
   color: #fff;
 }
+
+.live-warning {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--red);
+  font-weight: 700;
+}

@@ -88,6 +88,7 @@ export interface AppState {
     ddrPlaying: boolean;
     ddrRemaining: number | null;
     musicPlaying: boolean;
+    dskSource: string | null;
     playlist: string[];
     soundTracks: string[];
   };

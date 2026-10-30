@@ -910,7 +910,10 @@ export class Runtime extends EventEmitter {
   private async syncSimulator(): Promise<void> {
     const clips = this.simulatorClips();
     const { status, playlist, ddrPlaying, dskOn } = this.switcher.snapshot;
-    if (!clips || status !== 'connected' || ddrPlaying || dskOn || this.syncingSimulator) return;
+    // On the simulator, DDR 2 isn't reloaded while it's on air. In live mode the playout is the app's own,
+    // so the TC1's DSK 2 doesn't hold it up (at the studio it was on from before, Oct 30, 2026).
+    const busy = this.switcher.mode === 'live' ? ddrPlaying : ddrPlaying || dskOn;
+    if (!clips || status !== 'connected' || busy || this.syncingSimulator) return;
     if (clips.length === playlist.length && clips.every((c, i) => clipKey(c.name) === clipKey(playlist[i]))) return;
     this.syncingSimulator = true;
     try {
