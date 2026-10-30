@@ -54,6 +54,12 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await expect(script.locator('.cue-chip')).toHaveText('Take FSG');
   await script.locator('p').last().click();
   await rg.keyboard.type('After the graphic.');
+  // A camera cue on its own line, then more words.
+  await rg.keyboard.press('Enter');
+  await rg.getByRole('button', { name: 'Add camera cue: Take Camera 2' }).click();
+  await expect(script.locator('.cue-chip.camera')).toHaveText('Take Camera 2');
+  await script.locator('p').last().click();
+  await rg.keyboard.type('On camera two.');
 
   // The prompter, in its own window.
   const prompter = await rg.context().newPage();
@@ -65,7 +71,7 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   // Just the number and the camera: the speaker marker below says who reads.
   await expect(prompter.locator('.p-section').first()).not.toContainText('JORDAN');
   await expect(prompter.locator('.p-speaker')).toHaveText('JORDAN');
-  await expect(prompter.locator('.p-cue')).toHaveText('TAKE FSG');
+  await expect(prompter.locator('.p-cue')).toHaveText(['TAKE FSG', 'TAKE CAMERA 2']);
   await expect(prompter.locator('.p-text', { hasText: 'SECOND LINE.' })).toBeVisible();
   await expect(prompter.getByText('FLOATED STORY')).toHaveCount(0);
 
@@ -80,6 +86,7 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   for (let i = 0; i < 15; i++) await prompter.keyboard.press('ArrowUp');
   await expect(prompter.locator('.prompter-hud')).toContainText('▶ 15');
   await expect(bar).toContainText('Take FSG (A1)', { timeout: 20_000 });
+  await expect(bar).toContainText('Camera cue (A1)', { timeout: 20_000 });
   await prompter.keyboard.press(' ');
   await expect(prompter.locator('.prompter-hud')).toContainText('Paused');
 

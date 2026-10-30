@@ -1078,6 +1078,11 @@ tr.dragging td {
   color: #581c87;
 }
 
+.element-chip.camera {
+  background: #fef3c7;
+  color: #78350f;
+}
+
 .menu-heading {
   padding: 8px 10px 2px;
   font-size: 11px;
@@ -1108,6 +1113,11 @@ tr.dragging td {
     background: #581c87;
     color: #f3e8ff;
   }
+
+  :root:not([data-theme='light']) .element-chip.camera {
+    background: #78350f;
+    color: #fef3c7;
+  }
 }
 
 :root[data-theme='dark'] .element-chip.graphic {
@@ -1128,6 +1138,11 @@ tr.dragging td {
 :root[data-theme='dark'] .element-chip.music {
   background: #581c87;
   color: #f3e8ff;
+}
+
+:root[data-theme='dark'] .element-chip.camera {
+  background: #78350f;
+  color: #fef3c7;
 }
 
 /* A graphic with no cue chip in its script yet. */
@@ -1811,6 +1826,10 @@ button.danger {
 
 .p-cue.permanent span {
   background: #16a34a;
+}
+
+.p-cue.camera span {
+  background: #d97706;
 }
 
 .p-block,

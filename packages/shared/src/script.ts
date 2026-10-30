@@ -1,7 +1,8 @@
 // Section scripts. Each section's script is a shared document in the episode's room, so several people
 // can type in the same script at once without overwriting each other. A script is a list of lines: lines
 // of text, and cue chips, each on a line of its own. A cue chip marks where one of the section's graphics
-// fires, and is linked to that graphic (rundown element) by its id. A speaker's part starts with their
+// fires, and is linked to that graphic (rundown element) by its id. A camera cue marks where the switcher
+// takes another camera in the middle of a section (RG, Oct 30, 2026). A speaker's part starts with their
 // name in curly brackets, like {JORDAN}. Scripts are written in capital letters (decided Oct 29, 2026).
 //
 // The episode room creates a section's script as soon as the section exists, and writes the readers'
@@ -16,6 +17,7 @@ export const READING_SPEED = { minWordsPerMinute: 143, maxWordsPerMinute: 154 } 
 /** Names used inside a script document (they match the script editor's). */
 export const PARAGRAPH_NODE = 'paragraph';
 export const CUE_NODE = 'cue';
+export const CAMERA_CUE_NODE = 'cameraCue';
 
 /** A speaker's name in curly brackets, like {JORDAN}, which marks where their part starts. */
 const SPEAKER_TAG_SOURCE = '\\{([^{}\\n]{1,60})\\}';
@@ -28,8 +30,8 @@ export interface ScriptInfo {
   updatedAt?: number;
 }
 
-/** A piece of a line: text, or a cue chip for one of the section's graphics. */
-export type ScriptPiece = { kind: 'text'; text: string } | { kind: 'cue'; elementId: string };
+/** A piece of a line: text, a cue chip for one of the section's graphics, or a camera cue (by camera name). */
+export type ScriptPiece = { kind: 'text'; text: string } | { kind: 'cue'; elementId: string } | { kind: 'camera'; camera: string };
 
 /** Every section's script, by section id. */
 export function scriptBodiesOf(doc: Y.Doc): Y.Map<Y.XmlFragment> {
@@ -61,6 +63,9 @@ export function readScriptParagraphs(body: Y.XmlFragment): ScriptPiece[][] {
     } else if (node instanceof Y.XmlElement && node.nodeName === CUE_NODE) {
       const elementId = node.getAttribute('elementId');
       if (typeof elementId === 'string' && elementId) into.push({ kind: 'cue', elementId });
+    } else if (node instanceof Y.XmlElement && node.nodeName === CAMERA_CUE_NODE) {
+      const camera = node.getAttribute('camera');
+      if (typeof camera === 'string' && camera) into.push({ kind: 'camera', camera });
     }
   };
   for (const child of body.toArray()) {
@@ -181,7 +186,7 @@ function splitAtCues(pieces: ScriptPiece[]): Y.XmlElement[] {
   for (const piece of pieces) {
     if (piece.kind === 'text') {
       text += piece.text;
-    } else {
+    } else if (piece.kind === 'cue') {
       flush(true);
       lines.push(cueOf(piece.elementId));
       afterCue = true;

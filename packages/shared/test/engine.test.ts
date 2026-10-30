@@ -306,6 +306,28 @@ describe('the cue engine', () => {
     expect(engine.sectionStarted(ids.b1)).toEqual([{ kind: 'camera', input: 3 }]);
   });
 
+  it('takes another camera at a camera cue in the middle of a section, unless the producer has the cameras', () => {
+    const { plan, ids } = show();
+    const cue = (id: string, sectionId: string, input: number) => ({ id, sectionId, camera: `Camera ${input}`, input });
+    plan.sections[2].cameraCues = [cue('camera-mid', ids.a3, 2), cue('camera-back', ids.a3, 1)];
+    plan.sections[4].cameraCues = [cue('camera-top', ids.b1, 2)];
+    const engine = new CueEngine(plan);
+    expect(engine.sectionStarted(ids.a3)).toContainEqual({ kind: 'camera', input: 1 });
+    expect(engine.cueReached('camera-mid')).toEqual([{ kind: 'camera', input: 2 }]);
+    expect(engine.cueReached('camera-mid')).toEqual([]);
+    expect(engine.cueReached('camera-back')).toEqual([{ kind: 'camera', input: 1 }]);
+    // The producer has the cameras: camera cues take nothing.
+    engine.setCamerasByHand(true, 1);
+    expect(engine.cueReached('camera-mid')).toEqual([]);
+    engine.setCamerasByHand(false, 1);
+    engine.setManual(true);
+    expect(engine.cueReached('camera-mid')).toEqual([]);
+    engine.setManual(false, { dskOn: false, camera: 1 });
+    // A camera cue at the very top of B1 takes its camera instead of B1's (camera 3), once.
+    expect(engine.sectionStarted(ids.b1, ['camera-top']).filter((c) => c.kind === 'camera')).toEqual([{ kind: 'camera', input: 2 }]);
+    expect(engine.cueReached('camera-top')).toEqual([]);
+  });
+
   it('plays a clip the producer fired in manual mode to its end', () => {
     const { plan, ids } = show();
     const engine = new CueEngine(plan);

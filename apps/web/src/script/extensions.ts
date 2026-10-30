@@ -1,11 +1,12 @@
 // The script editor's own pieces: cue chips, which are locked lines linked to the section's graphics,
+// camera cues, which take another camera in the middle of a section,
 // speaker tags like {JORDAN}, shown in that person's color, and typing in capital letters.
 import { Extension, mergeAttributes, Node, type Editor } from '@tiptap/core';
 import { Fragment, Slice, type Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 import { ySyncPluginKey } from '@tiptap/y-tiptap';
-import { CUE_NODE, cueLabel, elementKind, SPEAKER_TAG, type Element } from '@tstv/shared';
+import { CAMERA_CUE_NODE, CUE_NODE, cueLabel, elementKind, SPEAKER_TAG, type Element } from '@tstv/shared';
 
 /** A value the editor reads that can change while it's open, like the episode's graphics. */
 export interface Live<T> {
@@ -100,15 +101,71 @@ export const Cue = Node.create<{ elements: Live<Map<string, Element>> }>({
 });
 
 /**
+ * A camera cue: where the switcher takes another camera in the middle of a section (RG, Oct 30, 2026). It
+ * stores the camera's name, and sits on a line of its own like a cue chip.
+ */
+export const CameraCue = Node.create({
+  name: CAMERA_CUE_NODE,
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+
+  addAttributes() {
+    return {
+      camera: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-camera'),
+        renderHTML: (attrs) => ({ 'data-camera': attrs.camera as string }),
+      },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-camera-cue]' }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes({ 'data-camera-cue': '' }, HTMLAttributes)];
+  },
+
+  renderText({ node }) {
+    return `[Take ${node.attrs.camera as string}]`;
+  },
+
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement('div');
+      dom.className = 'cue-line';
+      dom.contentEditable = 'false';
+      const chip = dom.appendChild(document.createElement('span'));
+      chip.className = 'cue-chip element-chip camera';
+      chip.textContent = `Take ${node.attrs.camera as string}`;
+      chip.title = 'Camera cue: the switcher takes this camera when the prompter reaches it. Drag to move it.';
+      return { dom };
+    };
+  },
+});
+
+/**
  * Puts a cue chip on a line of its own where the cursor is. A line the cursor is in the middle of is split
  * around it, and the cursor ends up on the line below, ready to keep typing.
  */
 export function insertCue(editor: Editor, elementId: string): boolean {
+  return insertLine(editor, CUE_NODE, { elementId });
+}
+
+/** Puts a camera cue on a line of its own where the cursor is, like insertCue. */
+export function insertCameraCue(editor: Editor, camera: string): boolean {
+  return insertLine(editor, CAMERA_CUE_NODE, { camera });
+}
+
+function insertLine(editor: Editor, nodeName: string, attrs: Record<string, string>): boolean {
   return editor
     .chain()
     .focus()
     .command(({ tr }) => {
-      const cue = tr.doc.type.schema.nodes[CUE_NODE].create({ elementId });
+      const cue = tr.doc.type.schema.nodes[nodeName].create(attrs);
       if (tr.selection instanceof NodeSelection) {
         // A chip is selected: the new one goes on the line below it.
         const below = tr.selection.to;

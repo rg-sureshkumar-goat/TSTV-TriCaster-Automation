@@ -60,6 +60,16 @@ export interface ShowSection {
   camera: string;
   input: number;
   elements: ShowElement[];
+  /** Cameras to take in the middle of the section, where their camera cues are in the script (RG, Oct 30, 2026). */
+  cameraCues: ShowCameraCue[];
+}
+
+export interface ShowCameraCue {
+  /** Its cameraCueId. */
+  id: string;
+  sectionId: string;
+  camera: string;
+  input: number;
 }
 
 /** A point in the show: a section starting, or a cue crossing the reading line. */
@@ -104,6 +114,8 @@ export function clipKey(name: string): string {
  * Each commercial break is a cue for the show's break graphic (RG, Oct 29, 2026), at the end of the
  * section before it, so it comes next after that section's cues. The prompter fires it at the break's line,
  * and it stays up for the whole break, after its clip ends, until the next section starts.
+ *
+ * cameraCues are each section's camera cues from its script (see cameraCues in prompter.ts), by section id.
  */
 export function buildShowPlan(
   timing: RundownTiming,
@@ -112,6 +124,7 @@ export function buildShowPlan(
   ddrPlaylist: string[],
   soundTracks: string[],
   music?: { in: CuePoint | null; out: CuePoint | null; track?: string | null },
+  cameraCues: Record<string, { id: string; camera: string }[]> = {},
 ): ShowPlan {
   const playlist = ddrPlaylist.map(clipKey);
   const element = (id: string, sectionId: string, type: ElementType, name: string): ShowElement => {
@@ -136,7 +149,8 @@ export function buildShowPlan(
     const elements = row.elements.map((e) => element(e.id, row.id, e.type, e.name));
     if (breakFirst && breakName) elements.unshift(breakCue(breakFirst, row.id));
     breakFirst = null;
-    sections.push({ id: row.id, label: c.label, slug: row.slug, type: row.type, camera, input: cameraInput(settings, camera), elements });
+    const cameras = (cameraCues[row.id] ?? []).map((cue) => ({ id: cue.id, sectionId: row.id, camera: cue.camera, input: cameraInput(settings, cue.camera) }));
+    sections.push({ id: row.id, label: c.label, slug: row.slug, type: row.type, camera, input: cameraInput(settings, camera), elements, cameraCues: cameras });
   }
   // The track the producer dropped on the show app's Music box wins (RG, Oct 29, 2026); otherwise the
   // Sound player track named like the MUSIC element; otherwise the first one.
@@ -228,6 +242,11 @@ export class CueEngine {
     return id ? this.elements().find((e) => e.id === id) : undefined;
   }
 
+  /** A camera cue, by its id. */
+  cameraCue(id: string | null): ShowCameraCue | undefined {
+    return id ? this.plan.sections.flatMap((s) => s.cameraCues).find((c) => c.id === id) : undefined;
+  }
+
   private section(id: string | null): ShowSection | undefined {
     return id ? this.plan.sections.find((s) => s.id === id) : undefined;
   }
@@ -302,9 +321,13 @@ export class CueEngine {
     }
     this.state.returnTo = null;
     this.state.sectionId = sectionId;
-    if (!this.state.camerasByHand && this.state.camera !== section.input) {
-      commands.push({ kind: 'camera', input: section.input });
-      this.state.camera = section.input;
+    // A camera cue at the very top of the script takes its camera instead of the section's.
+    const topCameras = topCues.map((id) => section.cameraCues.find((c) => c.id === id)).filter((c): c is ShowCameraCue => !!c);
+    for (const c of topCameras) this.firedEarly.add(c.id);
+    const input = topCameras.at(-1)?.input ?? section.input;
+    if (!this.state.camerasByHand && this.state.camera !== input) {
+      commands.push({ kind: 'camera', input });
+      this.state.camera = input;
     }
     if (!replaced) commands.push(...this.cueCommands(this.firstClipFrom(sectionId)));
     if (this.isPoint(this.plan.music.in, 'section', sectionId)) commands.push(...this.musicCommands(true));
@@ -315,8 +338,10 @@ export class CueEngine {
     return commands;
   }
 
-  /** A cue chip crossed the prompter's reading line. */
+  /** A cue chip (a graphic's, or a camera cue) crossed the prompter's reading line. */
   cueReached(elementId: string): SwitcherCommand[] {
+    const camera = this.cameraCue(elementId);
+    if (camera) return this.cameraCueReached(camera);
     const element = this.element(elementId);
     if (!element) return [];
     this.state.prompterSection = element.sectionId;
@@ -326,6 +351,18 @@ export class CueEngine {
     // Manual mode: the cue is passed without firing, and isn't fired later either.
     if (this.state.manual || this.state.skipped.includes(elementId)) return [];
     return this.fire(element);
+  }
+
+  /**
+   * A camera cue takes its camera, like a section starting does: not in manual mode or with the cameras
+   * by hand, when the producer takes them.
+   */
+  private cameraCueReached(cue: ShowCameraCue): SwitcherCommand[] {
+    this.state.prompterSection = cue.sectionId;
+    if (this.firedEarly.delete(cue.id)) return [];
+    if (this.state.manual || this.state.camerasByHand || this.state.camera === cue.input) return [];
+    this.state.camera = cue.input;
+    return [{ kind: 'camera', input: cue.input }];
   }
 
   /** Puts an element on air (or starts the music), whether the prompter or the producer fired it. */

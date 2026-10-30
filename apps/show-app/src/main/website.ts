@@ -5,7 +5,7 @@ import { EventEmitter } from 'node:events';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
 import YProvider from 'y-partyserver/provider';
-import { normalizeShowSettings, observeBroadcast, readBroadcast, rowsOf, type Broadcast, type ShowSettings } from '@tstv/shared';
+import { cameraCues, normalizeShowSettings, observeBroadcast, readBroadcast, rowsOf, scriptBodiesOf, type Broadcast, type ShowSettings } from '@tstv/shared';
 
 export interface EpisodeInfo {
   id: string;
@@ -121,6 +121,16 @@ export class WebsiteLink extends EventEmitter {
       this.emit('change');
     });
     rowsOf(doc).observeDeep(() => this.emit('rundown'));
+    // Camera cues are in the scripts: the show is rebuilt when one is added, moved or removed, not on every
+    // letter typed.
+    const cameras = () => JSON.stringify([...scriptBodiesOf(doc).keys()].map((id) => cameraCues(doc, id)));
+    let lastCameras = cameras();
+    scriptBodiesOf(doc).observeDeep(() => {
+      const now = cameras();
+      if (now === lastCameras) return;
+      lastCameras = now;
+      this.emit('rundown');
+    });
     observeBroadcast(doc, () => this.emit('broadcast', readBroadcast(doc)));
     doc.getMap('media').observe(() => this.emit('rundown'));
   }

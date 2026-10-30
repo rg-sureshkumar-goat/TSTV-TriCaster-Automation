@@ -13,6 +13,8 @@ export type PrompterLine =
   | { kind: 'speaker'; key: string; sectionId: string; name: string }
   | { kind: 'text'; key: string; sectionId: string; text: string }
   | { kind: 'cue'; key: string; sectionId: string; element: Element }
+  /** A camera cue: the switcher takes this camera here, in the middle of the section (RG, Oct 30, 2026). */
+  | { kind: 'camera'; key: string; sectionId: string; cueId: string; camera: string }
   | { kind: 'end'; key: string };
 
 /** The prompter's lines for an episode. Keys stay the same while scripts are edited around them. */
@@ -35,11 +37,12 @@ export function prompterLines(doc: Y.Doc, timing: RundownTiming, defaultCamera: 
     for (const { key, pieces } of body ? readScriptLines(body) : []) {
       const text = pieces.map((p) => (p.kind === 'text' ? p.text : '')).join('');
       pieces.forEach((p, i) => {
+        if (p.kind === 'camera') lines.push({ kind: 'camera', key: `${key}-${i}`, sectionId, cueId: cameraCueId(key, i), camera: p.camera });
         // A cue for a graphic removed from the rundown has nothing to fire, so it isn't shown.
         const element = p.kind === 'cue' ? elements.get(p.elementId) : undefined;
         if (element) lines.push({ kind: 'cue', key: `${key}-${i}`, sectionId, element });
       });
-      if (pieces.some((p) => p.kind === 'cue') && !text.trim()) continue;
+      if (pieces.some((p) => p.kind !== 'text') && !text.trim()) continue;
       const speaker = speakerTagLine(text);
       lines.push(speaker ? { kind: 'speaker', key, sectionId, name: speaker } : { kind: 'text', key, sectionId, text });
     }
@@ -49,17 +52,38 @@ export function prompterLines(doc: Y.Doc, timing: RundownTiming, defaultCamera: 
 }
 
 /**
+ * A camera cue's id, from where it sits in the script: it stays the same while the script is edited around
+ * it, and a copy pasted elsewhere gets its own. The prompter sends it like a graphic's cue.
+ */
+export function cameraCueId(lineKey: string, index: number): string {
+  return `camera-${lineKey}-${index}`;
+}
+
+export function isCameraCueId(id: string): boolean {
+  return id.startsWith('camera-');
+}
+
+/** A section's camera cues, in script order. */
+export function cameraCues(doc: Y.Doc, sectionId: string): { id: string; camera: string }[] {
+  const body = scriptBody(doc, sectionId);
+  return (body ? readScriptLines(body) : []).flatMap(({ key, pieces }) => pieces.flatMap((p, i) => (p.kind === 'camera' ? [{ id: cameraCueId(key, i), camera: p.camera }] : [])));
+}
+
+/**
  * The cues at the very top of a section's script, before any words to read (speaker tags and empty lines
- * don't count), in order. The show app fires them as the section starts, rather than once the section's
+ * don't count), in order: graphics by element id, and camera cues by cameraCueId. The show app fires them as the section starts, rather than once the section's
  * number, camera and talent lines have scrolled past, so back-to-back teases play one after another with
  * no camera between them (RG, Oct 29, 2026).
  */
 export function topCues(doc: Y.Doc, sectionId: string): string[] {
   const body = scriptBody(doc, sectionId);
   const cues: string[] = [];
-  for (const { pieces } of body ? readScriptLines(body) : []) {
+  for (const { key, pieces } of body ? readScriptLines(body) : []) {
     // The prompter shows a line's cues above its words.
-    for (const p of pieces) if (p.kind === 'cue') cues.push(p.elementId);
+    pieces.forEach((p, i) => {
+      if (p.kind === 'cue') cues.push(p.elementId);
+      else if (p.kind === 'camera') cues.push(cameraCueId(key, i));
+    });
     const text = pieces.map((p) => (p.kind === 'text' ? p.text : '')).join('');
     if (text.trim() && !speakerTagLine(text)) break;
   }

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { breakGraphic, clipSecondsBySection, computeRundown, cueLabel, formatDuration, formatOverUnder, sectionSecondsFrom, talentColors, type Broadcast, type RundownTiming, type ShowSettings } from '@tstv/shared';
+import { breakGraphic, clipSecondsBySection, computeRundown, cueLabel, formatDuration, isCameraCueId, formatOverUnder, sectionSecondsFrom, talentColors, type Broadcast, type RundownTiming, type ShowSettings } from '@tstv/shared';
 import { TalentPanel } from '../rundown/TalentPanel.tsx';
 import { api, useLoad, type User } from '../lib/api.ts';
 import { Link, navigate } from '../lib/router.tsx';
@@ -291,7 +291,8 @@ function PrompterBar({ others, lastCue, timing, live }: { others: Presence[]; la
     const c = section(lastCue.sectionId);
     if (lastCue.kind === 'section') return `${c?.label ?? 'A section'} started`;
     const element = c?.row.kind === 'section' ? c.row.elements.find((e) => e.id === lastCue.elementId) : undefined;
-    return `${element ? cueLabel(element) : 'A cue'}${c ? ` (${c.label})` : ''}`;
+    const name = element ? cueLabel(element) : lastCue.elementId && isCameraCueId(lastCue.elementId) ? 'Camera cue' : 'A cue';
+    return `${name}${c ? ` (${c.label})` : ''}`;
   })();
   return (
     <div className="prompter-bar" role="status" aria-label="Prompter">

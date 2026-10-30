@@ -1,5 +1,5 @@
 // The script editor for one section: shared text in capital letters where everyone's cursor shows, a
-// toolbar that drops cue chips for the section's graphics, and buttons that start a speaker's part with {NAME}.
+// toolbar that drops cue chips for the section's graphics and camera cues, and buttons that start a speaker's part with {NAME}.
 import { useEffect, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import type YProvider from 'y-partyserver/provider';
@@ -13,7 +13,7 @@ import { Dropcursor, Gapcursor, Placeholder } from '@tiptap/extensions';
 import { addElement, cueLabel, elementKind, readersOf, speakerTag, type Element, type Person, type SectionRow } from '@tstv/shared';
 import { Popover } from '../components/Popover.tsx';
 import { GraphicMenu } from '../rundown/GraphicMenu.tsx';
-import { Capitals, Cue, insertCue, live, SpeakerTags } from './extensions.ts';
+import { CameraCue, Capitals, Cue, insertCameraCue, insertCue, live, SpeakerTags } from './extensions.ts';
 
 interface Props {
   body: Y.XmlFragment;
@@ -30,10 +30,12 @@ interface Props {
   /** How many cue chips this script has for each graphic. */
   cueCounts: Map<string, number>;
   permanent: string[];
+  /** The show's cameras, for camera cues. */
+  cameras: string[];
   onFocusChange: (focused: boolean) => void;
 }
 
-export function ScriptWriter({ body, provider, doc, section, label, me, readOnly, elements, speakers, cueCounts, permanent, onFocusChange }: Props) {
+export function ScriptWriter({ body, provider, doc, section, label, me, readOnly, elements, speakers, cueCounts, permanent, cameras, onFocusChange }: Props) {
   const elementsLive = useRef(live(elements)).current;
   const speakersLive = useRef(live(speakers)).current;
   const focusRef = useRef(onFocusChange);
@@ -51,6 +53,7 @@ export function ScriptWriter({ body, provider, doc, section, label, me, readOnly
         Dropcursor.configure({ color: false, width: 3, class: 'drop-cursor' }),
         Capitals,
         Cue.configure({ elements: elementsLive }),
+        CameraCue,
         SpeakerTags.configure({ speakers: speakersLive }),
         Collaboration.configure({ fragment: body }),
         ...(provider ? [CollaborationCaret.configure({ provider, user: { name: me.name, color: me.color } })] : []),
@@ -77,13 +80,13 @@ export function ScriptWriter({ body, provider, doc, section, label, me, readOnly
 
   return (
     <>
-      {!readOnly && editor && <Toolbar editor={editor} doc={doc} section={section} label={label} me={me} elements={elements} cueCounts={cueCounts} permanent={permanent} />}
+      {!readOnly && editor && <Toolbar editor={editor} doc={doc} section={section} label={label} me={me} elements={elements} cueCounts={cueCounts} permanent={permanent} cameras={cameras} />}
       <EditorContent editor={editor} className="script-box" />
     </>
   );
 }
 
-function Toolbar({ editor, doc, section, label, me, elements, cueCounts, permanent }: { editor: Editor; doc: Y.Doc; section: SectionRow; label: string; me: Person; elements: Map<string, Element>; cueCounts: Map<string, number>; permanent: string[] }) {
+function Toolbar({ editor, doc, section, label, me, elements, cueCounts, permanent, cameras }: { editor: Editor; doc: Y.Doc; section: SectionRow; label: string; me: Person; elements: Map<string, Element>; cueCounts: Map<string, number>; permanent: string[]; cameras: string[] }) {
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   // A speaker's part starts on its own line with their name in curly brackets.
   const insertSpeaker = (name: string) =>
@@ -142,6 +145,18 @@ function Toolbar({ editor, doc, section, label, me, elements, cueCounts, permane
           </Popover>
         )}
       </div>
+      {cameras.length > 0 && (
+        <div className="toolbar-row">
+          <span className="toolbar-label" title="Put the cursor where the camera should change, then click it. The switcher takes that camera when the prompter reaches it.">
+            Cameras
+          </span>
+          {cameras.map((camera) => (
+            <button key={camera} className="element-chip camera" aria-label={`Add camera cue: Take ${camera}`} title="Take this camera here, in the middle of the section" onMouseDown={keepFocus} onClick={() => insertCameraCue(editor, camera)}>
+              + {camera}
+            </button>
+          ))}
+        </div>
+      )}
       {readers.length > 0 && (
         <div className="toolbar-row">
           <span className="toolbar-label" title="Starts a new part, read by this person">

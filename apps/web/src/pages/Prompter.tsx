@@ -511,6 +511,13 @@ function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof 
           <span>{cueLabel(line.element).toUpperCase()}</span>
         </div>
       );
+    case 'camera':
+      return (
+        // A camera cue fires like a graphic's: the show app takes the camera (RG, Oct 30, 2026).
+        <div className="p-cue camera" data-key={line.key} data-marker="cue" data-section={line.sectionId} data-element={line.cueId}>
+          <span>TAKE {line.camera.toUpperCase()}</span>
+        </div>
+      );
     case 'text':
       return (
         <p className="p-text" data-key={line.key}>

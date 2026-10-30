@@ -8,7 +8,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import * as Y from 'yjs';
 import ffmpegStatic from 'ffmpeg-static';
-import { addElement, DEFAULT_SHOW_SETTINGS, insertBlock, insertSection, readBroadcast, setBroadcast, type ShowSettings } from '@tstv/shared';
+import { addElement, CAMERA_CUE_NODE, cameraCues, DEFAULT_SHOW_SETTINGS, ensureScripts, insertBlock, insertSection, readBroadcast, scriptBody, setBroadcast, type ShowSettings } from '@tstv/shared';
 import { startSimulator, type RunningSimulator } from '../../../tools/simulator/src/server.ts';
 import { Runtime } from '../src/main/runtime.ts';
 import { Store } from '../src/main/store.ts';
@@ -193,6 +193,24 @@ describe('a mock show on the simulator', () => {
     await runtime.switcher.run([{ kind: 'music', play: true, track }]);
     await waitFor(() => state().players.sound.playing);
     expect(state().players.sound.playlist[state().players.sound.index].name).toBe('Show Music 2026');
+  });
+
+  it('takes another camera at a camera cue in the middle of a section', async () => {
+    // A camera cue for camera 3 after the first words of A3's script (A3 is on camera 2).
+    ensureScripts(doc);
+    const words = new Y.XmlElement('paragraph');
+    words.insert(0, [new Y.XmlText('THE LONGHORNS WON.')]);
+    scriptBody(doc, ids.a3)!.push([words]);
+    const chip = new Y.XmlElement(CAMERA_CUE_NODE);
+    chip.setAttribute('camera', 'Camera 3');
+    scriptBody(doc, ids.a3)!.push([chip]);
+    runtime.website.emit('rundown');
+    const [camera3] = cameraCues(doc, ids.a3);
+    cue('section', ids.a3);
+    await waitFor(() => state().mes.v1.a === 'input2');
+    cue('cue', camera3.id);
+    await waitFor(() => state().mes.v1.a === 'input3');
+    expect(runtime.state().lastCue?.label).toBe('Camera 3 (A3)');
   });
 
   it('takes the show’s permanent graphics and green screen by dropping files', async () => {

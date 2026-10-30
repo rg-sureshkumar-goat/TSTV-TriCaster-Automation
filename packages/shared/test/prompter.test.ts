@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { addElement, computeRundown, CROSS_TALK, insertBlock, insertSection, readRows, updateRow } from '../src/rundown.ts';
-import { CUE_NODE, ensureScripts, PARAGRAPH_NODE, scriptBody } from '../src/script.ts';
-import { prompterLines, topCues } from '../src/prompter.ts';
+import { CAMERA_CUE_NODE, CUE_NODE, ensureScripts, PARAGRAPH_NODE, scriptBody } from '../src/script.ts';
+import { cameraCues, prompterLines, topCues } from '../src/prompter.ts';
 
 const alex = { id: 'u1', name: 'Alex Producer' };
 
@@ -10,7 +10,12 @@ function setLines(body: Y.XmlFragment, lines: string[]): void {
   body.delete(0, body.length);
   for (const line of lines) {
     const cue = /^\[cue:(.+)\]$/.exec(line);
-    if (cue) {
+    const camera = /^\[camera:(.+)\]$/.exec(line);
+    if (camera) {
+      const chip = new Y.XmlElement(CAMERA_CUE_NODE);
+      chip.setAttribute('camera', camera[1]);
+      body.push([chip]);
+    } else if (cue) {
       const chip = new Y.XmlElement(CUE_NODE);
       chip.setAttribute('elementId', cue[1]);
       body.push([chip]);
@@ -71,5 +76,20 @@ describe('prompter', () => {
     body.insert(0, [added]);
     updateRow(doc, id, { slug: 'Renamed' }, alex);
     expect(keyOf('SECOND.')).toBe(before);
+  });
+
+  it('shows camera cues as markers that fire like a graphic’s, each with its own id', () => {
+    const doc = new Y.Doc();
+    const id = insertSection(doc, alex, { talent: ['Jordan'] });
+    ensureScripts(doc);
+    setLines(scriptBody(doc, id)!, ['[camera:Camera 3]', '{JORDAN}', 'GOOD EVENING.', '[camera:Camera 2]', 'OVER HERE.']);
+    const cameras = cameraCues(doc, id);
+    expect(cameras.map((c) => c.camera)).toEqual(['Camera 3', 'Camera 2']);
+    expect(new Set(cameras.map((c) => c.id)).size).toBe(2);
+    const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
+    expect(lines.filter((l) => l.kind === 'camera')).toMatchObject(cameras.map((c) => ({ kind: 'camera', sectionId: id, cueId: c.id, camera: c.camera })));
+    expect(lines.map((l) => l.kind)).toEqual(['section', 'camera', 'speaker', 'text', 'camera', 'text', 'end']);
+    // The one at the very top fires with the section.
+    expect(topCues(doc, id)).toEqual([cameras[0].id]);
   });
 });

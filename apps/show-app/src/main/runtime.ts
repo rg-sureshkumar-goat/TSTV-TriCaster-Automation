@@ -9,6 +9,7 @@ import {
   breakCueId,
   breakGraphic,
   buildShowPlan,
+  cameraCues,
   clipKey,
   isBreakCue,
   computeRundown,
@@ -199,9 +200,11 @@ export class Runtime extends EventEmitter {
     const breakFile = this.breakFile();
     for (const c of this.timing.rows) if (c.breakBefore) files[breakCueId(c.row.id)] = breakFile ? path.basename(breakFile.path) : BREAK_CLIP.name;
     const { playlist, soundTracks } = this.switcher.snapshot;
+    const cameras: Record<string, { id: string; camera: string }[]> = {};
+    for (const row of readRows(doc)) if (row.kind === 'section') cameras[row.id] = cameraCues(doc, row.id);
     // First without the producer's music choices (they need the sections), then with them.
-    this.plan = buildShowPlan(this.timing, show.settings, files, playlist, soundTracks);
-    this.plan = buildShowPlan(this.timing, show.settings, files, playlist, soundTracks, this.musicPoints());
+    this.plan = buildShowPlan(this.timing, show.settings, files, playlist, soundTracks, undefined, cameras);
+    this.plan = buildShowPlan(this.timing, show.settings, files, playlist, soundTracks, this.musicPoints(), cameras);
     if (this.engine) this.engine.setPlan(this.plan);
     else this.engine = new CueEngine(this.plan);
     this.changed();
@@ -221,13 +224,17 @@ export class Runtime extends EventEmitter {
       if (!section) return;
       // The cues at the very top of its script fire with it (RG, Oct 29, 2026).
       const top = this.website.doc ? topCues(this.website.doc, section.id) : [];
-      const firing = this.engine.state.manual ? [] : top.map((id) => this.view(id)?.label).filter(Boolean);
+      const firing = this.engine.state.manual ? [] : top.map((id) => this.view(id)?.label ?? this.engine?.cameraCue(id)?.camera).filter(Boolean);
       label = `${section.label} started${firing.length ? `, with ${firing.join(' and ')}` : ''}`;
       commands = this.engine.sectionStarted(section.id, top);
       const now = Date.now();
       this.clock.startedAt ??= this.website.broadcast().startedAt ?? now;
       const planned = this.timing?.rows.find((c) => c.row.id === section.id)?.startOffset ?? null;
       this.clock = { startedAt: this.clock.startedAt, sectionLabel: section.label, overUnderSeconds: planned === null ? null : Math.round((now - this.clock.startedAt) / 1000 - planned) };
+    } else if (this.engine.cameraCue(event.elementId ?? null)) {
+      const cue = this.engine.cameraCue(event.elementId ?? null)!;
+      label = `${cue.camera} (${this.plan.sections.find((s) => s.id === cue.sectionId)?.label ?? ''})`;
+      commands = this.engine.cueReached(cue.id);
     } else {
       const element = this.view(event.elementId ?? null);
       if (!element) return;

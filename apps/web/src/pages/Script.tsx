@@ -178,6 +178,7 @@ export function ScriptWindow({ episode, show, room, timing, sectionId, user, onC
                   speakers={speakers}
                   cueCounts={cueCounts}
                   permanent={show.settings.permanentGraphics}
+                  cameras={show.settings.cameras}
                   onFocusChange={(focused) => room.setFocus(focused ? `${sectionId}:script` : null)}
                 />
               ) : (

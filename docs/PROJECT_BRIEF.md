@@ -114,6 +114,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 - **Decided Oct 29, 2026 (Phase 2):**
   - The cue toolbar lists the section's graphics from the rundown, and each chip is linked to its graphic, one cue per graphic. **Each cue chip is on a line of its own** (decided Oct 29, 2026): adding one in the middle of a line splits the line around it. **+ New graphic** adds a graphic to the rundown and drops its cue in one step. Renaming a graphic renames its chip; a removed graphic's chip shows as **Removed graphic**.
   - In the rundown, graphics with no cue chip in their script yet have a dashed outline.
+  - **Camera cues (decided Oct 30, 2026):** the toolbar's **Cameras** row drops a **Take Camera 2** chip (amber), one button per show camera, on a line of its own like a cue chip. It switches cameras in the middle of a section. A section can have as many as it needs, and they move and delete like cue chips.
   - Speaker tags (`{NAME}`) show in the speaker's color, names that aren't the episode's talent are flagged, and a **Speakers** button starts each reader's part.
   - Speaker tags and cue chips don't count as read words.
   - Phase 1 plain-text scripts are copied into the editor word for word, one paragraph per line, and the original text is kept.
@@ -208,6 +209,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 - Each section can name a camera in the rundown. For example, B2 is set to Weather Camera.
 - When a section starts, the app takes its camera. When it ends, the app goes back to the show's default camera (Anchor Camera), unless the next section names a different one.
+- **Camera cues (decided Oct 30, 2026):** a camera cue in the script takes its camera when it reaches the prompter's reading line, in the middle of the section. The prompter shows it as an amber **TAKE CAMERA 2** marker. One at the very top of the script, above any words, takes its camera as the section starts, instead of the section's camera. Like a section's camera, it does nothing in manual mode or with the cameras by hand.
 - The producer's camera buttons override this at any time.
 
 **Green screen**
@@ -243,6 +245,7 @@ Every element except MUSIC plays from DDR2 through DSK 2. Only one element is on
 | PKG | Same as SOT | Same as SOT (confirmed Oct 29, 2026) |
 | Permanent graphics | Their cue. Those with their own audio (Show Intro, Station ID, Station Outro, Commercial Break) play like a SOT; Social Media L3 and Website L3 are lower thirds (RG, Oct 29, 2026). Each show sets which are which in its settings. | Like a SOT, or like an L3 |
 | Commercial break | **Decided Oct 29, 2026:** the break's line reaches the prompter's reading line, and the show's break graphic (Commercial Break) plays from DDR2. It's the last cue of the section before the break, so it's up next after that section's cues. | **The next section starts** (RG, Oct 29, 2026): it stays up for the whole break, holding after its clip ends, and comes off onto the next section's camera. |
+| Camera cue | Its chip reaches the reading line (or the section starts, for one at the very top of the script): the switcher takes its camera (RG, Oct 30, 2026) | The next camera cue, or the next section's camera |
 | MUSIC | **Decided Oct 29, 2026:** by default when the first Tease section in block A starts; also when a MUSIC cue reaches the reading line. The Sound player plays the show's track alongside DDR2, so graphics can go up over it. **The track is the one the producer drops on the show app's Music box** (decided Oct 29, 2026); without one, the Sound player track named like the MUSIC element. | By default just before the Show Intro fires. The producer can change the music-in and music-out points for each show in the show app. |
 
 A section "ends" when the next section's start crosses the prompter's reading line. **A cue at the very top of a section's script, above any words to read, fires as the section starts** (decided Oct 29, 2026), not once the section's number, camera and talent lines have scrolled past, so back-to-back teases play one after another without the camera between them. Clip end comes from the TriCaster's own playback status when it's available. Otherwise it comes from the clip length measured at import.
