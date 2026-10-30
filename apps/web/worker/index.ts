@@ -6,6 +6,7 @@ import { getServerByName, routePartykitRequest } from 'partyserver';
 import { DEFAULT_SHOW_SETTINGS, normalizeShowSettings } from '@tstv/shared';
 import { authRoutes, getSessionUser } from './auth.ts';
 import type { Env, User } from './env.ts';
+import { sendInviteEmail } from './invite-email.ts';
 import { fetchUsage } from './usage.ts';
 
 export { EpisodeRoom } from './room.ts';
@@ -363,6 +364,10 @@ app.get('/admin/usage', adminOnly, async (c) => {
   return c.json({ configured: true, items, checkedAt: Date.now() });
 });
 
+/** Emails an invite with the website's link (see invite-email.ts). */
+const emailInvite = (c: { env: Env; req: { url: string }; get: (key: 'user') => User }, to: string, asAdmin: boolean) =>
+  sendInviteEmail(c.env, { to, asAdmin, invitedBy: c.get('user').name, site: new URL(c.req.url).origin });
+
 app.post('/admin/invites', adminOnly, async (c) => {
   // asAdmin: "Give Admin Access" was ticked. Otherwise they get a contributor account.
   const { email, asAdmin } = await c.req.json<{ email?: string; asAdmin?: boolean }>();
@@ -372,7 +377,13 @@ app.post('/admin/invites', adminOnly, async (c) => {
   await c.env.DB.prepare('INSERT OR REPLACE INTO invites (email, invited_by, created_at, as_admin) VALUES (?, ?, ?, ?)')
     .bind(address, c.get('user').id, now(), asAdmin ? 1 : 0)
     .run();
-  return c.json({ ok: true }, 201);
+  return c.json({ ok: true, email: await emailInvite(c, address, !!asAdmin) }, 201);
+});
+
+app.post('/admin/invites/:email/resend', adminOnly, async (c) => {
+  const invite = await c.env.DB.prepare('SELECT email, as_admin FROM invites WHERE email = ?').bind(c.req.param('email')).first<{ email: string; as_admin: number }>();
+  if (!invite) return c.json({ error: 'That invite isn’t there any more.' }, 404);
+  return c.json({ ok: true, email: await emailInvite(c, invite.email, invite.as_admin === 1) });
 });
 
 app.delete('/admin/invites/:email', adminOnly, async (c) => {

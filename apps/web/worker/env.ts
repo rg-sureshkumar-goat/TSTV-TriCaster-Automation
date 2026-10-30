@@ -16,6 +16,9 @@ export interface Env {
   /** For the admin's Usage page: the Cloudflare account and a read-only analytics token. */
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
+  /** The Google Apps Script that emails invites (apps/web/email/invite-email.gs), and the secret it checks. */
+  INVITE_EMAIL_URL?: string;
+  INVITE_EMAIL_SECRET?: string;
   /** "true" only in local development, and only honoured on localhost. */
   DEV_LOGIN?: string;
 }

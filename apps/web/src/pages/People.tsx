@@ -19,6 +19,15 @@ interface PeopleData {
 
 const role = (isAdmin: boolean) => (isAdmin ? 'Admin' : 'Contributor');
 
+/** What happened to an invite's email (RG, Oct 30, 2026): sent, not set up yet, or failed. */
+type EmailResult = { sent: true } | { sent: false; reason: 'not-set-up' | 'failed'; error?: string };
+
+function emailNote(email: string, result: EmailResult | undefined): { text: string; error?: boolean } {
+  if (result?.sent) return { text: `An email with the website’s link is on its way to ${email}.` };
+  if (!result || result.reason === 'not-set-up') return { text: `No email was sent (invite emails aren’t set up yet): tell them to sign in with Google or Microsoft using ${email}.` };
+  return { text: `The email to ${email} didn’t go out (${result.error ?? 'unknown problem'}). The invite still works: tell them yourself, or try Resend email.`, error: true };
+}
+
 export function PeoplePage({ me }: { me: User }) {
   const { data, error, reload } = useLoad<PeopleData>('/admin/people');
   const [email, setEmail] = useState('');
@@ -36,16 +45,27 @@ export function PeoplePage({ me }: { me: User }) {
     }
   };
 
-  const invite = (event: FormEvent) => {
+  const invite = async (event: FormEvent) => {
     event.preventDefault();
-    run(
-      async () => {
-        await api('/admin/invites', { body: { email, asAdmin } });
-        setEmail('');
-        setAsAdmin(false);
-      },
-      `Invited ${email} with ${asAdmin ? 'an admin' : 'a contributor'} account. No email is sent: tell them to sign in with Google or Microsoft using that email.`,
-    );
+    try {
+      const result = await api<{ email?: EmailResult }>('/admin/invites', { body: { email, asAdmin } });
+      const note = emailNote(email, result.email);
+      setMessage({ text: `Invited ${email} with ${asAdmin ? 'an admin' : 'a contributor'} account. ${note.text}`, error: note.error });
+      setEmail('');
+      setAsAdmin(false);
+      reload();
+    } catch (e) {
+      setMessage({ text: (e as Error).message, error: true });
+    }
+  };
+
+  const resend = async (address: string) => {
+    try {
+      const result = await api<{ email?: EmailResult }>(`/admin/invites/${encodeURIComponent(address)}/resend`, { body: {} });
+      setMessage(emailNote(address, result.email));
+    } catch (e) {
+      setMessage({ text: (e as Error).message, error: true });
+    }
   };
 
   const setAdmin = (person: Person, isAdmin: boolean) =>
@@ -55,7 +75,7 @@ export function PeoplePage({ me }: { me: User }) {
     <div className="page">
       <h1>People</h1>
       <p className="muted">
-        Only people listed here can sign in. Invite someone with the email of their Google or Microsoft account (a personal Gmail, or a UT account at name@utexas.edu or eid@eid.utexas.edu). No email is sent; tell them to sign in. Admins can do
+        Only people listed here can sign in. Invite someone with the email of their Google or Microsoft account (a personal Gmail, or a UT account at name@utexas.edu or eid@eid.utexas.edu); they get an email with the website’s link. Admins can do
         everything; contributors can build rundowns and write scripts.
       </p>
       <form className="inline-form" onSubmit={invite}>
@@ -145,6 +165,9 @@ export function PeoplePage({ me }: { me: User }) {
                     <td>{role(i.asAdmin)}</td>
                     <td className="muted">invited {timeAgo(i.createdAt)}</td>
                     <td>
+                      <button className="link-button" onClick={() => resend(i.email)}>
+                        Resend email
+                      </button>{' '}
                       <button className="link-button danger" onClick={() => run(() => api(`/admin/invites/${encodeURIComponent(i.email)}`, { method: 'DELETE' }))}>
                         Cancel invite
                       </button>

@@ -9,3 +9,6 @@ GOOGLE_CLIENT_SECRET=
 # Fill these in to try Microsoft sign-in locally (school and personal Microsoft accounts).
 MICROSOFT_CLIENT_ID=
 MICROSOFT_CLIENT_SECRET=
+# Fill these in to try invite emails locally (docs/PHASE-1.md, "Invite emails").
+INVITE_EMAIL_URL=
+INVITE_EMAIL_SECRET=

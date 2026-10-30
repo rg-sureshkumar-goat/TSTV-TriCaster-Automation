@@ -162,6 +162,31 @@ npx wrangler secret put MICROSOFT_CLIENT_SECRET
 
 The **Sign in with Microsoft** button appears on the sign-in page once both are set (and the website is deployed). Invite people at the email they'll sign in with: for UT, either their `name@utexas.edu` email or their `eid@eid.utexas.edu` sign-in name works. If UT hasn't allowed outside apps, a UT person sees a message to sign in with Google instead, or UT's IT can approve **TSTV Rundowns**.
 
+### Optional: invite emails (added Oct 30, 2026)
+
+When an admin invites someone on **People**, the website can email them the link. The email comes from a Google account, through a small free Google script (no domain or card needed; Gmail allows about 100 a day). RG's own Gmail for now; to switch to a TSTV Gmail later, do these steps again in that account and type in the two new settings.
+
+1. Go to <https://script.google.com>, signed in with the Gmail the emails should come from, and click **New project**. Name it `TSTV Rundowns invites`.
+2. Delete what's in **Code.gs**, and paste in everything from `apps/web/email/invite-email.gs`. Click **Save**.
+3. Make up a long password for the website to use (for example, run `openssl rand -hex 24` in Terminal and copy what it prints). Keep it to yourself.
+4. Click **Project Settings** (the gear), scroll to **Script properties**, **Add script property**: property `SECRET`, value the password. **Save script properties**.
+5. Click **Deploy** → **New deployment** → the gear next to "Select type" → **Web app**. Set **Execute as: Me** and **Who has access: Anyone**, then **Deploy**.
+6. Google asks to **Authorize access**: pick the account, then **Advanced** → **Go to TSTV Rundowns invites (unsafe)** → **Allow**. (It's "unsafe" only because Google hasn't reviewed your own script; it lets the script send email as you.)
+7. Copy the **Web app URL** (it ends in `/exec`).
+8. In `apps/web`, type in the two settings:
+
+```bash
+npx wrangler secret put INVITE_EMAIL_URL
+```
+
+```bash
+npx wrangler secret put INVITE_EMAIL_SECRET
+```
+
+9. Deploy the website. Then invite an address of yours to check the email arrives. Each pending invite also has **Resend email**.
+
+If emails aren't set up, or one fails, the invite still works; the People page says the email didn't go out.
+
 ### F. Sign in
 
 Open your website and click **Sign in with Google**. You're the admin. Use **People** to invite everyone else by the email of their Google account (personal Gmail works).
