@@ -7,7 +7,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import http from 'node:http';
 import { parentPort } from 'node:worker_threads';
 import ffmpegStatic from 'ffmpeg-static';
-import { BANDWIDTH, COLOR, FRAME, audioBuffer, listSources, loadNdi, videoBuffer } from './ndi.ts';
+import { BANDWIDTH, COLOR, FRAME, audioBuffer, copyBytes, copySound, listSources, loadNdi, videoBuffer } from './ndi.ts';
 
 const ffmpeg = ffmpegStatic as unknown as string;
 
@@ -62,7 +62,7 @@ function startFeeds(): void {
             maker.stdout!.pipe(res, { end: false });
             maker.stdin!.on('error', () => undefined);
           }
-          const bytes = Buffer.from(ndi.koffi.view(v.p_data as never, v.line_stride_in_bytes * v.yres));
+          const bytes = copyBytes(ndi, v.p_data, v.line_stride_in_bytes * v.yres);
           if (maker?.stdin?.writable && maker.stdin.writableLength < 8 * 1024 * 1024) maker.stdin.write(bytes);
         }
         ndi.recvFreeVideo(receiver, video.buffer);
@@ -135,20 +135,13 @@ function startFeeds(): void {
           const v = video.read();
           if (!encoder) encode(`${v.xres}x${v.yres}`, `${v.frame_rate_N}/${v.frame_rate_D}`);
           const pipe = encoder!.stdin!;
-          if (pipe.writable && pipe.writableLength < 64 * 1024 * 1024) pipe.write(Buffer.from(ndi.koffi.view(v.p_data as never, v.line_stride_in_bytes * v.yres)));
+          if (pipe.writable && pipe.writableLength < 64 * 1024 * 1024) pipe.write(copyBytes(ndi, v.p_data, v.line_stride_in_bytes * v.yres));
           ndi.recvFreeVideo(receiver, video.buffer);
         } else if (kind === FRAME.audio) {
           const a = audio.read();
           if (encoder) {
-            // NDI's sound is one block per channel, with spare room after each; the file takes the first
-            // two channels, interleaved.
-            const all = new Float32Array(ndi.koffi.view(a.p_data as never, a.channel_stride_in_bytes * a.no_channels).slice(0));
-            const per = a.channel_stride_in_bytes / 4;
-            const out = new Float32Array(a.no_samples * 2);
-            for (let i = 0; i < a.no_samples; i++) {
-              out[i * 2] = all[i];
-              out[i * 2 + 1] = a.no_channels > 1 ? all[per + i] : all[i];
-            }
+            // The file takes the first two channels.
+            const out = copySound(ndi, a);
             const pipe = (encoder as ChildProcess).stdio[3] as NodeJS.WritableStream & { writable: boolean };
             if (pipe.writable) pipe.write(Buffer.from(out.buffer));
           }

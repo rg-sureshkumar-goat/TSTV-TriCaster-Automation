@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
-import { BANDWIDTH, COLOR, FRAME, findRuntime, listSources, loadNdi, videoBuffer, audioBuffer, type Ndi } from '../src/main/ndi.ts';
+import { BANDWIDTH, COLOR, FRAME, copyBytes, copySound, findRuntime, listSources, loadNdi, videoBuffer, audioBuffer, type Ndi } from '../src/main/ndi.ts';
 import { Playout } from '../src/main/playout.ts';
 
 const run = promisify(execFile);
@@ -35,7 +35,7 @@ function receive(ms: number, done?: (got: { bar: number[]; corner: number[]; pea
     const kind = ndi.recvCapture(receiver, video.buffer, audio.buffer, null, 50);
     if (kind === FRAME.video) {
       const v = video.read();
-      const pixels = new Uint8Array(ndi.koffi.view(v.p_data as never, v.line_stride_in_bytes * v.yres));
+      const pixels = copyBytes(ndi, v.p_data, v.line_stride_in_bytes * v.yres);
       const at = (x: number, y: number) => Array.from(pixels.slice((y * v.xres + x) * 4, (y * v.xres + x) * 4 + 4));
       bar = at(300, 600);
       corner = at(20, 20);
@@ -43,12 +43,7 @@ function receive(ms: number, done?: (got: { bar: number[]; corner: number[]; pea
       ndi.recvFreeVideo(receiver, video.buffer);
     } else if (kind === FRAME.audio) {
       const a = audio.read();
-      const all = new Float32Array(ndi.koffi.view(a.p_data as never, a.channel_stride_in_bytes * a.no_channels).slice(0));
-      // Each channel has spare room after its samples, which isn't sound.
-      for (let c = 0; c < a.no_channels; c++) {
-        const from = (c * a.channel_stride_in_bytes) / 4;
-        for (let i = from; i < from + a.no_samples; i++) peak = Math.max(peak, Math.abs(all[i]));
-      }
+      for (const s of copySound(ndi, a)) peak = Math.max(peak, Math.abs(s));
       ndi.recvFreeAudio(receiver, audio.buffer);
     }
   }

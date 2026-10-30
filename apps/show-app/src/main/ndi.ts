@@ -117,6 +117,32 @@ export function loadNdi(file = findRuntime()) {
 
 export type Ndi = ReturnType<typeof loadNdi>;
 
+const byteArrays = new Map<number, unknown>();
+
+/**
+ * A copy of `length` bytes from NDI's memory. (koffi can also point straight at it, but Electron forbids
+ * that and stops the whole app: found at the studio, Oct 30, 2026.)
+ */
+export function copyBytes(ndi: Ndi, pointer: unknown, length: number): Buffer {
+  let type = byteArrays.get(length);
+  if (!type) {
+    type = ndi.koffi.array('uint8_t', length, 'Typed');
+    byteArrays.set(length, type);
+  }
+  const bytes = ndi.koffi.decode(pointer as never, type as never) as Uint8Array;
+  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+}
+
+/** NDI's sound (one block per channel, with spare room after each) as floats, the first `channels` channels interleaved. */
+export function copySound(ndi: Ndi, a: { p_data: unknown; no_samples: number; no_channels: number; channel_stride_in_bytes: number }, channels = 2): Float32Array {
+  const bytes = copyBytes(ndi, a.p_data, a.channel_stride_in_bytes * a.no_channels);
+  const all = new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
+  const per = a.channel_stride_in_bytes / 4;
+  const out = new Float32Array(a.no_samples * channels);
+  for (let i = 0; i < a.no_samples; i++) for (let c = 0; c < channels; c++) out[i * channels + c] = all[Math.min(c, a.no_channels - 1) * per + i];
+  return out;
+}
+
 /** A buffer NDI fills with a video frame's details, and how to read them. */
 export function videoBuffer(ndi: Ndi) {
   const buffer = Buffer.alloc(ndi.koffi.sizeof(ndi.Video));
