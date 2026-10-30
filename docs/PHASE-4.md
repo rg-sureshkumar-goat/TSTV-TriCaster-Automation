@@ -71,7 +71,7 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 | Commercial break (the show's Commercial Break graphic, RG, Oct 29, 2026) | The prompter's **COMMERCIAL BREAK** line reaches the reading line | The next section starts: it stays up for the whole break, holding after its clip ends |
 | MUSIC | Its cue, or the music-in point | The music-out point |
 
-A cue at the very top of a section's script, above any words to read, fires as soon as the section starts (RG, Oct 29, 2026), instead of after the section's number, camera and talent lines scroll past. So back-to-back teases play one after another, with no camera in between.
+A cue at the very top of a section's script, above any words to read, fires as soon as the section starts (RG, Oct 29, 2026), instead of after the section's number, camera and talent lines scroll past. So back-to-back teases play one after another, with no camera in between. And when one clip replaces another (tease to tease, L3 to VO and back), DSK 2 stays on while DDR 2 switches to the next clip and plays it, so not even a few frames of camera show (RG, Oct 29, 2026).
 
 When a section starts, the app takes its camera (the show's default camera when it doesn't name one) and cues its first clip in DDR 2.
 
@@ -151,6 +151,6 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
 - **Colors:** the app colors cues the way the rundown and the prompter do: graphics blue, video red, music purple, permanent graphics green.
 - **Episode key.** The app reads the episode with its key (Bearer token) and joins the episode room read-only, so it can't change the rundown. It reports files and lengths with a message the room writes into the episode.
 - **The cue engine** (`packages/shared/src/engine.ts`) is pure logic with automatic tests for every rule. The switcher driver (`apps/show-app/src/main/switcher.ts`) is the only code that talks to a switcher. It refuses anything that doesn't call itself the TSTV Simulator. In manual mode the engine ignores the prompter, so only the producer's keys and clicks send anything.
-- **TC1 commands** used: `v1_a_row` (cameras on M/E 1), `ddr2_select_clips` (cue a clip), `main_dsk2_value` (DSK 2 on and off; DDR 2's AutoPlay plays and stops the clip), and `sound_select_clips` / `sound_play` / `sound_stop` (music). A clip's end is DDR 2 stopping by itself, with the seconds remaining at zero. The DDR and Sound player command names get confirmed on the real TC1 in Phase 5.
+- **TC1 commands** used: `v1_a_row` (cameras on M/E 1), `ddr2_select_clips` (cue a clip), `ddr2_play` (play it, when it replaces another clip with DSK 2 still on), `main_dsk2_value` (DSK 2 on and off; DDR 2's AutoPlay plays and stops the clip), and `sound_select_clips` / `sound_play` / `sound_stop` (music). A clip's end is DDR 2 stopping by itself, with the seconds remaining at zero. The DDR and Sound player command names get confirmed on the real TC1 in Phase 5.
 - **FFmpeg** reads lengths and makes thumbnails, ProRes 4444 included.
 - **A mock-show test** runs the app's core against the simulator with real (tiny) clips: import, load, every cue rule, manual mode, and the simulator-only lock.

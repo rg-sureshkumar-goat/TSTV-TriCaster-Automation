@@ -216,7 +216,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 ## Cue rules
 
-Every element except MUSIC plays from DDR2 through DSK 2. Only one element is on DSK 2 at a time, so a new cue replaces whatever is up. When a section starts, its first element is cued in DDR2 so it's ready to fire.
+Every element except MUSIC plays from DDR2 through DSK 2. Only one element is on DSK 2 at a time, so a new cue replaces whatever is up. **A clip that replaces another cuts straight to it** (decided Oct 29, 2026): DSK 2 stays on while DDR2 selects the new clip and plays it, so the camera never flashes between two clips, like back-to-back teases. Only a clip going up over the camera takes DSK 2 on (which plays it, with AutoPlay). To confirm on the TC1 in Phase 5. When a section starts, its first element is cued in DDR2 so it's ready to fire.
 
 | Element | Goes up | Comes off |
 | --- | --- | --- |
@@ -258,6 +258,7 @@ The automation depends on what the TC1 accepts from another computer, and that i
 | Can files be copied onto the TC1 and loaded into DDR2 and GFX 1 remotely? | Send to TriCaster, green-screen drop | TD loads from USB; the app matches by file name |
 | Can recording start and stop remotely, and can its save location be set? | Record button | Copy the file over the cable after the show |
 | Can the app read what's on program, DSK 2 and the M/Es? | Showing the producer what's really on air | The app tracks state itself |
+| With DSK 2 on, does selecting another DDR2 clip and playing it (`ddr2_select_clips`, `ddr2_play`) cut straight to it? | Clip-to-clip cuts with no camera between them (Oct 29, 2026) | DSK 2 off, cue, DSK 2 on, as the TD does today (a few frames of camera) |
 
 **Probe results, Oct 28, 2026** (details in `docs/TC1-FINDINGS.md`):
 

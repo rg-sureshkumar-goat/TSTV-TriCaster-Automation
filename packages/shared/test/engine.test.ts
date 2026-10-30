@@ -98,11 +98,11 @@ describe('the cue engine', () => {
       { kind: 'cueClip', item: 1 },
       { kind: 'dsk', on: true },
     ]);
-    // The next tease replaces this one straight away, as its section starts.
+    // The next tease replaces this one straight away, as its section starts: DSK 2 stays on, so the
+    // camera doesn't flash between them.
     expect(engine.sectionStarted(t2, [tease2])).toEqual([
-      { kind: 'dsk', on: false },
       { kind: 'cueClip', item: 2 },
-      { kind: 'dsk', on: true },
+      { kind: 'play' },
     ]);
     // When the prompter reaches the cue itself, it's already up.
     expect(engine.cueReached(tease2)).toEqual([]);
@@ -151,15 +151,14 @@ describe('the cue engine', () => {
     const engine = new CueEngine(plan);
     engine.sectionStarted(ids.a3);
     expect(engine.cueReached(ids.l3)).toEqual([{ kind: 'dsk', on: true }]);
+    // Straight from the L3 to the VO, and back: DSK 2 stays on.
     expect(engine.cueReached(ids.vo)).toEqual([
-      { kind: 'dsk', on: false },
       { kind: 'cueClip', item: 4 },
-      { kind: 'dsk', on: true },
+      { kind: 'play' },
     ]);
     expect(engine.clipEnded()).toEqual([
-      { kind: 'dsk', on: false },
       { kind: 'cueClip', item: 3 },
-      { kind: 'dsk', on: true },
+      { kind: 'play' },
     ]);
     expect(engine.state.onAir).toBe(ids.l3);
     // The section ends: the L3 comes off, and the SOT is cued.
@@ -271,16 +270,14 @@ describe('the cue engine', () => {
       { kind: 'dsk', on: true },
     ]);
     expect(engine.fireNext()).toEqual([
-      { kind: 'dsk', on: false },
       { kind: 'cueClip', item: 4 },
-      { kind: 'dsk', on: true },
+      { kind: 'play' },
     ]);
     expect(engine.state.onAir).toBe(ids.vo);
     // Back: the L3 goes up again, and the VO is next again.
     expect(engine.fireBack()).toEqual([
-      { kind: 'dsk', on: false },
       { kind: 'cueClip', item: 3 },
-      { kind: 'dsk', on: true },
+      { kind: 'play' },
     ]);
     expect(engine.state.onAir).toBe(ids.l3);
     expect(engine.upNext()[0].id).toBe(ids.vo);

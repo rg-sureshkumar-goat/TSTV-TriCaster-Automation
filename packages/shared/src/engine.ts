@@ -4,7 +4,9 @@
 // switch to manual mode), and answers with the switcher commands to send. It has no network code, so every rule has automatic tests.
 //
 // Every element except music plays from DDR 2 through DSK 2, one at a time: a new cue replaces whatever
-// is up. Music plays from the Sound player alongside it.
+// is up. Music plays from the Sound player alongside it. A clip that replaces another goes straight on:
+// DSK 2 stays on while DDR 2 moves to the new clip and plays it, so the camera never flashes between them
+// (RG, Oct 29, 2026). Only a clip going up over the camera takes DSK 2 on, which plays it (AutoPlay).
 import { breakCueId, cueLabel, type ElementType, type RundownTiming, type SectionRow } from './rundown.ts';
 import { breakGraphic, cameraInput, type ShowSettings } from './show.ts';
 
@@ -73,6 +75,8 @@ export interface ShowPlan {
 export type SwitcherCommand =
   | { kind: 'camera'; input: number }
   | { kind: 'cueClip'; item: number }
+  /** DDR 2 plays its cued clip; with DSK 2 already on, the clip goes straight to air. */
+  | { kind: 'play' }
   | { kind: 'dsk'; on: boolean }
   | { kind: 'music'; play: boolean; track?: number };
 
@@ -279,9 +283,12 @@ export class CueEngine {
     if (this.state.manual) return [];
     const commands: SwitcherCommand[] = [];
     if (this.isPoint(this.plan.music.out, 'section', sectionId)) commands.push(...this.musicCommands(false));
+    const top = topCues.map((id) => section.elements.find((e) => e.id === id)).filter((e): e is ShowElement => !!e && !this.state.skipped.includes(e.id));
+    // A clip at the top of this section replaces what's up straight away, without the camera between them.
+    const replaced = top.some((e) => e.behavior !== 'music' && e.ddrItem !== null);
     // The section that just ended takes its graphic or voiceover off. A SOT or package plays to its end.
     const onAir = this.element(this.state.onAir);
-    if (onAir && onAir.behavior !== 'clip' && onAir.sectionId !== sectionId) {
+    if (onAir && onAir.behavior !== 'clip' && onAir.sectionId !== sectionId && !replaced) {
       commands.push({ kind: 'dsk', on: false });
       this.state.onAir = null;
       // DSK 2 off also stops DDR 2 and moves it to its next item.
@@ -293,13 +300,11 @@ export class CueEngine {
       commands.push({ kind: 'camera', input: section.input });
       this.state.camera = section.input;
     }
-    commands.push(...this.cueCommands(this.firstClipFrom(sectionId)));
+    if (!replaced) commands.push(...this.cueCommands(this.firstClipFrom(sectionId)));
     if (this.isPoint(this.plan.music.in, 'section', sectionId)) commands.push(...this.musicCommands(true));
-    for (const id of topCues) {
-      const element = section.elements.find((e) => e.id === id);
-      if (!element || this.state.skipped.includes(id)) continue;
+    for (const element of top) {
       commands.push(...this.fire(element));
-      this.firedEarly.add(id);
+      this.firedEarly.add(element.id);
     }
     return commands;
   }
@@ -335,15 +340,24 @@ export class CueEngine {
       const onAir = this.element(this.state.onAir);
       // A VO over the section's L3: bring the L3 back if the VO ends first.
       this.state.returnTo = onAir && onAir.behavior === 'graphic' && onAir.sectionId === element.sectionId && element.behavior === 'voiceover' ? onAir.id : null;
-      if (onAir) commands.push({ kind: 'dsk', on: false });
-      this.state.onAir = null;
-      if (this.state.cued !== element.ddrItem || onAir) commands.push({ kind: 'cueClip', item: element.ddrItem });
-      this.state.cued = element.ddrItem;
+      commands.push(...this.putUp(element.ddrItem));
       this.waitingToCue = null;
-      commands.push({ kind: 'dsk', on: true });
       this.state.onAir = element.id;
     }
     if (this.isPoint(this.plan.music.in, 'cue', elementId)) commands.push(...this.musicCommands(true));
+    return commands;
+  }
+
+  /**
+   * Puts DDR 2's item on air. Over the camera, DSK 2 goes on, which plays it. Over another clip, DSK 2
+   * stays on and DDR 2 moves straight to the new clip and plays it, so the camera never shows between them.
+   */
+  private putUp(item: number): SwitcherCommand[] {
+    const over = this.state.onAir !== null;
+    const commands: SwitcherCommand[] = [];
+    if (over || this.state.cued !== item) commands.push({ kind: 'cueClip', item });
+    commands.push(over ? { kind: 'play' } : { kind: 'dsk', on: true });
+    this.state.cued = item;
     return commands;
   }
 
@@ -351,21 +365,20 @@ export class CueEngine {
   clipEnded(): SwitcherCommand[] {
     const ended = this.element(this.state.onAir);
     if (!ended || ended.behavior === 'graphic') return [];
-    const commands: SwitcherCommand[] = [{ kind: 'dsk', on: false }];
-    this.state.onAir = null;
-    this.state.cued = null;
     const returning = this.element(this.state.returnTo);
     this.state.returnTo = null;
     if (ended.behavior === 'voiceover' && returning && returning.sectionId === this.state.sectionId && returning.ddrItem !== null) {
-      // The VO ended before the section did: the section's L3 comes back.
-      commands.push({ kind: 'cueClip', item: returning.ddrItem }, { kind: 'dsk', on: true });
-      this.state.cued = returning.ddrItem;
+      // The VO ended before the section did: the section's L3 comes straight back.
+      const commands = this.putUp(returning.ddrItem);
       this.state.onAir = returning.id;
-    } else {
-      const waiting = this.waitingToCue ?? (this.state.sectionId ? this.firstClipFrom(this.state.sectionId, ended.sectionId === this.state.sectionId ? ended.id : null) : null);
-      this.waitingToCue = null;
-      commands.push(...this.cueCommands(waiting));
+      return commands;
     }
+    const commands: SwitcherCommand[] = [{ kind: 'dsk', on: false }];
+    this.state.onAir = null;
+    this.state.cued = null;
+    const waiting = this.waitingToCue ?? (this.state.sectionId ? this.firstClipFrom(this.state.sectionId, ended.sectionId === this.state.sectionId ? ended.id : null) : null);
+    this.waitingToCue = null;
+    commands.push(...this.cueCommands(waiting));
     return commands;
   }
 

@@ -218,6 +218,7 @@ export class Switcher extends EventEmitter {
     for (const c of commands) {
       if (c.kind === 'camera') await this.send('v1_a_row', `INPUT${c.input}`);
       else if (c.kind === 'cueClip') await this.send('ddr2_select_clips', String(c.item));
+      else if (c.kind === 'play') await this.send('ddr2_play');
       else if (c.kind === 'dsk') await this.send('main_dsk2_value', c.on ? '1' : '0');
       else if (c.kind === 'music') {
         if (c.play) {

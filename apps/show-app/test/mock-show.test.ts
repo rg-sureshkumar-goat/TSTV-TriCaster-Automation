@@ -138,9 +138,12 @@ describe('a mock show on the simulator', () => {
     // The L3, then the VO over it; when the VO ends first, the L3 comes back.
     cue('cue', ids.l3);
     await waitFor(() => clipOnAir() === 'A3_L3_Score');
+    const fromL3 = sim.externalCommands().length;
     cue('cue', ids.vo);
     await waitFor(() => clipOnAir() === 'A3_VO_Highlights');
     await waitFor(() => clipOnAir() === 'A3_L3_Score', 4000);
+    // DSK 2 stayed on from the L3 to the VO and back, so the camera never showed between them.
+    expect(sim.externalCommands().slice(fromL3).map((c) => `${c.name} ${c.value ?? ''}`.trim())).toEqual(['ddr2_select_clips 4', 'ddr2_play', 'ddr2_select_clips 3', 'ddr2_play']);
     // A4: the L3 comes off; the SOT plays to its end, then back to the anchors.
     cue('section', ids.a4);
     await waitFor(() => !state().dsks.main_dsk2.onAir && state().mes.v1.a === 'input1');
