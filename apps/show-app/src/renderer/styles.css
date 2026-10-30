@@ -464,10 +464,10 @@ h3 {
 /* Top: Program (with the cameras) · Playlist · status. Bottom: preview · permanent · green screen · music. */
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.55fr) minmax(0, 0.55fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.55fr) minmax(0, 0.55fr) 92px;
   grid-template-areas:
-    'program playlist status status'
-    'preview permanent green music';
+    'program playlist status status sound'
+    'preview permanent green music sound';
   gap: 12px;
 }
 
@@ -949,4 +949,51 @@ h3 {
 
 .small-window h2 .actions button {
   white-space: nowrap;
+}
+
+/* The Sound strip at the right: the clip on Program's level meter and fader (RG, Oct 29, 2026). */
+.sound-strip {
+  grid-area: sound;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 0;
+}
+
+.sound-columns {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  min-height: 220px;
+}
+
+/* Green, then amber near the top, red in the last few dB; the part above the level is covered. */
+.meter {
+  position: relative;
+  width: 14px;
+  border-radius: 4px;
+  background: linear-gradient(to top, var(--green) 0%, var(--green) 75%, var(--amber) 88%, var(--red) 100%);
+  overflow: hidden;
+}
+
+.meter-cover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: #000;
+}
+
+.fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 28px;
+  margin: 0;
+  accent-color: var(--blue);
+}
+
+.sound-readout {
+  margin: 10px 0 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }

@@ -4,9 +4,10 @@
 // The episode key is at the top right. Import graphics opens a window that matches files to cues.
 // Keys: Space fires the next cue, and P switches between manual mode and automation. In manual mode only,
 // → fires the next graphic too, ← goes back one, and ↓ takes it off (RG, Oct 29, 2026).
-import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
+import { connectClip, programSound, setFader, soundLevel } from './audio.ts';
 import { useTheme } from './theme.ts';
 
 declare global {
@@ -263,6 +264,7 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
         <PermanentBox state={state} />
         <GreenScreenBox state={state} />
         <Music state={state} />
+        <SoundStrip />
       </div>
     </main>
   );
@@ -278,17 +280,8 @@ function Program({ state }: { state: AppState }) {
   const keyed = state.switcher.dskOn ? onAir?.playable : null;
   // Until its clip can play (being made, or its drive isn't plugged in), a graphic shows as its still.
   const still = state.switcher.dskOn && onAir && !onAir.playable ? onAir.thumbnail : null;
-  // The laptop's sound takes over a second to wake for the first clip, which held that clip back. A silent
-  // sound kept playing keeps it awake.
-  useEffect(() => {
-    const audio = new AudioContext();
-    const gain = audio.createGain();
-    gain.gain.value = 0;
-    const silence = audio.createOscillator();
-    silence.connect(gain).connect(audio.destination);
-    silence.start();
-    return () => void audio.close();
-  }, []);
+  // Ready before the first clip, so it isn't held back while the laptop's sound wakes up.
+  useEffect(() => void programSound(), []);
   return (
     <div className="program" aria-label="Program">
       {camera?.video ? (
@@ -313,7 +306,81 @@ function Program({ state }: { state: AppState }) {
 
 /** The clip on DSK 2, playing from its start with its sound; a still is shown as it is. */
 function ProgramClip({ src }: { src: string }) {
-  return src.endsWith('.png') ? <img className="program-clip" src={src} alt="" /> : <video className="program-clip" src={src} autoPlay playsInline />;
+  const video = useRef<HTMLVideoElement>(null);
+  // Its sound goes through the Sound strip's fader and meter.
+  useEffect(() => (video.current ? connectClip(video.current) : undefined), []);
+  return src.endsWith('.png') ? <img className="program-clip" src={src} alt="" /> : <video ref={video} className="program-clip" src={src} autoPlay playsInline />;
+}
+
+const FADER_KEY = 'tstv-show-app-fader';
+
+/**
+ * The Sound strip at the right (RG, Oct 29, 2026): a level meter for the clip playing on Program, and a
+ * fader for its sound, from silent to +6 dB. Double-click the fader to go back to 0 dB. The laptop
+ * remembers where it was left.
+ */
+function SoundStrip() {
+  const [level, setLevel] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem(FADER_KEY) ?? 1);
+      return saved >= 0 && saved <= 2 ? saved : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const cover = useRef<HTMLDivElement>(null);
+  const reading = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    setFader(level);
+    try {
+      localStorage.setItem(FADER_KEY, String(level));
+    } catch {
+      // Not remembered; it still works.
+    }
+  }, [level]);
+  // The meter moves every frame without redrawing the page.
+  useEffect(() => {
+    let frame = 0;
+    let shown = -60;
+    const draw = () => {
+      const now = soundLevel();
+      // Up at once, down gently, like a studio meter.
+      shown = now > shown ? now : Math.max(now, shown - 1);
+      if (cover.current) cover.current.style.height = `${(-shown / 60) * 100}%`;
+      if (reading.current) reading.current.textContent = shown <= -59 ? '—' : `${Math.round(shown)}`;
+      frame = requestAnimationFrame(draw);
+    };
+    frame = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  const db = level === 0 ? '−∞' : `${level >= 1 ? '+' : ''}${(20 * Math.log10(level)).toFixed(1)}`;
+  return (
+    <section className="cell panel sound-strip" aria-label="Sound">
+      <h2>Sound</h2>
+      <div className="sound-columns">
+        <div className="meter" title="How loud the clip on Program is, in dB">
+          <div className="meter-cover" ref={cover} />
+        </div>
+        <input
+          className="fader"
+          type="range"
+          min={0}
+          max={2}
+          step={0.01}
+          value={level}
+          onChange={(e) => setLevel(Number(e.target.value))}
+          onDoubleClick={() => setLevel(1)}
+          aria-label="Sound of the clip on Program"
+          title="Drag to change the sound of the clip on Program. Double-click for 0 dB."
+        />
+      </div>
+      <p className="small muted sound-readout">
+        Level <span ref={reading}>—</span>
+        <br />
+        Fader <strong>{db} dB</strong>
+      </p>
+    </section>
+  );
 }
 
 /** Each camera's picture, playing; click one to take it. The one on air has a red frame. */
