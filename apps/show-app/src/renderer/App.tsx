@@ -239,8 +239,17 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
       {state.unreachable.count > 0 && (
         <div className="banner" role="status">
           {state.unreachable.count} {state.unreachable.count === 1 ? 'graphic' : 'graphics'} can’t play in the Program box:{' '}
-          {state.unreachable.places.length ? `their files are on ${state.unreachable.places.join(' and ')}, which isn’t plugged in` : 'their files aren’t on this laptop any more'}. Plug it in, and the
-          app picks them up by itself and keeps copies on this laptop, so they play even after it’s unplugged.
+          {state.unreachable.blocked ? (
+            <>
+              macOS isn’t letting the app read {state.unreachable.places.join(' and ') || 'their drive'}. Click <strong>Import graphics</strong> and pick the drive’s folder again: that
+              lets the app in, and it keeps copies on this laptop, so they play even after the drive is unplugged.
+            </>
+          ) : (
+            <>
+              {state.unreachable.places.length ? `their files are on ${state.unreachable.places.join(' and ')}, which isn’t plugged in` : 'their files aren’t on this laptop any more'}. Plug it in,
+              and the app picks them up by itself and keeps copies on this laptop, so they play even after it’s unplugged.
+            </>
+          )}
         </div>
       )}
       <div className="grid">
@@ -293,7 +302,7 @@ function Program({ state }: { state: AppState }) {
       <span className="program-caption">
         <strong>{camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera')}</strong>
         {onAir && <> + {onAir.label}</>}
-        {still && <span className="muted"> (still: {onAir!.fileFound ? 'getting its clip ready' : 'its file isn’t on this laptop'})</span>}
+        {still && <span className="muted"> (still: {onAir!.fileFound ? 'getting its clip ready' : 'the app can’t read its file'})</span>}
         {state.switcher.musicPlaying && <> + ♪ music</>}
       </span>
     </div>
@@ -464,8 +473,8 @@ function Item({ element, musicTrack }: { element: ElementView; musicTrack?: stri
       )}
       {element.behavior !== 'music' && !element.file && <span className="missing">no file</span>}
       {element.file && !element.fileFound && (
-        <span className="missing" title="Its file is on a drive that isn’t plugged in, so it can’t play in the Program box">
-          not on this laptop
+        <span className="missing" title="The app can’t read its file right now (its drive is unplugged, or macOS isn’t letting the app read it), so it can’t play in the Program box">
+          can’t read file
         </span>
       )}
       {element.behavior !== 'music' && element.file && element.ddrItem === null && (

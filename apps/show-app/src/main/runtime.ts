@@ -23,7 +23,7 @@ import {
   type SwitcherCommand,
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
-import { collectFiles, makePlayable, readFile, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
+import { collectFiles, makePlayable, readable, readFile, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
 import { DEFAULT_SETTINGS, type Settings, type Store } from './store.ts';
 import { Switcher } from './switcher.ts';
 import { WebsiteLink, type CueEvent } from './website.ts';
@@ -54,8 +54,11 @@ export class Runtime extends EventEmitter {
   private clock: AppState['clock'] = { startedAt: null, sectionLabel: null, overUnderSeconds: null };
   private greenScreen: FileInfo | null = null;
   private musicTrack: FileInfo | null = null;
-  /** Files with no playable copy yet that aren't on this laptop right now (on a drive that isn't plugged in). */
-  private unreachable = new Set<string>();
+  /**
+   * Files with no playable copy yet that the app can't read right now: missing (on a drive that isn't
+   * plugged in) or blocked (macOS isn't letting the app read the drive).
+   */
+  private unreachable = new Map<string, 'missing' | 'blocked'>();
   /** Files FFmpeg couldn't make a playable copy of, so they aren't tried again and again. */
   private unplayable = new Set<string>();
   private makingPlayable = false;
@@ -259,13 +262,13 @@ export class Runtime extends EventEmitter {
         let made = false;
         for (const info of [...Object.values(this.files), ...Object.values(this.permanent)]) {
           if ((info.playable && (await exists(info.playable))) || this.unplayable.has(info.path)) continue;
-          const found = await exists(info.path);
-          if (found === this.unreachable.has(info.path)) {
-            if (found) this.unreachable.delete(info.path);
-            else this.unreachable.add(info.path);
+          const found = await readable(info.path);
+          if (found !== (this.unreachable.get(info.path) ?? 'yes')) {
+            if (found === 'yes') this.unreachable.delete(info.path);
+            else this.unreachable.set(info.path, found);
             this.changed();
           }
-          if (!found) continue;
+          if (found !== 'yes') continue;
           const copy = await makePlayable(info.path, this.deps.store.playableFolder()).catch(() => null);
           if (copy) {
             info.playable = copy;
@@ -284,7 +287,7 @@ export class Runtime extends EventEmitter {
 
   /** Where the files that aren't on this laptop are: the drives' names (like “RG'S DRIVE”), or their folders. */
   private unreachablePlaces(): string[] {
-    const places = [...this.unreachable].map((file) => {
+    const places = [...this.unreachable.keys()].map((file) => {
       const mac = /^\/Volumes\/([^/]+)\//.exec(file);
       const windows = /^([A-Za-z]):[\\/]/.exec(file);
       return mac ? `“${mac[1]}”` : windows ? `drive ${windows[1].toUpperCase()}:` : path.dirname(file);
@@ -307,7 +310,17 @@ export class Runtime extends EventEmitter {
 
   private async addFiles(paths: string[]): Promise<void> {
     if (!this.plan) return;
-    const files = await collectFiles(paths);
+    const all = await collectFiles(paths);
+    // Files already on a cue (imported again from the same drive, say) are read again and keep their cues.
+    const onCues = new Map<string, () => Promise<void>>();
+    for (const [id, info] of Object.entries(this.files)) onCues.set(info.path, async () => void (this.files[id] = await readFile(info.path)));
+    for (const [name, info] of Object.entries(this.permanent)) onCues.set(info.path, async () => void (this.permanent[name] = await readFile(info.path)));
+    for (const file of all.filter((f) => onCues.has(f))) {
+      await onCues.get(file)!();
+      this.unreachable.delete(file);
+      this.unplayable.delete(file);
+    }
+    const files = all.filter((f) => !onCues.has(f));
     const sections = this.plan.sections.map((s) => ({ label: s.label, slug: s.slug, elements: s.elements.map((e) => ({ id: e.id, type: e.type, name: e.name })) }));
     const taken = new Set(Object.keys(this.files));
     const { matches, problems } = matchMedia(files, sections, taken);
@@ -327,7 +340,7 @@ export class Runtime extends EventEmitter {
     }
     const known = new Set(asked.map((p) => p.path));
     this.problems = [...this.problems.filter((p) => !known.has(p.path)), ...asked];
-    this.note(`Imported ${matches.length - asked.filter((a) => matches.some((m) => m.file === a.path)).length} of ${files.length} file(s)`);
+    this.note(`Imported ${matches.length - asked.filter((a) => matches.some((m) => m.file === a.path)).length + all.length - files.length} of ${all.length} file(s)`);
     await this.saveFiles();
   }
 
@@ -505,7 +518,7 @@ export class Runtime extends EventEmitter {
       },
       sections,
       problems: this.problems,
-      unreachable: { count: this.views().filter((e) => !e.fileFound).length, places: this.unreachablePlaces() },
+      unreachable: { count: this.views().filter((e) => !e.fileFound).length, places: this.unreachablePlaces(), blocked: [...this.unreachable.values()].includes('blocked') },
       music: {
         in: chosen.in,
         out: chosen.out,

@@ -3,7 +3,7 @@
 // themselves never leave the laptop (only names and lengths go to the website).
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
+import { mkdir, open, readdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
@@ -91,6 +91,21 @@ export async function thumbnail(file: string, seconds: number | null, alpha = fa
     return stdout.length > 0 ? `data:image/${alpha ? 'png' : 'jpeg'};base64,${Buffer.from(stdout).toString('base64')}` : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Whether the app can read a file right now: yes, missing (its drive isn't plugged in, or it was moved),
+ * or blocked (macOS keeps apps out of USB drives unless allowed; picking the files in Import graphics
+ * lets the app in until it closes).
+ */
+export async function readable(file: string): Promise<'yes' | 'missing' | 'blocked'> {
+  try {
+    await (await open(file, 'r')).close();
+    return 'yes';
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    return code === 'EPERM' || code === 'EACCES' ? 'blocked' : 'missing';
   }
 }
 
