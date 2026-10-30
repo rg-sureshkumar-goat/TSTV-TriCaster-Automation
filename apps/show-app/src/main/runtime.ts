@@ -28,7 +28,8 @@ import {
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
 import { collectFiles, makePlayable, readable, readFile, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
-import { cableAddress, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
+import { cableAddresses, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
+import { Feeds } from './feeds.ts';
 import { Playout } from './playout.ts';
 import { DEFAULT_SETTINGS, type Settings, type Store } from './store.ts';
 import { Switcher, type PlaylistClip, type SwitcherMode } from './switcher.ts';
@@ -43,6 +44,8 @@ export interface RuntimeDeps {
   pickFiles: () => Promise<string[]>;
   /** Asks the producer for one file. */
   pickFile: () => Promise<string | null>;
+  /** Asks the producer for a folder (where to save a recording), starting at one used before. */
+  pickFolder?: (startAt: string | null) => Promise<string | null>;
 }
 
 export class Runtime extends EventEmitter {
@@ -73,6 +76,8 @@ export class Runtime extends EventEmitter {
   private syncingSimulator = false;
   /** Live mode's playout (Phase 5), which sends the graphics and music to the TC1's input 4 over NDI. */
   private playout: Playout | null = null;
+  /** Live mode's view of the TC1's camera and program feeds, and the recording. */
+  private feeds: Feeds | null = null;
   private liveError: string | null = null;
   /** The Sound fader, from 0 to 2, which the playout applies in live mode. */
   private fader = 1;
@@ -526,11 +531,13 @@ export class Runtime extends EventEmitter {
       cameras: show
         ? show.settings.cameras.map((name) => {
             const input = show.settings.cameraInputs[name] ?? 1;
-            return { name, input, video: this.switcher.cameraVideo(input) };
+            return { name, input, video: this.switcher.mode === 'live' ? (this.feeds?.url(String(input)) ?? null) : this.switcher.cameraVideo(input) };
           })
         : [],
       switcher: { ...this.switcher.snapshot },
       mode: this.switcher.mode,
+      programVideo: this.switcher.mode === 'live' ? (this.feeds?.url('program') ?? null) : null,
+      recording: this.feeds ? { ...this.feeds.recording, error: this.feeds.recording.error ?? this.feeds.error } : null,
       liveError: this.liveError,
       playout: this.playout ? { connections: this.playout.state.connections, error: this.playout.state.error } : null,
       prompter: { connected: p !== null, label: p?.label ?? '', speed: p?.speed ?? 0, paused: p?.paused ?? false },
@@ -633,8 +640,10 @@ export class Runtime extends EventEmitter {
     this.liveError = null;
     if (!on) {
       this.switcher.close();
-      await this.playout?.close();
+      this.feeds?.stopRecording();
+      await Promise.all([this.playout?.close(), this.feeds?.close()]);
       this.playout = null;
+      this.feeds = null;
       this.switcher = this.newSwitcher(this.settings.simulatorAddress, simulatorStatePort ?? (Number(process.env.TSTV_SIM_STATE_PORT) || undefined));
       await this.switcher.connect();
       this.engine?.playlistReloaded();
@@ -643,8 +652,8 @@ export class Runtime extends EventEmitter {
       this.rebuild();
       return;
     }
-    const cable = cableAddress();
-    if (!cable) {
+    const cable = cableAddresses();
+    if (!cable.length) {
       this.liveError = 'The laptop isn’t on the TC1’s cable. Plug it in, wait a minute, and try again.';
       return this.changed();
     }
@@ -674,6 +683,8 @@ export class Runtime extends EventEmitter {
     this.switcher.close();
     this.switcher = live;
     this.playout = playout;
+    this.feeds = new Feeds();
+    this.feeds.on('change', () => this.changed());
     this.settings = { ...this.settings, tc1Address: address };
     await this.deps.store.saveSettings(this.settings);
     this.engine?.playlistReloaded();
@@ -681,6 +692,33 @@ export class Runtime extends EventEmitter {
     this.note(`Live mode: running the TC1 at ${address}`);
     this.reportStatus();
     this.rebuild();
+  }
+
+  /**
+   * Record (live mode): saves the TC1's program feed, picture and sound, on the laptop (RG, Oct 30, 2026),
+   * in a folder the producer picks, as Show_Episode_Date.mp4.
+   */
+  private async record(on: boolean): Promise<void> {
+    if (!this.feeds) return;
+    if (!on) {
+      this.feeds.stopRecording();
+      this.note('Recording stopped');
+      return this.changed();
+    }
+    const folder = await this.deps.pickFolder?.(this.settings.recordFolder || null);
+    if (!folder) return;
+    this.settings = { ...this.settings, recordFolder: folder };
+    await this.deps.store.saveSettings(this.settings);
+    const episode = this.website.episode;
+    const words = (text: string) => text.replace(/[^A-Za-z0-9]+/g, ' ').trim().replace(/ /g, '-') || 'Show';
+    const date = episode?.airDate || new Date().toISOString().slice(0, 10);
+    const name = `${words(this.website.show?.name ?? 'Show')}_${words(episode?.title ?? 'Episode')}_${date}`;
+    // Never over an earlier recording.
+    let file = path.join(folder, `${name}.mp4`);
+    for (let n = 2; await stat(file).then(() => true, () => false); n++) file = path.join(folder, `${name}_${n}.mp4`);
+    this.feeds.record(file);
+    this.note(`Recording to ${file}`);
+    this.changed();
   }
 
   /** The TC1 on the cable: at its last address, or found by the NDI feeds it announces there. */
@@ -724,6 +762,8 @@ export class Runtime extends EventEmitter {
         return this.connectSwitcher(action.address);
       case 'setLiveMode':
         return this.setLiveMode(action.on);
+      case 'record':
+        return this.record(action.on);
       case 'setFader':
         this.fader = Math.max(0, Math.min(2, action.level));
         this.playout?.fader(this.fader);
@@ -877,5 +917,7 @@ export class Runtime extends EventEmitter {
     this.website.close();
     this.switcher.close();
     void this.playout?.close();
+    this.feeds?.stopRecording();
+    void this.feeds?.close();
   }
 }

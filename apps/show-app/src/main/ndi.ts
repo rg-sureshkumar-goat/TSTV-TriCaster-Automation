@@ -26,22 +26,24 @@ export function findRuntime(): string | null {
   return runtimeCandidates().find((file) => existsSync(file)) ?? null;
 }
 
-/** The laptop's address on the cable to the TC1: the self-assigned one (169.254.x.x), or null. */
-export function cableAddress(): string | null {
-  for (const addresses of Object.values(os.networkInterfaces())) {
-    const found = addresses?.find((a) => a.family === 'IPv4' && a.address.startsWith('169.254.'));
-    if (found) return found.address;
-  }
-  return null;
+/**
+ * The laptop's addresses on cables like the TC1's: self-assigned ones (169.254.x.x). There can be more than
+ * one (another adapter or a phone gets one too), so NDI is allowed on all of them, never on Wi-Fi.
+ */
+export function cableAddresses(): string[] {
+  return Object.values(os.networkInterfaces())
+    .flatMap((addresses) => addresses ?? [])
+    .filter((a) => a.family === 'IPv4' && a.address.startsWith('169.254.'))
+    .map((a) => a.address);
 }
 
 /**
- * Keeps NDI on the cable: NDI reads its settings from NDI_CONFIG_DIR, and this one allows only the cable's
- * address, so nothing is sent or announced on campus Wi-Fi. Call before NDI starts.
+ * Keeps NDI on the cable: NDI reads its settings from NDI_CONFIG_DIR, and this one allows only the cables'
+ * addresses, so nothing is sent or announced on campus Wi-Fi. Call before NDI starts.
  */
-export function keepNdiOnCable(folder: string, address: string): void {
+export function keepNdiOnCable(folder: string, addresses: string[]): void {
   mkdirSync(folder, { recursive: true });
-  writeFileSync(path.join(folder, 'ndi-config.v1.json'), JSON.stringify({ ndi: { adapters: { allowed: [address] } } }, null, 1));
+  writeFileSync(path.join(folder, 'ndi-config.v1.json'), JSON.stringify({ ndi: { adapters: { allowed: addresses } } }, null, 1));
   process.env.NDI_CONFIG_DIR = folder;
 }
 

@@ -365,10 +365,13 @@ function Program({ state }: { state: AppState }) {
   useEffect(() => void programSound(), []);
   return (
     <div className="program" aria-label="Program">
-      {camera?.video ? (
+      {state.mode === 'live' ? (
+        // Live mode: the TC1's real program, picture only.
+        <CameraPicture src={state.programVideo} />
+      ) : camera?.video ? (
         <CameraPicture src={`${camera.video}?size=large`} />
       ) : (
-        <span className="program-note">Live video from the TriCaster will show here in a later version.</span>
+        <span className="program-note">Start the simulator, or turn on live mode, to see the program here.</span>
       )}
       {keyed && <ProgramClip key={onAir!.id} src={keyed} />}
       {still && <img className="program-clip" src={still} alt="" />}
@@ -683,6 +686,39 @@ function Skipped({ state }: { state: AppState }) {
   );
 }
 
+/**
+ * Record (live mode): saves the TC1's program, picture and sound, on the laptop, in a folder the producer
+ * picks, as Show_Episode_Date.mp4 (RG, Oct 30, 2026).
+ */
+function RecordButton({ state }: { state: AppState }) {
+  const recording = state.recording;
+  if (state.mode !== 'live' || !recording) {
+    return (
+      <button className="record" disabled title="Recording saves the real TC1’s program, so it works in live mode">
+        ● Record
+      </button>
+    );
+  }
+  const on = !!recording.file;
+  return (
+    <div className="record-row">
+      <button className={`record${on ? ' on' : ''}`} onClick={() => act({ kind: 'record', on: !on })}>
+        {on ? `■ Stop recording · ${duration(recording.seconds)}` : '● Record'}
+      </button>
+      {on && (
+        <span className="small muted file-name" title={recording.file ?? ''}>
+          {recording.file?.split(/[\\/]/).pop()}
+        </span>
+      )}
+      {recording.error && (
+        <span className="small error" role="alert">
+          {recording.error}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function Status({ state }: { state: AppState }) {
   const now = useNow();
   const { automation, clock, switcher, lastCue } = state;
@@ -693,6 +729,7 @@ function Status({ state }: { state: AppState }) {
       <button className={`pause${automation.manual ? ' resume' : ''}`} onClick={() => act({ kind: 'setManual', manual: !automation.manual })}>
         {automation.manual ? 'Continue automation' : 'Pause automation'} <kbd>P</kbd>
       </button>
+      <RecordButton state={state} />
       <dl>
         <dt>Section</dt>
         <dd>{automation.sectionLabel ?? '—'}</dd>

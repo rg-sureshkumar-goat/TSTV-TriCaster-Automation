@@ -10,6 +10,8 @@ export interface Settings {
   simulatorAddress: string;
   /** The TC1's last address on the cable (live mode itself is never remembered). */
   tc1Address: string;
+  /** Where the last recording was saved. */
+  recordFolder: string;
   /** Each show's music in and out points ("default", "none", "section:<id>" or "cue:<id>"), by show id. */
   music: Record<string, { in: string; out: string }>;
 }
@@ -20,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   simulatorAddress: '127.0.0.1:8080',
   // Where the TC1 gave itself an address on the cable at the studio (Oct 28 and 30, 2026).
   tc1Address: '169.254.193.52',
+  recordFolder: '',
   music: {},
 };
 

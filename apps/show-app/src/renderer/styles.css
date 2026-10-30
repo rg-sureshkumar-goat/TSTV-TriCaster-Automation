@@ -1056,3 +1056,20 @@ button.danger {
   padding-left: 20px;
   line-height: 1.5;
 }
+
+/* Record (live mode): red while recording. */
+.record-row {
+  display: grid;
+  gap: 4px;
+}
+
+.record {
+  padding: 10px;
+  font-weight: 700;
+}
+
+.record.on {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}

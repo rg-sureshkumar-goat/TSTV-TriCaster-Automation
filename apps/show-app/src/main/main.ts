@@ -26,6 +26,10 @@ const runtime = new Runtime({
     const result = await dialog.showOpenDialog(win!, { title: 'Choose the file', properties: ['openFile'] });
     return result.canceled ? null : (result.filePaths[0] ?? null);
   },
+  pickFolder: async (startAt) => {
+    const result = await dialog.showOpenDialog(win!, { title: 'Where should the recording be saved?', buttonLabel: 'Record here', properties: ['openDirectory', 'createDirectory'], defaultPath: startAt ?? undefined });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  },
 });
 
 /** Sends the app's state to the window, unless it's already closed. */

@@ -69,6 +69,10 @@ export interface AppState {
    * confirmation, and the app never remembers it.
    */
   mode: 'simulator' | 'live';
+  /** Live mode: where the page watches the TC1's program feed (MIX 1). */
+  programVideo: string | null;
+  /** Live mode: the recording of the program feed to the laptop (file is null when not recording). */
+  recording: { file: string | null; seconds: number; error: string | null } | null;
   /** Why live mode couldn't start, if it couldn't. */
   liveError: string | null;
   /** Live mode's playout: how many receivers take the laptop's NDI source (the TC1's input 4), and any problem. */
@@ -120,6 +124,7 @@ export type Action =
   | { kind: 'disconnect' }
   | { kind: 'connectSwitcher'; address: string }
   | { kind: 'setLiveMode'; on: boolean }
+  | { kind: 'record'; on: boolean }
   /** The Sound fader, from 0 (silent) to 2 (+6 dB). */
   | { kind: 'setFader'; level: number }
   | { kind: 'fireNext' }
