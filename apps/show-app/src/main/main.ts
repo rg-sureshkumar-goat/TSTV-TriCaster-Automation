@@ -33,6 +33,10 @@ const show = (state: unknown) => {
   if (win && !win.isDestroyed()) win.webContents.send('state', state);
 };
 runtime.on('state', show);
+// The Sound meter's level in live mode, ten times a second, apart from the state.
+runtime.on('level', (db: number) => {
+  if (win && !win.isDestroyed()) win.webContents.send('level', db);
+});
 ipcMain.on('ready', () => show(runtime.state()));
 ipcMain.handle('action', (_event, action: Action) => runtime.act(action));
 

@@ -1,16 +1,29 @@
 // The switcher driver: the only code in the show app that talks to a switcher. It speaks the TC1's own
 // web control (port 80, /v1/…) and state stream (port 5951), which the simulator copies, so the same code
-// runs the real TC1 in Phase 5. See docs/TC1-FINDINGS.md.
+// runs both. See docs/TC1-FINDINGS.md.
 //
-// Safety (docs/ARCHITECTURE.md, 6.3): in simulator mode it refuses to send anything to a switcher that
-// doesn't identify itself as the TSTV simulator, so typing the TC1's address by mistake sends nothing.
-// Phase 4 has no live mode at all. Pause is one switch here: while it's on, nothing is sent.
+// Two modes (docs/ARCHITECTURE.md, 6.3). In simulator mode it refuses to send anything to a switcher that
+// doesn't identify itself as the TSTV simulator, so typing the TC1's address by mistake sends nothing. In
+// live mode (Phase 5, turned on by the producer) it talks only to a switcher that says it's a TriCaster TC1,
+// and the graphics and music come from the laptop's playout over NDI instead of DDR 2 and the Sound player
+// (decided Oct 30, 2026): cameras and DSK 2 are TC1 commands; cueing, playing and stopping clips, and the
+// music, go to the playout.
 import { EventEmitter } from 'node:events';
 import net from 'node:net';
 import WebSocket from 'ws';
 import type { SwitcherCommand } from '@tstv/shared';
+import type { Playout } from './playout.ts';
 
 export const SIMULATOR_NAME = 'TSTV Simulator';
+export const TC1_NAME = 'TriCaster TC1';
+export type SwitcherMode = 'simulator' | 'live';
+
+/** A clip for DDR 2 (the simulator) or the playout (live mode); path only matters to the playout. */
+export interface PlaylistClip {
+  name: string;
+  durationMs: number;
+  path?: string;
+}
 
 export interface SwitcherSnapshot {
   status: 'off' | 'connecting' | 'connected' | 'error' | 'refused';
@@ -47,10 +60,33 @@ export class Switcher extends EventEmitter {
   private timecodeTimer: ReturnType<typeof setInterval> | null = null;
   snapshot: SwitcherSnapshot;
 
-  /** address is host:port of the web control; the state stream is on statePort (5951 on the TC1). */
-  constructor(address: string, private statePort = 5951) {
+  /** The music track's file, which the playout plays in live mode. */
+  musicPath: string | null = null;
+
+  /**
+   * address is host:port of the web control; the state stream is on statePort (5951 on the TC1). In live
+   * mode, playout plays the show's clips and music.
+   */
+  constructor(
+    address: string,
+    private statePort = 5951,
+    readonly mode: SwitcherMode = 'simulator',
+    private playout: Playout | null = null,
+  ) {
     super();
     this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, playlist: [], soundTracks: [] };
+    if (playout) {
+      // The playout stands in for DDR 2 and the Sound player.
+      const follow = () => this.set({ ddrItem: playout.state.item, ddrPlaying: playout.state.playing, ddrRemaining: playout.state.remaining, musicPlaying: playout.state.musicPlaying });
+      playout.on('change', follow);
+      playout.on('ended', (item: number) => {
+        if (this.snapshot.dskOn) this.emit('clipEnded', item);
+      });
+    }
+  }
+
+  private get live(): boolean {
+    return this.mode === 'live';
   }
 
   private get base(): string {
@@ -67,17 +103,24 @@ export class Switcher extends EventEmitter {
     try {
       const version = await (await fetch(`${this.base}/v1/version`, { signal: AbortSignal.timeout(4000) })).text();
       const product = /<product_name>([^<]*)<\/product_name>/.exec(version)?.[1] ?? '';
-      if (product !== SIMULATOR_NAME) {
-        // The lock: this is simulator mode, and that's not the simulator.
-        this.set({ status: 'refused', error: `That switcher calls itself “${product || 'unknown'}”, not the TSTV simulator, so the app won’t send it anything. Live mode for the real TC1 comes in Phase 5.` });
+      // The lock: each mode talks only to its own switcher.
+      if (!this.live && product !== SIMULATOR_NAME) {
+        this.set({ status: 'refused', error: `That switcher calls itself “${product || 'unknown'}”, not the TSTV simulator, so the app won’t send it anything. To run the real TC1, turn on live mode.` });
+        return;
+      }
+      if (this.live && product !== TC1_NAME) {
+        this.set({ status: 'refused', error: `That switcher calls itself “${product || 'unknown'}”, not TSTV’s ${TC1_NAME}, so live mode won’t send it anything.` });
         return;
       }
     } catch (e) {
-      this.set({ status: 'error', error: `Couldn’t reach the simulator at ${this.snapshot.address}. Is it running? (npm run simulator)` });
+      this.set({
+        status: 'error',
+        error: this.live ? `Couldn’t reach the TC1 at ${this.snapshot.address}. Is the laptop on the TC1’s cable?` : `Couldn’t reach the simulator at ${this.snapshot.address}. Is it running? (npm run simulator)`,
+      });
       return;
     }
     this.listen();
-    await this.readPlaylists();
+    if (!this.live) await this.readPlaylists();
     this.set({ status: 'connected', error: null });
   }
 
@@ -116,7 +159,7 @@ export class Switcher extends EventEmitter {
     this.notifications = notifications;
     notifications.on('message', (data) => {
       const key = String(data).replace(/\0/g, '');
-      if (key === 'ddr_playlist') void this.readPlaylists();
+      if (key === 'ddr_playlist' && !this.live) void this.readPlaylists();
     });
     notifications.on('error', () => undefined);
   }
@@ -125,6 +168,8 @@ export class Switcher extends EventEmitter {
     const was = this.snapshot.ddrPlaying;
     const input = /^INPUT(\d+)$/i.exec(this.states.get('v1_a_row_named_input') ?? '');
     const dskOn = this.states.get('main_dsk2_value') === '1' || this.states.get('main_dsk2_take') === 'true';
+    // Live mode: the TC1's DDR 2 and Sound player aren't used; the playout reports instead.
+    if (this.live) return this.set({ programInput: input ? Number(input[1]) : null, dskOn });
     const ddrPlaying = this.states.get('ddr2_play') === 'true';
     const item = Number.parseInt(this.states.get('ddr2_select_clips') ?? '', 10);
     this.set({
@@ -184,6 +229,7 @@ export class Switcher extends EventEmitter {
    * the TC1's NDI video feeds.
    */
   cameraVideo(input: number): string | null {
+    if (this.live) return null;
     return this.snapshot.status === 'connected' && input >= 1 && input <= 3 ? `${this.base}/sim/video/input${input}` : null;
   }
 
@@ -218,6 +264,10 @@ export class Switcher extends EventEmitter {
 
   private async sendAll(commands: SwitcherCommand[]): Promise<void> {
     for (const c of commands) {
+      if (this.live && this.playout && c.kind !== 'camera') {
+        await this.sendLive(c, this.playout);
+        continue;
+      }
       if (c.kind === 'camera') await this.send('v1_a_row', `INPUT${c.input}`);
       else if (c.kind === 'cueClip') await this.send('ddr2_select_clips', String(c.item));
       else if (c.kind === 'play') await this.send('ddr2_play');
@@ -234,12 +284,42 @@ export class Switcher extends EventEmitter {
   }
 
   /**
-   * The simulator only: loads a player's playlist, standing in for Send to TriCaster (Phase 5). DDR 2
-   * gets the show's clips; GFX 1 or DDR 1 gets the green-screen background.
+   * Live mode: DSK 2 (whose source is input 4, the laptop) goes on and off on the TC1, and the playout
+   * plays: taking DSK 2 on plays the cued clip, as DDR 2's AutoPlay does, and taking it off stops it.
    */
-  async loadSimulatorPlaylist(clips: { name: string; durationMs: number }[], player = 'ddr2'): Promise<void> {
-    if (this.snapshot.status !== 'connected') throw new Error('Connect to the simulator first.');
-    await fetch(`${this.base}/sim/api/playlist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player, clips }) });
+  private async sendLive(c: SwitcherCommand, playout: Playout): Promise<void> {
+    if (c.kind === 'cueClip') playout.select(c.item);
+    else if (c.kind === 'play') playout.play();
+    else if (c.kind === 'music') playout.music(c.play, this.musicPath ?? undefined);
+    else if (c.kind === 'dsk') {
+      if (c.on) {
+        playout.play();
+        await this.send('main_dsk2_value', '1');
+      } else {
+        await this.send('main_dsk2_value', '0');
+        playout.stop();
+      }
+    }
+  }
+
+  /**
+   * Loads a player's playlist: on the simulator, DDR 2 gets the show's clips (GFX 1 or DDR 1 the green-
+   * screen background, the Sound player the music); in live mode, the playout gets DDR 2's clips and the
+   * music, and nothing goes to the TC1.
+   */
+  async loadPlaylist(clips: PlaylistClip[], player = 'ddr2'): Promise<void> {
+    if (this.snapshot.status !== 'connected') throw new Error('Connect to the switcher first.');
+    if (this.live) {
+      if (player === 'ddr2') {
+        this.playout?.setPlaylist(clips.map((c) => ({ name: c.name, path: c.path ?? '', seconds: c.durationMs ? c.durationMs / 1000 : null })));
+        this.set({ playlist: clips.map((c) => c.name) });
+      } else if (player === 'sound') {
+        this.musicPath = clips[0]?.path ?? null;
+        this.set({ soundTracks: clips.map((c) => c.name) });
+      }
+      return;
+    }
+    await fetch(`${this.base}/sim/api/playlist`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player, clips: clips.map(({ name, durationMs }) => ({ name, durationMs })) }) });
     await this.readPlaylists();
   }
 

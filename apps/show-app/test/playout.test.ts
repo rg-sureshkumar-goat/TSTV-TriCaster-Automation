@@ -19,8 +19,11 @@ let playout: Playout;
 let ndi: Ndi;
 let receiver: unknown;
 
-/** Frames and sound from the playout for a while: the last picture's corner and bar pixels, and the loudest sound. */
-function receive(ms: number) {
+/**
+ * Frames and sound from the playout for a while (or until `done` says so): the last picture's corner and
+ * bar pixels, and the loudest sound.
+ */
+function receive(ms: number, done?: (got: { bar: number[]; corner: number[]; peak: number }) => boolean) {
   const video = videoBuffer(ndi);
   const audio = audioBuffer(ndi);
   let frames = 0;
@@ -28,7 +31,7 @@ function receive(ms: number) {
   let bar: number[] = [];
   let corner: number[] = [];
   const end = Date.now() + ms;
-  while (Date.now() < end) {
+  while (Date.now() < end && !(done && frames > 0 && done({ bar, corner, peak }))) {
     const kind = ndi.recvCapture(receiver, video.buffer, audio.buffer, null, 50);
     if (kind === FRAME.video) {
       const v = video.read();
@@ -40,8 +43,12 @@ function receive(ms: number) {
       ndi.recvFreeVideo(receiver, video.buffer);
     } else if (kind === FRAME.audio) {
       const a = audio.read();
-      const samples = new Float32Array(ndi.koffi.view(a.p_data as never, a.channel_stride_in_bytes * a.no_channels).slice(0));
-      for (const s of samples) peak = Math.max(peak, Math.abs(s));
+      const all = new Float32Array(ndi.koffi.view(a.p_data as never, a.channel_stride_in_bytes * a.no_channels).slice(0));
+      // Each channel has spare room after its samples, which isn't sound.
+      for (let c = 0; c < a.no_channels; c++) {
+        const from = (c * a.channel_stride_in_bytes) / 4;
+        for (let i = from; i < from + a.no_samples; i++) peak = Math.max(peak, Math.abs(all[i]));
+      }
       ndi.recvFreeAudio(receiver, audio.buffer);
     }
   }
@@ -100,7 +107,8 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
   it('cuts straight to the next clip with its sound, through the fader', async () => {
     playout.select(1);
     playout.play();
-    const loud = receive(1000);
+    // However long a busy computer takes to start the clip.
+    const loud = receive(5000, (got) => got.bar[2] > 200 && got.peak > 0.3);
     // The red clip fills the picture: solid red (BGRA).
     expect(loud.bar[2]).toBeGreaterThan(200);
     expect(loud.bar[0]).toBeLessThan(60);
@@ -118,10 +126,10 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
 
   it('clears input 4 when DSK 2 goes off, and plays the music', async () => {
     playout.stop();
-    const cleared = receive(500);
+    const cleared = receive(3000, (got) => got.bar[3] === 0);
     expect(cleared.bar[3]).toBe(0);
     playout.music(true, path.join(folder, 'Music.mp3'));
-    const withMusic = receive(1000);
+    const withMusic = receive(5000, (got) => got.peak > 0.05);
     expect(withMusic.peak).toBeGreaterThan(0.05);
     // The playout's report arrives once this test lets it.
     await new Promise((r) => setTimeout(r, 100));

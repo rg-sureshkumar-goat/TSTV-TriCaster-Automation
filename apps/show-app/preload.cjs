@@ -9,6 +9,12 @@ contextBridge.exposeInMainWorld('showApp', {
     ipcRenderer.send('ready');
     return () => ipcRenderer.off('state', handler);
   },
+  /** The level of the sound going to the TC1 in live mode, in dB. */
+  onLevel(listener) {
+    const handler = (_event, db) => listener(db);
+    ipcRenderer.on('level', handler);
+    return () => ipcRenderer.off('level', handler);
+  },
   act(action) {
     return ipcRenderer.invoke('action', action);
   },

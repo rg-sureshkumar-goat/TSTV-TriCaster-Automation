@@ -14,6 +14,7 @@ declare global {
   interface Window {
     showApp: {
       onState(listener: (state: AppState) => void): () => void;
+      onLevel(listener: (db: number) => void): () => void;
       act(action: Action): Promise<void>;
       pathOf(file: File): string;
     };
@@ -89,6 +90,7 @@ export function App() {
   };
   return (
     <div className={`app${state.automation.manual ? ' manual' : ''}`}>
+      <LiveBar state={state} />
       <Header state={state} />
       {!state.episode ? (
         <main className="empty">
@@ -117,15 +119,17 @@ function Header({ state }: { state: AppState }) {
     <header className="topbar">
       <ThemeSwitch />
       <span className="title">{episode ? `${episode.showName} · ${episode.title}` : 'TSTV Show App'}</span>
-      <span className="mode" title="Phase 4 runs the simulator only. Live mode for the real TC1 comes in Phase 5.">
-        SIMULATOR
-      </span>
+      <LiveSwitch state={state} />
       <span className="lights">
         <Light on={website.status === 'connected'} warn={website.status === 'connecting'} label="Website" detail={website.error ?? website.status} />
         <Light on={prompter.connected} label="Prompter" detail={prompter.connected ? `On ${prompter.label || 'the top'}` : 'The prompter isn’t open on this episode'} />
-        <button className="light-button" onClick={() => setOpen(open === 'simulator' ? null : 'simulator')} title="Click to change the simulator’s address">
-          <Light on={switcher.status === 'connected'} warn={switcher.status === 'connecting'} label="Simulator" detail={switcher.error ?? `${switcher.address}: ${switcher.status}`} />
-        </button>
+        {state.mode === 'live' ? (
+          <Light on={switcher.status === 'connected'} warn={switcher.status === 'connecting'} label="TC1" detail={switcher.error ?? `${switcher.address}: ${switcher.status}`} />
+        ) : (
+          <button className="light-button" onClick={() => setOpen(open === 'simulator' ? null : 'simulator')} title="Click to change the simulator’s address">
+            <Light on={switcher.status === 'connected'} warn={switcher.status === 'connecting'} label="Simulator" detail={switcher.error ?? `${switcher.address}: ${switcher.status}`} />
+          </button>
+        )}
       </span>
       <button className={episode ? '' : 'primary'} onClick={() => setOpen(open === 'key' ? null : 'key')} aria-expanded={open === 'key'}>
         Episode key
@@ -133,6 +137,80 @@ function Header({ state }: { state: AppState }) {
       {open === 'key' && <KeyPanel state={state} onDone={() => setOpen(null)} />}
       {open === 'simulator' && <SimulatorPanel state={state} />}
     </header>
+  );
+}
+
+/**
+ * Simulator or live mode (Phase 5). Live mode runs TSTV's real TC1, so it takes a deliberate step: this
+ * button, then a confirmation listing what the TC1 needs (the second of the three safety locks).
+ */
+function LiveSwitch({ state }: { state: AppState }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const turnOn = async () => {
+    setBusy(true);
+    await act({ kind: 'setLiveMode', on: true });
+    setBusy(false);
+    setAsking(false);
+  };
+  if (state.mode === 'live') return <span className="mode live">LIVE: TC1</span>;
+  return (
+    <>
+      <span className="mode" title="The app runs the simulator until live mode is turned on">
+        SIMULATOR
+      </span>
+      <button className="go-live" onClick={() => setAsking(true)}>
+        Run the real TC1…
+      </button>
+      {state.liveError && !asking && (
+        <span className="error small" role="alert">
+          {state.liveError}
+        </span>
+      )}
+      {asking && (
+        <div className="overlay" role="dialog" aria-label="Turn on live mode">
+          <div className="window small-window live-confirm">
+            <h2>Run the real TC1?</h2>
+            <p>
+              Live mode sends commands to TSTV’s real TriCaster TC1: cameras, DSK 2, and the graphics and music over the cable. Before you turn it on, check:
+            </p>
+            <ul>
+              <li>The laptop is plugged into the TC1’s cable.</li>
+              <li>
+                On the TC1: <strong>input 4</strong> is the laptop’s source (<strong>TSTV Show App</strong>), <strong>DSK 2’s source is input 4</strong>, and input 4’s sound is on in the
+                audio mixer.
+              </li>
+              <li>Nothing is on air that the app shouldn’t touch.</li>
+            </ul>
+            {state.liveError && <p className="error">{state.liveError}</p>}
+            <div className="row">
+              <button className="danger" onClick={turnOn} disabled={busy}>
+                {busy ? 'Connecting to the TC1…' : 'Turn on live mode'}
+              </button>
+              <button onClick={() => setAsking(false)} disabled={busy}>
+                Stay on the simulator
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Across the top in live mode, so nobody forgets the app is running the real TC1. */
+function LiveBar({ state }: { state: AppState }) {
+  if (state.mode !== 'live') return null;
+  const connections = state.playout?.connections ?? 0;
+  return (
+    <div className="live-bar" role="status">
+      <strong>LIVE: TC1</strong>
+      <span>The app is running the real TriCaster.</span>
+      <span className="small">
+        {state.playout?.error ?? (connections > 0 ? `Input 4 is taking the laptop’s graphics (${connections} connection${connections === 1 ? '' : 's'}).` : 'Waiting for the TC1’s input 4 to take the laptop’s graphics…')}
+      </span>
+      <button onClick={() => act({ kind: 'setLiveMode', on: false })}>Back to the simulator</button>
+    </div>
   );
 }
 
@@ -265,7 +343,7 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
         <PermanentBox state={state} />
         <GreenScreenBox state={state} />
         <Music state={state} />
-        <SoundStrip />
+        <SoundStrip live={state.mode === 'live'} />
       </div>
     </main>
   );
@@ -278,9 +356,11 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
 function Program({ state }: { state: AppState }) {
   const camera = state.cameras.find((c) => c.input === state.switcher.programInput);
   const onAir = state.automation.onAir;
-  const keyed = state.switcher.dskOn ? onAir?.playable : null;
+  // On the simulator, the app's own picture; live mode shows the TC1's program instead.
+  const simulator = state.mode === 'simulator';
+  const keyed = simulator && state.switcher.dskOn ? onAir?.playable : null;
   // Until its clip can play (being made, or its drive isn't plugged in), a graphic shows as its still.
-  const still = state.switcher.dskOn && onAir && !onAir.playable ? onAir.thumbnail : null;
+  const still = simulator && state.switcher.dskOn && onAir && !onAir.playable ? onAir.thumbnail : null;
   // Ready before the first clip, so it isn't held back while the laptop's sound wakes up.
   useEffect(() => void programSound(), []);
   return (
@@ -293,7 +373,7 @@ function Program({ state }: { state: AppState }) {
       {keyed && <ProgramClip key={onAir!.id} src={keyed} />}
       {still && <img className="program-clip" src={still} alt="" />}
       {/* On the simulator, the Sound player only pretends: the app plays the music out loud while it plays. */}
-      {state.switcher.musicPlaying && state.musicTrack?.playable && <ProgramMusic src={state.musicTrack.playable} />}
+      {simulator && state.switcher.musicPlaying && state.musicTrack?.playable && <ProgramMusic src={state.musicTrack.playable} />}
       <span className={`live-dot${state.live.on ? ' on' : ''}`}>{state.live.on ? '● LIVE' : '○ Not live'}</span>
       <span className="program-caption">
         <strong>{camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera')}</strong>
@@ -325,7 +405,7 @@ function ProgramClip({ src }: { src: string }) {
  * sound, the clip on DSK 2 and the music together, from silent to +6 dB. Double-click the fader to go back
  * to 0 dB. The laptop remembers where it was left.
  */
-function SoundStrip() {
+function SoundStrip({ live }: { live: boolean }) {
   const key = 'tstv-show-app-fader';
   const [level, setLevel] = useState(() => {
     try {
@@ -338,19 +418,26 @@ function SoundStrip() {
   const cover = useRef<HTMLDivElement>(null);
   const reading = useRef<HTMLSpanElement>(null);
   useEffect(() => {
+    // The laptop's own sound on the simulator; the playout's, going to the TC1, in live mode.
     setFader(level);
+    void act({ kind: 'setFader', level });
     try {
       localStorage.setItem(key, String(level));
     } catch {
       // Not remembered; it still works.
     }
   }, [level]);
+  // In live mode, the level comes from the playout; on the simulator, from the laptop's own sound.
+  const liveLevel = useRef(-60);
+  useEffect(() => window.showApp.onLevel((db) => (liveLevel.current = db)), []);
+  const liveNow = useRef(live);
+  liveNow.current = live;
   // The meter moves every frame without redrawing the page.
   useEffect(() => {
     let frame = 0;
     let shown = -60;
     const draw = () => {
-      const now = soundLevel();
+      const now = liveNow.current ? liveLevel.current : soundLevel();
       // Up at once, down gently, like a studio meter.
       shown = now > shown ? now : Math.max(now, shown - 1);
       if (cover.current) cover.current.style.height = `${(-shown / 60) * 100}%`;

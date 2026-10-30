@@ -64,6 +64,15 @@ export interface AppState {
   episode: { id: string; title: string; showName: string; airDate: string; airTime: string } | null;
   /** video: where to watch the camera's picture (the simulator's test pictures for now), or null. */
   cameras: { name: string; input: number; video: string | null }[];
+  /**
+   * Simulator or live mode (Phase 5). Live mode runs the real TC1: the producer turns it on, with a
+   * confirmation, and the app never remembers it.
+   */
+  mode: 'simulator' | 'live';
+  /** Why live mode couldn't start, if it couldn't. */
+  liveError: string | null;
+  /** Live mode's playout: how many receivers take the laptop's NDI source (the TC1's input 4), and any problem. */
+  playout: { connections: number; error: string | null } | null;
   switcher: {
     status: LinkStatus | 'refused';
     error: string | null;
@@ -110,6 +119,9 @@ export type Action =
   | { kind: 'connect'; siteUrl: string; key: string }
   | { kind: 'disconnect' }
   | { kind: 'connectSwitcher'; address: string }
+  | { kind: 'setLiveMode'; on: boolean }
+  /** The Sound fader, from 0 (silent) to 2 (+6 dB). */
+  | { kind: 'setFader'; level: number }
   | { kind: 'fireNext' }
   | { kind: 'fireBack' }
   | { kind: 'takeOff' }

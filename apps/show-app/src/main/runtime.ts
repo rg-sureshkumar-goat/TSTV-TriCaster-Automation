@@ -28,8 +28,10 @@ import {
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
 import { collectFiles, makePlayable, readable, readFile, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
+import { cableAddress, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
+import { Playout } from './playout.ts';
 import { DEFAULT_SETTINGS, type Settings, type Store } from './store.ts';
-import { Switcher } from './switcher.ts';
+import { Switcher, type PlaylistClip, type SwitcherMode } from './switcher.ts';
 import { WebsiteLink, type CueEvent } from './website.ts';
 
 /** The clip TSTV holds during each commercial break, at the start of every block in DDR 2 (probe, Oct 28, 2026). */
@@ -69,6 +71,11 @@ export class Runtime extends EventEmitter {
   private playableAgain = false;
   private retryTimer: ReturnType<typeof setInterval> | null = null;
   private syncingSimulator = false;
+  /** Live mode's playout (Phase 5), which sends the graphics and music to the TC1's input 4 over NDI. */
+  private playout: Playout | null = null;
+  private liveError: string | null = null;
+  /** The Sound fader, from 0 to 2, which the playout applies in live mode. */
+  private fader = 1;
 
   constructor(private deps: RuntimeDeps) {
     super();
@@ -116,8 +123,8 @@ export class Runtime extends EventEmitter {
     this.changed();
   }
 
-  private newSwitcher(address: string, statePort?: number): Switcher {
-    const switcher = new Switcher(address, statePort);
+  private newSwitcher(address: string, statePort?: number, mode: SwitcherMode = 'simulator', playout: Playout | null = null): Switcher {
+    const switcher = new Switcher(address, statePort, mode, playout);
     let playlist = '';
     switcher.on('change', () => {
       const now = `${switcher.snapshot.playlist.join('\n')}|${switcher.snapshot.soundTracks.join('\n')}`;
@@ -149,7 +156,7 @@ export class Runtime extends EventEmitter {
   }
 
   private reportStatus(): void {
-    this.website.setAppStatus({ mode: 'simulator', switcherConnected: this.switcher.snapshot.status === 'connected', paused: this.engine?.state.manual ?? false });
+    this.website.setAppStatus({ mode: this.switcher.mode, switcherConnected: this.switcher.snapshot.status === 'connected', paused: this.engine?.state.manual ?? false });
   }
 
   // ---- The show ----
@@ -402,11 +409,12 @@ export class Runtime extends EventEmitter {
     if (!show) return;
     this.greenScreen = file ? await readFile(file) : null;
     await this.deps.store.saveGreenScreen(show.id, this.greenScreen);
-    // On the simulator, a still goes in GFX 1 and a clip in DDR 1 (on the real TC1, Phase 5 sends it).
-    if (this.greenScreen && this.switcher.snapshot.status === 'connected') {
+    // On the simulator, a still goes in GFX 1 and a clip in DDR 1. On the real TC1 the TD keeps the
+    // background in media player A, so live mode sends nothing.
+    if (this.greenScreen && this.switcher.snapshot.status === 'connected' && this.switcher.mode === 'simulator') {
       const name = path.basename(this.greenScreen.path).replace(/\.[^.]+$/, '');
       const seconds = this.greenScreen.seconds;
-      await this.switcher.loadSimulatorPlaylist([{ name, durationMs: seconds ? Math.round(seconds * 1000) : 0 }], seconds ? 'ddr1' : 'gfx1');
+      await this.switcher.loadPlaylist([{ name, durationMs: seconds ? Math.round(seconds * 1000) : 0 }], seconds ? 'ddr1' : 'gfx1');
     }
     this.note(this.greenScreen ? `Green screen: ${path.basename(this.greenScreen.path)}` : 'Green screen removed');
     this.changed();
@@ -414,24 +422,24 @@ export class Runtime extends EventEmitter {
 
   /**
    * The show's music track, dropped on the Music box (RG, Oct 29, 2026), so the right track plays. On the
-   * simulator it's put in the Sound player; on the real TC1 it has to be in the Sound player already
-   * (sending it there comes with Send to TriCaster in Phase 5).
+   * simulator it's put in the Sound player; in live mode the playout plays it from the laptop (Oct 30, 2026).
    */
   private async setMusicTrack(file: string | null): Promise<void> {
     const show = this.website.show;
     if (!show) return;
     this.musicTrack = file ? await readFile(file) : null;
     await this.deps.store.saveMusicTrack(show.id, this.musicTrack);
-    if (this.musicTrack && this.switcher.snapshot.status === 'connected') await this.loadSimulatorSound();
+    if (this.musicTrack && this.switcher.snapshot.status === 'connected') await this.loadSound();
     this.note(this.musicTrack ? `Music: ${path.basename(this.musicTrack.path)}` : 'Music track removed');
     void this.makePlayables();
     this.rebuild();
   }
 
-  private async loadSimulatorSound(): Promise<void> {
+  /** The music track, in the simulator's Sound player or, in live mode, the playout. */
+  private async loadSound(): Promise<void> {
     if (!this.musicTrack) return;
     const name = path.basename(this.musicTrack.path).replace(/\.[^.]+$/, '');
-    await this.switcher.loadSimulatorPlaylist([{ name, durationMs: Math.round((this.musicTrack.seconds ?? 60) * 1000) }], 'sound');
+    await this.switcher.loadPlaylist([{ name, durationMs: Math.round((this.musicTrack.seconds ?? 60) * 1000), path: this.musicTrack.path }], 'sound');
   }
 
   private async assign(file: string, elementId: string): Promise<void> {
@@ -522,6 +530,9 @@ export class Runtime extends EventEmitter {
           })
         : [],
       switcher: { ...this.switcher.snapshot },
+      mode: this.switcher.mode,
+      liveError: this.liveError,
+      playout: this.playout ? { connections: this.playout.state.connections, error: this.playout.state.error } : null,
       prompter: { connected: p !== null, label: p?.label ?? '', speed: p?.speed ?? 0, paused: p?.paused ?? false },
       automation: {
         manual: engine?.state.manual ?? false,
@@ -571,7 +582,7 @@ export class Runtime extends EventEmitter {
     const broadcast = this.website.broadcast();
     if (broadcast.live) this.clock = { startedAt: broadcast.startedAt, sectionLabel: null, overUnderSeconds: null };
     this.reportStatus();
-    if (this.switcher.snapshot.status === 'connected') await this.loadSimulatorSound().catch(() => undefined);
+    if (this.switcher.snapshot.status === 'connected') await this.loadSound().catch(() => undefined);
     this.rebuild();
     void this.refreshThumbnails();
     void this.makePlayables();
@@ -599,14 +610,102 @@ export class Runtime extends EventEmitter {
   }
 
   async connectSwitcher(address: string, statePort?: number): Promise<void> {
+    // In live mode the simulator's address doesn't apply.
+    if (this.switcher.mode === 'live') return;
     this.switcher.close();
     this.switcher = this.newSwitcher(address.trim() || DEFAULT_SETTINGS.simulatorAddress, statePort);
     this.settings = { ...this.settings, simulatorAddress: this.switcher.snapshot.address };
     await this.deps.store.saveSettings(this.settings);
     await this.switcher.connect();
     // A fresh simulator gets the show's music track in its Sound player.
-    if (this.switcher.snapshot.status === 'connected') await this.loadSimulatorSound().catch(() => undefined);
+    if (this.switcher.snapshot.status === 'connected') await this.loadSound().catch(() => undefined);
     this.changed();
+  }
+
+  /**
+   * Live mode (Phase 5): the app runs TSTV's real TC1. The three locks (docs/ARCHITECTURE.md, 6.3): the app
+   * always starts on the simulator and never remembers live mode; the producer turns it on, with a
+   * confirmation on the screen; and the driver talks only to a TriCaster TC1. The laptop has to be on the
+   * TC1's cable, where NDI is kept; the playout then sends the graphics and music to input 4.
+   */
+  private async setLiveMode(on: boolean, simulatorStatePort?: number): Promise<void> {
+    if (on === (this.switcher.mode === 'live')) return;
+    this.liveError = null;
+    if (!on) {
+      this.switcher.close();
+      await this.playout?.close();
+      this.playout = null;
+      this.switcher = this.newSwitcher(this.settings.simulatorAddress, simulatorStatePort ?? (Number(process.env.TSTV_SIM_STATE_PORT) || undefined));
+      await this.switcher.connect();
+      this.engine?.playlistReloaded();
+      this.note('Back on the simulator');
+      if (this.switcher.snapshot.status === 'connected') await this.loadSound().catch(() => undefined);
+      this.rebuild();
+      return;
+    }
+    const cable = cableAddress();
+    if (!cable) {
+      this.liveError = 'The laptop isn’t on the TC1’s cable. Plug it in, wait a minute, and try again.';
+      return this.changed();
+    }
+    keepNdiOnCable(this.deps.store.ndiFolder(), cable);
+    let address: string | null;
+    try {
+      address = await this.findTc1();
+    } catch (e) {
+      this.liveError = e instanceof Error ? e.message : String(e);
+      return this.changed();
+    }
+    if (!address) {
+      this.liveError = 'Couldn’t find the TC1 on the cable. Check it’s on, wait a minute after plugging in, and try again.';
+      return this.changed();
+    }
+    const playout = new Playout('TSTV Show App');
+    playout.on('level', (db: number) => this.emit('level', db));
+    playout.fader(this.fader);
+    const live = this.newSwitcher(address, 5951, 'live', playout);
+    await live.connect();
+    if (live.snapshot.status !== 'connected') {
+      this.liveError = live.snapshot.error;
+      live.close();
+      await playout.close();
+      return this.changed();
+    }
+    this.switcher.close();
+    this.switcher = live;
+    this.playout = playout;
+    this.settings = { ...this.settings, tc1Address: address };
+    await this.deps.store.saveSettings(this.settings);
+    this.engine?.playlistReloaded();
+    await this.loadSound().catch(() => undefined);
+    this.note(`Live mode: running the TC1 at ${address}`);
+    this.reportStatus();
+    this.rebuild();
+  }
+
+  /** The TC1 on the cable: at its last address, or found by the NDI feeds it announces there. */
+  private async findTc1(): Promise<string | null> {
+    const answers = async (host: string) => {
+      try {
+        const version = await (await fetch(`http://${host}/v1/version`, { signal: AbortSignal.timeout(1500) })).text();
+        return version.includes('<product_name>');
+      } catch {
+        return false;
+      }
+    };
+    if (this.settings.tc1Address && (await answers(this.settings.tc1Address))) return this.settings.tc1Address;
+    const ndi = loadNdi();
+    const finder = ndi.findCreate({ show_local_sources: false, p_groups: null, p_extra_ips: null });
+    try {
+      for (let i = 0; i < 20; i++) {
+        const tc1 = listSources(ndi, finder).find((s) => /^TC1-/i.test(s.p_ndi_name));
+        if (tc1) return tc1.p_url_address.split(':')[0];
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      return null;
+    } finally {
+      ndi.findDestroy(finder);
+    }
   }
 
   async act(action: Action): Promise<void> {
@@ -623,6 +722,12 @@ export class Runtime extends EventEmitter {
         return this.changed();
       case 'connectSwitcher':
         return this.connectSwitcher(action.address);
+      case 'setLiveMode':
+        return this.setLiveMode(action.on);
+      case 'setFader':
+        this.fader = Math.max(0, Math.min(2, action.level));
+        this.playout?.fader(this.fader);
+        return;
       case 'fireNext': {
         if (!engine) return;
         const next = engine.upNext()[0];
@@ -723,10 +828,10 @@ export class Runtime extends EventEmitter {
    * The show's clips in the order TSTV's TD loads DDR 2: the break clip at the start of every block (the
    * show's break graphic, when it has a file), then each element's file in rundown order.
    */
-  private simulatorClips(): { name: string; durationMs: number }[] | null {
+  private simulatorClips(): PlaylistClip[] | null {
     if (!this.timing) return null;
-    const clips: { name: string; durationMs: number }[] = [];
-    const clip = (file: FileInfo) => ({ name: path.basename(file.path).replace(/\.[^.]+$/, ''), durationMs: Math.round((file.seconds ?? 20) * 1000) });
+    const clips: PlaylistClip[] = [];
+    const clip = (file: FileInfo) => ({ name: path.basename(file.path).replace(/\.[^.]+$/, ''), durationMs: Math.round((file.seconds ?? 20) * 1000), path: file.path });
     const breakFile = this.breakFile();
     for (const c of this.timing.rows) {
       if (c.row.kind === 'block') {
@@ -756,9 +861,9 @@ export class Runtime extends EventEmitter {
     if (clips.length === playlist.length && clips.every((c, i) => clipKey(c.name) === clipKey(playlist[i]))) return;
     this.syncingSimulator = true;
     try {
-      await this.switcher.loadSimulatorPlaylist(clips);
+      await this.switcher.loadPlaylist(clips);
       this.engine?.playlistReloaded();
-      this.note(`The simulator’s DDR 2 now has the show’s ${clips.length} clips`);
+      this.note(this.switcher.mode === 'live' ? `The playout now has the show’s ${clips.length} clips` : `The simulator’s DDR 2 now has the show’s ${clips.length} clips`);
     } catch {
       // The simulator went away; its next change tries again.
     } finally {
@@ -771,5 +876,6 @@ export class Runtime extends EventEmitter {
     if (this.retryTimer) clearInterval(this.retryTimer);
     this.website.close();
     this.switcher.close();
+    void this.playout?.close();
   }
 }

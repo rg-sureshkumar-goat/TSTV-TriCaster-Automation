@@ -8,6 +8,8 @@ export interface Settings {
   siteUrl: string;
   key: string;
   simulatorAddress: string;
+  /** The TC1's last address on the cable (live mode itself is never remembered). */
+  tc1Address: string;
   /** Each show's music in and out points ("default", "none", "section:<id>" or "cue:<id>"), by show id. */
   music: Record<string, { in: string; out: string }>;
 }
@@ -16,6 +18,8 @@ export const DEFAULT_SETTINGS: Settings = {
   siteUrl: 'https://tstv-show.tstv-rundown.workers.dev',
   key: '',
   simulatorAddress: '127.0.0.1:8080',
+  // Where the TC1 gave itself an address on the cable at the studio (Oct 28 and 30, 2026).
+  tc1Address: '169.254.193.52',
   music: {},
 };
 
@@ -34,6 +38,11 @@ export class Store {
     const file = path.join(this.folder, name);
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, JSON.stringify(value, null, 1));
+  }
+
+  /** Where NDI's settings for the cable are kept (see keepNdiOnCable). */
+  ndiFolder(): string {
+    return path.join(this.folder, 'ndi');
   }
 
   /** Where the copies the Program box plays are kept (see makePlayable). */
