@@ -32,8 +32,9 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 | **Up next preview** | **Permanent graphics** drop box | **Green screen** drop box | **Music** |
 
 - **Header:** at the far left, a switch between **light and dark mode** (RG, Oct 29, 2026). The app starts dark, like the control room, and remembers your choice on this laptop. The video boxes (Program, cameras, preview) stay black in both. Then the show and episode, a green **SIMULATOR** badge (Phase 4 can't drive the real TC1), and at the right the **Website / Prompter / Simulator** lights and the **Episode key** button. Click Episode key, paste the key from the website, and Connect. Click the Simulator light to change the simulator's address.
-- **Program:** a placeholder for live video from the TriCaster (a later upgrade). For now it names the camera on air and the graphic over it. The **● LIVE** dot is red once the producer presses Start live broadcast.
-- **Cameras:** one box per camera from the show's settings, playing that camera's picture. Click one to take it; the one on air has a red frame. On the simulator each camera plays a moving test picture. Getting the real cameras' video from the TC1 is still to be worked out at the station (see below).
+- **Program:** on the simulator, what's on air (RG, Oct 29, 2026, for mock shows): the camera on air, playing, with the clip on DSK 2 playing over it with its sound. Graphics keep their see-through parts, so an L3 sits over the camera, while a VO or SOT fills the screen. The caption names the camera and the graphic. The **● LIVE** dot is red once the producer presses Start live broadcast. The real TC1's own program video is a later upgrade.
+- **Playable copies:** the app's window can't play ProRes, so the first time it sees a graphic or clip, the app makes a small copy it can play (WebM, about a second for a 20-second graphic), in the background. It keeps the copies on this laptop, in its own folder; nothing goes to the cloud.
+- **Cameras:** one box per camera from the show's settings, playing that camera's picture. Click one to take it; the one on air has a red frame. On the simulator each camera plays a moving test picture that looks nothing like the others (RG, Oct 29, 2026): **Camera 1 blue, Camera 2 green, Camera 3 orange**, each with its name in the middle and a clock at the top left. Getting the real cameras' video from the TC1 is still to be worked out at the station (see below).
 - **Playlist:** what's on DSK 2 now, and the cues coming up. While the clip on air plays, a see-through red bar fills across it from left to right, with the time left at the right (RG, Oct 29, 2026). Next to each cue's section number is the file that will play (RG, Oct 29, 2026), or the music track for a music cue; hover over a long name to see all of it. Each upcoming cue has **Skip** (it won't fire; skipped cues can be put back) and **Play next** (it fires next, out of order). **Fire next** (or the **Space** bar) fires the next cue by hand.
 - **Pause automation** (or **P**) switches to **manual mode** (RG, Oct 29, 2026): the prompter's cues fire nothing and take no cameras, and the producer runs the graphics. **Space** or **→** fires the next graphic, **←** puts the previous one up again, and **↓** takes the graphic off (the Playlist also has **← Back** and **Take off ↓** buttons). Click a camera to take it. A SOT, package or VO you fire still comes off when its clip ends. The button turns into **Continue automation**, which hands the show back to the prompter from its current place, without firing the cues it passed in manual mode. The arrow keys work only in manual mode.
 - **Section, Elapsed** (since Start live broadcast) and **Time left on current GFX** (the clip playing on DSK 2). Under them, the last cue and how long it took from the reading line to the switcher: green under 0.3 s, amber up to 0.5 s.
@@ -42,13 +43,13 @@ The screen follows RG's sketch ([show-app-sketch.pdf](show-app-sketch.pdf), Oct 
 
 ### Graphics
 
-- **Import graphics** (in the Playlist) picks files or a folder, like the graphics team's USB drive. Then a **Graphics** window shows which file went on which cue, with **Files to place by hand** at the top when there are any. **Edit graphics** opens that window again, to change, remove or place files by hand; you can also drop files on it. The button beside it (like **2 missing**) shows just the list of graphics that still need a file, with ways to load them in: **Import graphics**, **Choose file** on each one, or drop files on the list. Each graphic leaves the list once it has its file, and **Load into the simulator** puts them in DDR 2.
+- **Import graphics** (in the Playlist) picks files or a folder, like the graphics team's USB drive. Then a **Graphics** window shows which file went on which cue, with **Files to place by hand** at the top when there are any. **Edit graphics** opens that window again, to change, remove or place files by hand; you can also drop files on it. The button beside it (like **2 missing**) shows just the list of graphics that still need a file, with ways to load them in: **Import graphics**, **Choose file** on each one, or drop files on the list. Each graphic leaves the list once it has its file.
 - Files are matched by name, like `B5_VO_Basketball.mov` going to B5's VO. The app also reads the real playlist's spellings: `OTS_L`, `OTS_R`, double underscores, copies ending in `(1)` or `copy`, and spaces. **NAMES** files are lower thirds and **RDR** files are OTS graphics.
 - **When it isn't sure, it asks.** For example: a name that doesn't follow the pattern, a section that doesn't exist, two files of one type for one section, or a slug that doesn't look like its section's slug. Each shows under **Files to place by hand** with a menu of where it could go.
 - It reads each clip's length and makes a thumbnail. **The files stay on the laptop.** Only names and lengths go to the website.
 - **Permanent graphics** (Show Intro, Station ID…): drop their files on the **Permanent graphics** box once, and the app remembers them for every episode of that show. Each file goes to the graphic its name contains ("PrimeTime Show Intro.mov" → Show Intro); the app asks about the rest. **Choose** picks one by hand.
 - **Green screen:** drop the show's background (a still or a clip) on the **Green screen** box. On the simulator, a still goes in GFX 1 and a clip in DDR 1. On the real TC1 this comes in Phase 5.
-- **Load into the simulator** (in the Graphics window) fills the simulator's DDR 2 the way your TD does: the break clip at the top of each block, then each element's file in rundown order. On the real TC1, **Send to TriCaster** does this in Phase 5.
+- **The simulator's DDR 2 loads itself** (RG, Oct 29, 2026): whenever the files change, the app fills it the way your TD does, with the break clip at the top of each block, then each element's file in rundown order. So every graphic with a file plays, with no Load button to remember. It waits while a clip is on air, so nothing is cut off. On the real TC1, **Send to TriCaster** does this in Phase 5, when the producer chooses.
 
 ### Music
 
@@ -98,7 +99,7 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
    cd "/Users/rg_sureshkumar/AI Apps/TSTV Automated Technical Director" && npm run simulator
    ```
 
-   Its page opens in your browser and shows the fake TC1: program, DSK 2, DDR 2's playlist and the Sound player.
+   Its page opens in your browser and shows the fake TC1: program, DSK 2, DDR 2's playlist and the Sound player. (If it's already running from before Oct 29's mock-show changes, stop it with **Ctrl+C** and start it again, so the cameras get their new pictures.)
 2. **Start the show app** in a second Terminal window:
 
    ```bash
@@ -113,10 +114,10 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
    - the rundown on the website shows ✓ on the graphics that have files
    - the **missing** button lists only the graphics without a file, and you can load them in from there (Import graphics, Choose file, or drop files on it)
    - **Edit graphics** opens the full Graphics window
-5. **Load into the simulator** (in the Graphics window), and check the simulator page's DDR 2 lists the clips in rundown order.
+5. **DDR 2:** check the simulator page's DDR 2 lists the clips in rundown order (the app loads it by itself), and that no cue in the Playlist says "not in DDR 2".
 6. **Run the show:** open the prompter on the episode (on another computer, or another window). Scroll a little first, and check the app does nothing yet ("Not live yet"). Then press **Start live broadcast** on the website and run the prompter from the top. Watch the simulator page and the app. Check:
-   - each section's camera is taken when it starts
-   - each cue goes up as it crosses the reading line, and the right ones come off (see the table above)
+   - each section's camera is taken when it starts, and the **Program** box shows that camera
+   - each cue goes up as it crosses the reading line, and plays in the Program box over the camera (or full screen), and the right ones come off (see the table above)
    - a VO over an L3 brings the L3 back when it ends first
    - SOTs and the Show Intro play to their end, then back to the anchors
    - the music starts with the tease and stops just before the Show Intro

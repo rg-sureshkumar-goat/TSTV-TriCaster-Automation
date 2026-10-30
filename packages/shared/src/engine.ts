@@ -387,6 +387,12 @@ export class CueEngine {
     this.state.nextChoice = elementId;
   }
 
+  /** DDR 2's playlist was loaded again: nothing is cued in it any more, and its items have new numbers. */
+  playlistReloaded(): void {
+    this.state.cued = null;
+    this.waitingToCue = null;
+  }
+
   /** The producer takes a camera by hand. */
   takeCamera(input: number): SwitcherCommand[] {
     this.state.camera = input;

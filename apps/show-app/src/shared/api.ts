@@ -16,6 +16,8 @@ export interface ElementView {
   seconds: number | null;
   /** A small JPEG, as a data: URL. */
   thumbnail: string | null;
+  /** A copy of its file the Program box can play (a file: URL), once the app has made it. */
+  playable: string | null;
   /** Where its file sits in DDR 2, counting from 0; null when DDR 2 doesn't have it. */
   ddrItem: number | null;
   skipped: boolean;
@@ -111,7 +113,6 @@ export type Action =
   | { kind: 'assign'; path: string; elementId: string }
   | { kind: 'clearFile'; elementId: string }
   | { kind: 'dismissProblem'; path: string }
-  | { kind: 'loadSimulator' }
   | { kind: 'addPermanent'; paths: string[] }
   | { kind: 'choosePermanent'; name: string }
   | { kind: 'clearPermanent'; name: string }

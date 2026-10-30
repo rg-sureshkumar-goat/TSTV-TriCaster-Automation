@@ -2,6 +2,7 @@
 // (web API, change notifications, port-5951 state stream), plus /sim for its own page.
 import http from 'node:http';
 import net from 'node:net';
+import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -129,7 +130,7 @@ export async function startSimulator(options: SimulatorOptions = {}): Promise<Ru
         return;
       }
       const video = /^\/sim\/video\/input([1-3])$/.exec(url.pathname);
-      if (video) return cameraVideo(req, res, Number(video[1]));
+      if (video) return cameraVideo(req, res, Number(video[1]), url.searchParams.get('size') === 'large');
       const file = UI_FILES[url.pathname];
       if (file) {
         const body = await fs.readFile(path.join(UI_DIR, file));
@@ -147,22 +148,33 @@ export async function startSimulator(options: SimulatorOptions = {}): Promise<Ru
 
   /**
    * A moving test picture for each camera (Phase 4), so the show app's camera boxes play video on the
-   * simulator. Each camera has its own tint. It's a stream of JPEG frames, which any web page can show,
-   * made by FFmpeg only while someone is watching. How the real TC1's cameras reach the laptop is still
-   * to be found at the station (the probe now lists the TC1's NDI video feeds).
+   * simulator. The three look nothing alike (RG, Oct 29, 2026): camera 1 blue, camera 2 green, camera 3
+   * orange, each with its name and a running clock. It's a stream of JPEG frames, which any web page can
+   * show, made by FFmpeg only while someone is watching; large is the Program box's size. How the real
+   * TC1's cameras reach the laptop is still to be found at the station (the probe lists its NDI feeds).
    */
-  function cameraVideo(req: http.IncomingMessage, res: http.ServerResponse, camera: number) {
+  function cameraVideo(req: http.IncomingMessage, res: http.ServerResponse, camera: number, large: boolean) {
     const ffmpeg = ffmpegStatic as unknown as string | null;
     if (faults.offline || !ffmpeg) {
       res.writeHead(503, { 'Content-Type': 'text/plain' });
       res.end(faults.offline ? 'The simulated TC1 is unplugged' : 'FFmpeg is missing');
       return;
     }
-    const hue = [0, 0, 120, 240][camera];
+    const [width, height] = large ? [640, 360] : [320, 180];
+    const size = `s=${width}x${height}:r=12`;
+    const pictures = [
+      `gradients=${size}:c0=0x0b1f5c:c1=0x3b82f6:c2=0x1e3a8a:c3=0x60a5fa:speed=0.08`,
+      `cellauto=${size}:rule=110:scroll=1:random_fill_ratio=0.5,format=rgb24,lutrgb=r='val*0.13':g='val*0.77+20':b='val*0.37+8'`,
+      `sierpinski=${size}:type=triangle:jump=1,format=rgb24,lutrgb=r='val*0.98+30':g='val*0.5+10':b='val*0.05'`,
+    ];
+    const text = (words: string, fontsize: number, place: string) =>
+      `drawtext=fontfile='${FONT?.[1]}':fontsize=${fontsize}:fontcolor=white:box=1:boxcolor=black@0.45:boxborderw=${Math.round(fontsize / 4)}:${place}:text='${words}'`;
+    const labels = FONT ? [text(`CAMERA ${camera}`, Math.round(height / 5.3), 'x=(w-tw)/2:y=(h-th)/2'), text('%{localtime\\:%X}', Math.round(height / 13), 'x=8:y=8')] : [];
     const maker = spawn(
       ffmpeg,
-      ['-v', 'error', '-re', '-f', 'lavfi', '-i', `testsrc2=size=320x180:rate=12,hue=h=${hue}`, '-f', 'mpjpeg', '-q:v', '8', '-'],
-      { stdio: ['ignore', 'pipe', 'ignore'] },
+      ['-v', 'error', '-re', '-f', 'lavfi', '-i', [pictures[camera - 1], ...labels].join(','), '-f', 'mpjpeg', '-q:v', '8', '-'],
+      // FFmpeg reads the font from its own folder, which keeps Windows' C: out of the filter's text.
+      { stdio: ['ignore', 'pipe', 'ignore'], cwd: FONT?.[0] },
     );
     res.writeHead(200, { 'Content-Type': 'multipart/x-mixed-replace;boundary=ffmpeg', 'Cache-Control': 'no-store', 'X-TSTV-Simulator': 'true' });
     maker.stdout.pipe(res);
@@ -173,6 +185,13 @@ export async function startSimulator(options: SimulatorOptions = {}): Promise<Ru
     maker.on('exit', () => videoMakers.delete(maker));
   }
   const videoMakers = new Set<ReturnType<typeof spawn>>();
+  /** A bold font that comes with the computer, for the cameras' names: its folder and file, or null. */
+  const FONT = [
+    ['/System/Library/Fonts/Supplemental', 'Arial Bold.ttf'],
+    ['/Library/Fonts', 'Arial Bold.ttf'],
+    ['C:\\Windows\\Fonts', 'arialbd.ttf'],
+    ['/usr/share/fonts/truetype/dejavu', 'DejaVuSans-Bold.ttf'],
+  ].find(([folder, file]) => existsSync(path.join(folder, file)));
 
   const xml = (res: http.ServerResponse, body: string, status = 200) => {
     res.writeHead(status, { 'Content-Type': 'text/xml; charset=utf-8', 'X-TSTV-Simulator': 'true' });

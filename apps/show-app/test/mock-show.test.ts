@@ -90,8 +90,13 @@ describe('a mock show on the simulator', () => {
     expect(runtime.state().problems).toEqual([]);
   }, 30_000);
 
-  it('loads the simulator’s DDR 2 in rundown order, with the break clip at the top of the block', async () => {
-    await runtime.act({ kind: 'loadSimulator' });
+  it('makes a copy of each file that the Program box can play', async () => {
+    const withFiles = () => runtime.state().sections.flatMap((x) => x.elements).filter((e) => e.file);
+    await waitFor(() => withFiles().every((e) => e.playable), 30_000);
+    expect(withFiles().map((e) => e.playable)).toEqual(expect.arrayContaining([expect.stringMatching(/^file:.*\.webm$/)]));
+  }, 40_000);
+
+  it('keeps the simulator’s DDR 2 loaded in rundown order, with the break clip at the top of the block', async () => {
     await waitFor(() => runtime.state().switcher.playlist.length === 6);
     expect(ddr2().playlist.map((c) => c.name)).toEqual(['TSTV Ident 2022 News', 'A1_TEASE_Sports', 'Show Intro', 'A3_L3_Score', 'A3_VO_Highlights', 'A4_SOT_Coach']);
     expect(runtime.state().sections.flatMap((x) => x.elements).every((e) => e.ddrItem !== null)).toBe(true);

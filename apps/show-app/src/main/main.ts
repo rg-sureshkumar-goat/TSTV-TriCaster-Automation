@@ -44,7 +44,8 @@ app.whenReady().then(async () => {
     minHeight: 640,
     title: 'TSTV Show App',
     backgroundColor: '#14161a',
-    webPreferences: { preload: path.join(root, 'preload.cjs'), contextIsolation: true, sandbox: true },
+    // The Program box plays clips with their sound as they go on air, without a click first.
+    webPreferences: { preload: path.join(root, 'preload.cjs'), contextIsolation: true, sandbox: true, autoplayPolicy: 'no-user-gesture-required' },
   });
   await win.loadFile(path.join(root, 'dist/renderer/index.html'));
   await runtime.start();

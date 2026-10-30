@@ -252,13 +252,34 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
   );
 }
 
+/**
+ * What's on air. On the simulator (RG's mock show, Oct 29, 2026): the camera on M/E 1, playing, with the
+ * clip on DSK 2 playing over it from the app's copy of its file. The real TC1's own video comes later.
+ */
 function Program({ state }: { state: AppState }) {
   const camera = state.cameras.find((c) => c.input === state.switcher.programInput);
   const onAir = state.automation.onAir;
+  const keyed = state.switcher.dskOn ? onAir?.playable : null;
+  // The laptop's sound takes over a second to wake for the first clip, which held that clip back. A silent
+  // sound kept playing keeps it awake.
+  useEffect(() => {
+    const audio = new AudioContext();
+    const gain = audio.createGain();
+    gain.gain.value = 0;
+    const silence = audio.createOscillator();
+    silence.connect(gain).connect(audio.destination);
+    silence.start();
+    return () => void audio.close();
+  }, []);
   return (
     <div className="program" aria-label="Program">
+      {camera?.video ? (
+        <CameraPicture src={`${camera.video}?size=large`} />
+      ) : (
+        <span className="program-note">Live video from the TriCaster will show here in a later version.</span>
+      )}
+      {keyed && <ProgramClip key={onAir!.id} src={keyed} />}
       <span className={`live-dot${state.live.on ? ' on' : ''}`}>{state.live.on ? '● LIVE' : '○ Not live'}</span>
-      <span className="program-note">Live video from the TriCaster will show here in a later version.</span>
       <span className="program-caption">
         <strong>{camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera')}</strong>
         {onAir && <> + {onAir.label}</>}
@@ -266,6 +287,11 @@ function Program({ state }: { state: AppState }) {
       </span>
     </div>
   );
+}
+
+/** The clip on DSK 2, playing from its start with its sound; a still is shown as it is. */
+function ProgramClip({ src }: { src: string }) {
+  return src.endsWith('.png') ? <img className="program-clip" src={src} alt="" /> : <video className="program-clip" src={src} autoPlay playsInline />;
 }
 
 /** Each camera's picture, playing; click one to take it. The one on air has a red frame. */
@@ -427,7 +453,7 @@ function Item({ element, musicTrack }: { element: ElementView; musicTrack?: stri
       )}
       {element.behavior !== 'music' && !element.file && <span className="missing">no file</span>}
       {element.behavior !== 'music' && element.file && element.ddrItem === null && (
-        <span className="missing" title="Its file isn’t in DDR 2 yet: use Load into the simulator in the Graphics window">
+        <span className="missing" title="Its file isn’t in DDR 2 yet. On the simulator, the app loads DDR 2 as soon as nothing is on air.">
           not in DDR 2
         </span>
       )}
@@ -657,9 +683,6 @@ function MissingWindow({ state, onClose, onImport }: { state: AppState; onClose:
           Missing graphics
           <span className="actions">
             {missing.length > 0 && <button onClick={onImport}>Import graphics</button>}
-            <button onClick={() => act({ kind: 'loadSimulator' })} title="Puts the show’s files in the simulator’s DDR 2, in rundown order (Send to TriCaster does this on the real TC1 in Phase 5)">
-              Load into the simulator
-            </button>
             <button className="primary" onClick={onClose}>
               Done
             </button>
@@ -723,9 +746,6 @@ function GraphicsWindow({ state, onClose, onImport }: { state: AppState; onClose
           Graphics
           <span className="actions">
             <button onClick={onImport}>Import more</button>
-            <button onClick={() => act({ kind: 'loadSimulator' })} title="Puts the show’s files in the simulator’s DDR 2, in rundown order (Send to TriCaster does this on the real TC1 in Phase 5)">
-              Load into the simulator
-            </button>
             <button className="primary" onClick={onClose}>
               Done
             </button>

@@ -36,6 +36,11 @@ export class Store {
     await writeFile(file, JSON.stringify(value, null, 1));
   }
 
+  /** Where the copies the Program box plays are kept (see makePlayable). */
+  playableFolder(): string {
+    return path.join(this.folder, 'playable');
+  }
+
   settings(): Promise<Settings> {
     return this.read('settings.json', DEFAULT_SETTINGS);
   }

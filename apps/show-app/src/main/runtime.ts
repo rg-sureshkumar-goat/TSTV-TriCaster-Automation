@@ -3,6 +3,7 @@
 // about Electron (the window and file pickers come in from main.ts), so it can be tested on its own.
 import { EventEmitter } from 'node:events';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   buildShowPlan,
   clipKey,
@@ -21,7 +22,7 @@ import {
   type SwitcherCommand,
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
-import { collectFiles, readFile, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
+import { collectFiles, makePlayable, readFile, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
 import { DEFAULT_SETTINGS, type Settings, type Store } from './store.ts';
 import { Switcher } from './switcher.ts';
 import { WebsiteLink, type CueEvent } from './website.ts';
@@ -52,6 +53,11 @@ export class Runtime extends EventEmitter {
   private clock: AppState['clock'] = { startedAt: null, sectionLabel: null, overUnderSeconds: null };
   private greenScreen: FileInfo | null = null;
   private musicTrack: FileInfo | null = null;
+  /** The Program box's playable copy of each file, by the file's path (null: FFmpeg couldn't make one). */
+  private playable: Record<string, string | null> = {};
+  private makingPlayable = false;
+  private playableAgain = false;
+  private syncingSimulator = false;
 
   constructor(private deps: RuntimeDeps) {
     super();
@@ -106,6 +112,8 @@ export class Runtime extends EventEmitter {
       }
       this.reportStatus();
       this.changed();
+      // DDR 2 may have been waiting for the clip on air to finish.
+      void this.syncSimulator();
     });
     switcher.on('clipEnded', () => {
       if (!this.engine) return;
@@ -167,6 +175,7 @@ export class Runtime extends EventEmitter {
     if (this.engine) this.engine.setPlan(this.plan);
     else this.engine = new CueEngine(this.plan);
     this.changed();
+    void this.syncSimulator();
   }
 
   private async onCue(event: CueEvent): Promise<void> {
@@ -218,6 +227,31 @@ export class Runtime extends EventEmitter {
     if (show) await this.deps.store.savePermanentFiles(show.id, this.permanent);
     this.rebuild();
     this.sendMedia();
+    void this.makePlayables();
+  }
+
+  /**
+   * Makes the copies the Program box plays (see makePlayable), one file at a time in the background, so
+   * the producer can carry on. Each one shows up as soon as it's ready.
+   */
+  private async makePlayables(): Promise<void> {
+    if (this.makingPlayable) {
+      this.playableAgain = true;
+      return;
+    }
+    this.makingPlayable = true;
+    try {
+      do {
+        this.playableAgain = false;
+        for (const info of [...Object.values(this.files), ...Object.values(this.permanent)]) {
+          if (info.path in this.playable) continue;
+          this.playable[info.path] = await makePlayable(info.path, this.deps.store.playableFolder()).catch(() => null);
+          this.changed();
+        }
+      } while (this.playableAgain);
+    } finally {
+      this.makingPlayable = false;
+    }
   }
 
   private problemText(p: MediaProblem): string {
@@ -375,6 +409,7 @@ export class Runtime extends EventEmitter {
       file: file ? path.basename(file.path) : null,
       seconds: file?.seconds ?? null,
       thumbnail: file?.thumbnail ?? null,
+      playable: file && this.playable[file.path] ? pathToFileURL(this.playable[file.path]!).href : null,
       ddrItem: e.ddrItem,
       skipped: this.engine?.state.skipped.includes(e.id) ?? false,
     };
@@ -469,6 +504,7 @@ export class Runtime extends EventEmitter {
     if (this.switcher.snapshot.status === 'connected') await this.loadSimulatorSound().catch(() => undefined);
     this.rebuild();
     void this.refreshThumbnails();
+    void this.makePlayables();
   }
 
   /**
@@ -565,8 +601,6 @@ export class Runtime extends EventEmitter {
       case 'dismissProblem':
         this.problems = this.problems.filter((p) => p.path !== action.path);
         return this.changed();
-      case 'loadSimulator':
-        return this.loadSimulator();
       case 'addPermanent':
         return this.addPermanent(action.paths);
       case 'choosePermanent': {
@@ -606,11 +640,11 @@ export class Runtime extends EventEmitter {
   }
 
   /**
-   * Fills the simulator's DDR 2 the way TSTV's TD does: the break clip at the start of every block, then
-   * each element's file in rundown order. (On the real TC1, Send to TriCaster does this in Phase 5.)
+   * The show's clips in the order TSTV's TD loads DDR 2: the break clip at the start of every block, then
+   * each element's file in rundown order.
    */
-  private async loadSimulator(): Promise<void> {
-    if (!this.timing) return;
+  private simulatorClips(): { name: string; durationMs: number }[] | null {
+    if (!this.timing) return null;
     const clips: { name: string; durationMs: number }[] = [];
     for (const c of this.timing.rows) {
       if (c.row.kind === 'block') {
@@ -624,9 +658,30 @@ export class Runtime extends EventEmitter {
         if (file) clips.push({ name: path.basename(file.path).replace(/\.[^.]+$/, ''), durationMs: Math.round((file.seconds ?? 20) * 1000) });
       }
     }
-    await this.switcher.loadSimulatorPlaylist(clips);
-    await this.loadSimulatorSound();
-    this.note(`Loaded ${clips.length} clips into the simulator’s DDR 2${this.musicTrack ? ', and the music into its Sound player' : ''}`);
+    return clips;
+  }
+
+  /**
+   * On the simulator, DDR 2 keeps itself loaded with the show's clips (RG, Oct 29, 2026), so every graphic
+   * with a file plays without anyone pressing Load. It waits while DDR 2 plays or DSK 2 is on, so nothing
+   * on air is cut off, and tries again on the switcher's next change. (On the real TC1, Send to TriCaster
+   * does this in Phase 5, when the producer chooses.)
+   */
+  private async syncSimulator(): Promise<void> {
+    const clips = this.simulatorClips();
+    const { status, playlist, ddrPlaying, dskOn } = this.switcher.snapshot;
+    if (!clips || status !== 'connected' || ddrPlaying || dskOn || this.syncingSimulator) return;
+    if (clips.length === playlist.length && clips.every((c, i) => clipKey(c.name) === clipKey(playlist[i]))) return;
+    this.syncingSimulator = true;
+    try {
+      await this.switcher.loadSimulatorPlaylist(clips);
+      this.engine?.playlistReloaded();
+      this.note(`The simulator’s DDR 2 now has the show’s ${clips.length} clips`);
+    } catch {
+      // The simulator went away; its next change tries again.
+    } finally {
+      this.syncingSimulator = false;
+    }
     this.changed();
   }
 

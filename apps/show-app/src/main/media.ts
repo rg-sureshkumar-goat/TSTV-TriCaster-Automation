@@ -2,7 +2,8 @@
 // producer's preview. Uses FFmpeg, which comes with the app, so it reads ProRes 4444 as well. The files
 // themselves never leave the laptop (only names and lengths go to the website).
 import { execFile } from 'node:child_process';
-import { readdir, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
@@ -87,6 +88,35 @@ export async function thumbnail(file: string, seconds: number | null, alpha = fa
     });
     return stdout.length > 0 ? `data:image/${alpha ? 'png' : 'jpeg'};base64,${Buffer.from(stdout).toString('base64')}` : null;
   } catch {
+    return null;
+  }
+}
+
+/**
+ * A copy of a graphic or clip that the app's window can play, for the Program box on the simulator (RG's
+ * mock show, Oct 29, 2026). The window can't play ProRes, so a clip becomes a small WebM (VP9, keeping its
+ * see-through parts, with its sound) and a still becomes a PNG. Each is made once, into folder on this
+ * laptop, and found again by the file's path, size and date. Null if FFmpeg can't read the file.
+ */
+export async function makePlayable(file: string, folder: string): Promise<string | null> {
+  const info = await stat(file).catch(() => null);
+  if (!ffmpegPath || !info) return null;
+  const { seconds, alpha } = await inspect(file);
+  const name = createHash('sha1').update(`${file}|${info.size}|${info.mtimeMs}`).digest('hex').slice(0, 20);
+  const out = path.join(folder, `${name}.${seconds ? 'webm' : 'png'}`);
+  if (await stat(out).catch(() => null)) return out;
+  await mkdir(folder, { recursive: true });
+  // Written under another name first, so a half-made copy is never played.
+  const partial = `${out}.part`;
+  const args = seconds
+    ? ['-vf', `scale=640:-2${alpha ? ',format=yuva420p' : ''}`, '-c:v', 'libvpx-vp9', '-b:v', '800k', '-deadline', 'realtime', '-cpu-used', '8', '-row-mt', '1', ...(alpha ? ['-auto-alt-ref', '0'] : []), '-c:a', 'libopus', '-b:a', '96k', '-ac', '2', '-f', 'webm']
+    : ['-frames:v', '1', '-vf', 'scale=640:-2,format=rgba', '-c:v', 'png', '-f', 'image2'];
+  try {
+    await run(ffmpegPath, ['-v', 'error', '-y', '-i', file, ...args, partial], { timeout: 10 * 60_000 });
+    await rename(partial, out);
+    return out;
+  } catch {
+    await rm(partial, { force: true });
     return null;
   }
 }
