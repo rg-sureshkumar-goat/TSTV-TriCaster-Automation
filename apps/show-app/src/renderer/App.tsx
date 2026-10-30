@@ -2,8 +2,8 @@
 //   top:    Program with the cameras under it · the Playlist (on air, up next) · Pause/Continue, section, elapsed, time left
 //   bottom: Up next preview · Permanent graphics drop box · Green screen drop box · Music
 // The episode key is at the top right. Import graphics opens a window that matches files to cues.
-// Keys: Space fires the next cue, and P switches between manual mode and automation. In manual mode (and
-// before the show is live), → fires the next graphic too, ← goes back one, and ↓ takes it off.
+// Keys: Space fires the next cue, and P switches between manual mode and automation. In manual mode only,
+// → fires the next graphic too, ← goes back one, and ↓ takes it off (RG, Oct 29, 2026).
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
@@ -51,14 +51,14 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest('input, select, textarea') || !state?.episode || graphicsOpen) return;
-      // The arrows work only while the app isn't following the prompter, so a stray press can't upset it.
-      const byHand = state.automation.manual || !state.live.on;
+      // The arrows work only in manual mode, so a stray press can't upset the automation.
+      const manual = state.automation.manual;
       const action: Action | null =
-        e.key === ' ' || (byHand && e.key === 'ArrowRight')
+        e.key === ' ' || (manual && e.key === 'ArrowRight')
           ? { kind: 'fireNext' }
-          : byHand && e.key === 'ArrowLeft'
+          : manual && e.key === 'ArrowLeft'
             ? { kind: 'fireBack' }
-            : byHand && e.key === 'ArrowDown'
+            : manual && e.key === 'ArrowDown'
               ? { kind: 'takeOff' }
               : e.key === 'p' || e.key === 'P'
                 ? { kind: 'setManual', manual: !state.automation.manual }
@@ -211,7 +211,7 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
         </div>
       ) : !live.on ? (
         <div className="banner quiet" role="status">
-          Not live yet. The app follows the prompter once the producer presses <strong>Start live broadcast</strong> on the website. Until then, the cameras, Fire next and the arrow keys work by hand.
+          Not live yet. The app follows the prompter once the producer presses <strong>Start live broadcast</strong> on the website. Until then, the cameras and Fire next work by hand.
         </div>
       ) : (
         website.status === 'connected' &&
@@ -295,8 +295,8 @@ function Panel({ title, actions, className = '', children }: { title: string; ac
 
 function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onImport: () => void; onEdit: () => void; onMissing: () => void }) {
   const { automation } = state;
-  // Back and Take off are for when the producer runs the graphics: manual mode, or before the show is live.
-  const byHand = automation.manual || !state.live.on;
+  // Back and Take off are for manual mode, when the producer runs the graphics.
+  const manual = automation.manual;
   const previous = automation.previous;
   const missing = state.sections.flatMap((s) => s.elements).filter((e) => e.behavior !== 'music' && !e.file).length;
   return (
@@ -319,7 +319,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
     >
       <h3>
         On air
-        {byHand && (
+        {manual && (
           <button className="fire" onClick={() => act({ kind: 'takeOff' })} disabled={!automation.onAir}>
             Take off <kbd>↓</kbd>
           </button>
@@ -329,7 +329,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
       <h3>
         Up next
         <span className="hand-buttons">
-          {byHand && (
+          {manual && (
             <button
               className="fire"
               onClick={() => act({ kind: 'fireBack' })}
@@ -340,7 +340,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
             </button>
           )}
           <button className="fire" onClick={() => act({ kind: 'fireNext' })} disabled={automation.upNext.length === 0}>
-            Fire next <kbd>{byHand ? 'Space / →' : 'Space'}</kbd>
+            Fire next <kbd>{manual ? 'Space / →' : 'Space'}</kbd>
           </button>
         </span>
       </h3>
