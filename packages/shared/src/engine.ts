@@ -10,7 +10,8 @@ import { breakGraphic, cameraInput, type ShowSettings } from './show.ts';
 
 /**
  * How an element behaves on air (RG, Oct 28–29, 2026):
- * - graphic: L3, OTS, FSG and lower-third permanent graphics stay up until their section ends.
+ * - graphic: L3, OTS, FSG and lower-third permanent graphics stay up until their section ends. So does a
+ *   commercial break's graphic: it holds through the break until the next section starts.
  * - voiceover: VO, TEASE and LITES play while the anchor reads. They come off when the clip or the
  *   section ends, whichever is first, and the section's L3 comes back if the clip ended first.
  * - clip: SOT, PKG and permanent graphics with their own audio play to their end, then back to the anchors.
@@ -97,7 +98,8 @@ export function clipKey(name: string): string {
  * the switcher reports them.
  *
  * Each commercial break is a cue for the show's break graphic (RG, Oct 29, 2026), at the end of the
- * section before it, so it comes next after that section's cues. The prompter fires it at the break's line.
+ * section before it, so it comes next after that section's cues. The prompter fires it at the break's line,
+ * and it stays up for the whole break, after its clip ends, until the next section starts.
  */
 export function buildShowPlan(
   timing: RundownTiming,
@@ -114,20 +116,21 @@ export function buildShowPlan(
     return { id, sectionId, type, name, behavior: cueBehavior(type, name, settings.permanentWithSound), ddrItem: type === 'MUSIC' || index < 0 ? null : index };
   };
   const breakName = breakGraphic(settings);
+  const breakCue = (id: string, sectionId: string): ShowElement => ({ ...element(id, sectionId, 'PERM', breakName!), behavior: 'graphic' });
   const sections: ShowSection[] = [];
   // A break before the first section that airs goes at the start of that section instead.
   let breakFirst: string | null = null;
   for (const c of timing.rows) {
     if (c.breakBefore && breakName) {
       const before = sections.at(-1);
-      if (before) before.elements.push(element(breakCueId(c.row.id), before.id, 'PERM', breakName));
+      if (before) before.elements.push(breakCue(breakCueId(c.row.id), before.id));
       else breakFirst = breakCueId(c.row.id);
     }
     if (c.row.kind !== 'section' || c.row.floated) continue;
     const row = c.row as SectionRow;
     const camera = row.camera || settings.defaultCamera;
     const elements = row.elements.map((e) => element(e.id, row.id, e.type, e.name));
-    if (breakFirst && breakName) elements.unshift(element(breakFirst, row.id, 'PERM', breakName));
+    if (breakFirst && breakName) elements.unshift(breakCue(breakFirst, row.id));
     breakFirst = null;
     sections.push({ id: row.id, label: c.label, slug: row.slug, type: row.type, camera, input: cameraInput(settings, camera), elements });
   }

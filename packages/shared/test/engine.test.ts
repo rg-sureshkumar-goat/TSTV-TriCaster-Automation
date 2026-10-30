@@ -171,19 +171,22 @@ describe('the cue engine', () => {
     ]);
   });
 
-  it('plays the show’s break graphic when the prompter reaches the commercial break, to its end', () => {
+  it('holds the show’s break graphic through the commercial break, until the next section starts', () => {
     const { plan, ids } = show();
     // The break is the last cue of the section before it.
-    expect(plan.sections[3].elements.at(-1)).toMatchObject({ id: ids.breakB, sectionId: ids.a4, type: 'PERM', name: 'Commercial Break', behavior: 'clip', ddrItem: 0 });
+    expect(plan.sections[3].elements.at(-1)).toMatchObject({ id: ids.breakB, sectionId: ids.a4, type: 'PERM', name: 'Commercial Break', behavior: 'graphic', ddrItem: 0 });
     const engine = new CueEngine(plan);
     engine.sectionStarted(ids.a4);
     engine.cueReached(ids.sot);
     engine.clipEnded();
     expect(engine.cueReached(ids.breakB)).toEqual([{ kind: 'dsk', on: true }]);
-    // B1 starts during the break: its camera is taken underneath, and its FSG waits for the break to end.
-    expect(engine.sectionStarted(ids.b1)).toEqual([{ kind: 'camera', input: 3 }]);
-    expect(engine.clipEnded()).toEqual([
+    // Its clip ends, and it stays up (RG, Oct 29, 2026).
+    expect(engine.clipEnded()).toEqual([]);
+    expect(engine.state.onAir).toBe(ids.breakB);
+    // B1 starts: the break comes off onto B1's camera, and B1's FSG is cued.
+    expect(engine.sectionStarted(ids.b1)).toEqual([
       { kind: 'dsk', on: false },
+      { kind: 'camera', input: 3 },
       { kind: 'cueClip', item: 7 },
     ]);
   });
