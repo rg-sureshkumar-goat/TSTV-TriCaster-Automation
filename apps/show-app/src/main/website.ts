@@ -44,6 +44,7 @@ export class WebsiteLink extends EventEmitter {
   doc: Y.Doc | null = null;
   prompter: PrompterStatus | null = null;
   private provider: YProvider | null = null;
+  private watchdog: ReturnType<typeof setInterval> | null = null;
 
   async connect(siteUrl: string, key: string): Promise<void> {
     this.close();
@@ -71,8 +72,19 @@ export class WebsiteLink extends EventEmitter {
       protocol: url.protocol === 'https:' ? 'wss' : 'ws',
       params: { key: key.trim() },
       WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
+      // Asks the room for news every 15 seconds, so a working connection always hears something…
+      resyncInterval: 15_000,
     });
     this.provider = provider;
+    // …and one that has gone quiet for 40 seconds (the laptop's network changed under it, say) is dropped and
+    // made again. At the studio on Oct 30, 2026, the app kept a dead connection and missed the prompter.
+    const watched = provider as unknown as { wsconnected: boolean; wsLastMessageReceived: number; disconnect(): void; connect(): void };
+    this.watchdog = setInterval(() => {
+      if (watched.wsconnected && Date.now() - watched.wsLastMessageReceived > 40_000) {
+        watched.disconnect();
+        watched.connect();
+      }
+    }, 10_000);
     provider.awareness.setLocalState({ name: 'Show app', color: '#0f766e', focus: null });
     provider.on('sync', (synced: boolean) => {
       if (synced) {
@@ -129,6 +141,8 @@ export class WebsiteLink extends EventEmitter {
   }
 
   close(): void {
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
     this.provider?.destroy();
     this.doc?.destroy();
     this.provider = null;
