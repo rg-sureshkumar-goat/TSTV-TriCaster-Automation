@@ -82,6 +82,8 @@ export interface AppState {
   automation: {
     /** Manual mode (Pause Automation): the producer fires the graphics and takes the cameras. */
     manual: boolean;
+    /** Cameras by hand: sections starting take no cameras; the producer clicks them. */
+    camerasByHand: boolean;
     sectionId: string | null;
     sectionLabel: string | null;
     onAir: ElementView | null;
@@ -115,6 +117,7 @@ export type Action =
   | { kind: 'chooseNext'; elementId: string | null }
   | { kind: 'takeCamera'; input: number }
   | { kind: 'setManual'; manual: boolean }
+  | { kind: 'setCamerasByHand'; byHand: boolean }
   | { kind: 'importFiles' }
   | { kind: 'addFiles'; paths: string[] }
   | { kind: 'chooseFile'; elementId: string }

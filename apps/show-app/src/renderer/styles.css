@@ -997,3 +997,16 @@ h3 {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+
+/* Under the cameras: take them off the prompter (RG, Oct 29, 2026). */
+.camera-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.camera-control.by-hand button {
+  border-color: var(--amber);
+  color: var(--amber);
+}

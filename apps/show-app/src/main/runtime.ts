@@ -91,8 +91,10 @@ export class Runtime extends EventEmitter {
     if (broadcast.live) {
       if (this.plan) {
         const manual = this.engine?.state.manual ?? false;
+        const camerasByHand = this.engine?.state.camerasByHand ?? false;
         this.engine = new CueEngine(this.plan);
         this.engine.setManual(manual);
+        this.engine.setCamerasByHand(camerasByHand, this.switcher.snapshot.programInput);
       }
       this.clock = { startedAt: broadcast.startedAt ?? Date.now(), sectionLabel: null, overUnderSeconds: null };
       this.note('Live: automation is following the prompter');
@@ -523,6 +525,7 @@ export class Runtime extends EventEmitter {
       prompter: { connected: p !== null, label: p?.label ?? '', speed: p?.speed ?? 0, paused: p?.paused ?? false },
       automation: {
         manual: engine?.state.manual ?? false,
+        camerasByHand: engine?.state.camerasByHand ?? false,
         sectionId: engine?.state.sectionId ?? null,
         sectionLabel: plan?.sections.find((s) => s.id === engine?.state.sectionId)?.label ?? null,
         onAir: this.view(engine?.state.onAir ?? null) ?? null,
@@ -643,6 +646,10 @@ export class Runtime extends EventEmitter {
       case 'takeCamera':
         if (!engine) return this.switcher.run([{ kind: 'camera', input: action.input }]);
         return this.run(engine.takeCamera(action.input), `Camera ${action.input} taken by hand`);
+      case 'setCamerasByHand':
+        engine?.setCamerasByHand(action.byHand, this.switcher.snapshot.programInput);
+        this.note(action.byHand ? 'Cameras by hand: the producer switches them' : 'Cameras follow the prompter again from the next section');
+        return this.changed();
       case 'setManual':
         engine?.setManual(action.manual, { dskOn: this.switcher.snapshot.dskOn, camera: this.switcher.snapshot.programInput });
         this.note(action.manual ? 'Manual mode: the producer fires the graphics' : 'Automation continued from the prompter’s place');

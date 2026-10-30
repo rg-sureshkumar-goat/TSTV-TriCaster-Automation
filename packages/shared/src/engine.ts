@@ -179,6 +179,11 @@ export interface EngineState {
    * producer fires the graphics from the keyboard and takes the cameras by clicking them.
    */
   manual: boolean;
+  /**
+   * Cameras by hand (RG, Oct 29, 2026): sections starting take no cameras, and the producer clicks them,
+   * while the graphics still follow the prompter.
+   */
+  camerasByHand: boolean;
   /** Where the prompter is (its last section and cue), followed in manual mode too, for Continue Automation. */
   prompterSection: string | null;
   prompterCue: string | null;
@@ -197,6 +202,7 @@ export class CueEngine {
     nextChoice: null,
     lastFired: null,
     manual: false,
+    camerasByHand: false,
     prompterSection: null,
     prompterCue: null,
   };
@@ -296,7 +302,7 @@ export class CueEngine {
     }
     this.state.returnTo = null;
     this.state.sectionId = sectionId;
-    if (this.state.camera !== section.input) {
+    if (!this.state.camerasByHand && this.state.camera !== section.input) {
       commands.push({ kind: 'camera', input: section.input });
       this.state.camera = section.input;
     }
@@ -428,6 +434,15 @@ export class CueEngine {
   /** The producer picks which element fires next (null goes back to rundown order). */
   chooseNext(elementId: string | null): void {
     this.state.nextChoice = elementId;
+  }
+
+  /**
+   * The producer takes the cameras (or gives them back to the prompter). camera is the one on air now, so
+   * giving them back switches nothing until the next section starts.
+   */
+  setCamerasByHand(byHand: boolean, camera: number | null): void {
+    this.state.camerasByHand = byHand;
+    this.state.camera = camera;
   }
 
   /** DDR 2's playlist was loaded again: nothing is cued in it any more, and its items have new numbers. */

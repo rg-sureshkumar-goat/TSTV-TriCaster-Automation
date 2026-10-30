@@ -292,6 +292,20 @@ describe('the cue engine', () => {
     expect(engine.takeOff()).toEqual([]);
   });
 
+  it('leaves the cameras to the producer, while the graphics still follow the prompter', () => {
+    const { plan, ids } = show();
+    const engine = new CueEngine(plan);
+    engine.sectionStarted(ids.a3);
+    engine.setCamerasByHand(true, 2);
+    // A4 starts: no camera, but its SOT is cued as usual.
+    expect(engine.sectionStarted(ids.a4)).toEqual([{ kind: 'cueClip', item: 5 }]);
+    expect(engine.cueReached(ids.sot)).toEqual([{ kind: 'dsk', on: true }]);
+    expect(engine.takeCamera(3)).toEqual([{ kind: 'camera', input: 3 }]);
+    // Given back, with camera 2 on air: the next section takes its camera again (its FSG waits for the SOT).
+    engine.setCamerasByHand(false, 2);
+    expect(engine.sectionStarted(ids.b1)).toEqual([{ kind: 'camera', input: 3 }]);
+  });
+
   it('plays a clip the producer fired in manual mode to its end', () => {
     const { plan, ids } = show();
     const engine = new CueEngine(plan);

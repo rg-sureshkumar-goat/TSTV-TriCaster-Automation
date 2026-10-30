@@ -257,6 +257,7 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
         <div className="cell program-cell">
           <Program state={state} />
           <Cameras state={state} />
+          <CameraControl state={state} />
         </div>
         <Playlist state={state} onImport={onImport} onEdit={onEdit} onMissing={onMissing} />
         <Status state={state} />
@@ -406,6 +407,25 @@ function Cameras({ state }: { state: AppState }) {
           </span>
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Takes the cameras off the prompter (RG, Oct 29, 2026): the producer switches them by clicking, while the
+ * graphics still follow the prompter. Giving them back, the next section takes its camera.
+ */
+function CameraControl({ state }: { state: AppState }) {
+  const { camerasByHand, manual } = state.automation;
+  if (manual) return null;
+  return (
+    <div className={`camera-control${camerasByHand ? ' by-hand' : ''}`}>
+      <button className={camerasByHand ? '' : 'primary'} onClick={() => act({ kind: 'setCamerasByHand', byHand: !camerasByHand })}>
+        {camerasByHand ? 'Give cameras back to the prompter' : 'Switch cameras by hand'}
+      </button>
+      <span className="small muted">
+        {camerasByHand ? 'Cameras by hand: click one to take it. Graphics still follow the prompter.' : 'Cameras follow the prompter.'}
+      </span>
     </div>
   );
 }
