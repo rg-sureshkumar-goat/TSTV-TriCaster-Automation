@@ -40,13 +40,13 @@ describe('simulator web API', () => {
   });
 
   it('runs a shortcut command and logs it as coming from the web API', async () => {
-    await api('/v1/shortcut?name=v1_a_row&value=INPUT3');
+    await api('/v1/shortcut?name=v1_a_row_named_input&value=INPUT3');
     expect(sim.switcher.mes.v1.a).toBe('input3');
-    await api('/v1/shortcut?name=main_a_row&value=V2');
+    await api('/v1/shortcut?name=main_a_row_named_input&value=V2');
     expect(await (await api('/v1/dictionary?key=switcher')).text()).toContain('main_source="V2"');
     expect(sim.externalCommands()).toMatchObject([
-      { source: 'http', name: 'v1_a_row', value: 'INPUT3', result: 'ok' },
-      { source: 'http', name: 'main_a_row', value: 'V2', result: 'ok' },
+      { source: 'http', name: 'v1_a_row_named_input', value: 'INPUT3', result: 'ok' },
+      { source: 'http', name: 'main_a_row_named_input', value: 'V2', result: 'ok' },
     ]);
   });
 
@@ -100,9 +100,9 @@ describe('simulator state port (5951)', () => {
 
   it('accepts XML commands', async () => {
     const { socket } = await connectStatePort();
-    socket.write('<shortcut name="v1_a_row" value="INPUT2" />\n');
+    socket.write('<shortcut name="v1_a_row_named_input" value="INPUT2" />\n');
     await waitFor(() => sim.switcher.mes.v1.a === 'input2');
-    expect(sim.externalCommands()[0]).toMatchObject({ source: 'tcp', name: 'v1_a_row' });
+    expect(sim.externalCommands()[0]).toMatchObject({ source: 'tcp', name: 'v1_a_row_named_input' });
     socket.destroy();
   });
 

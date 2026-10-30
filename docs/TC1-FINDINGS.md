@@ -114,6 +114,10 @@ RG at the studio, laptop on the TC1's cable (laptop 169.254.41.47, TC1 169.254.1
 - **From RG's photo of the screen:** the media players are labeled **A** and **B**; the show's playlist (TSTV Ident 2022 News, A2_TEASE_…, Intro Sequence Fall 2023, …) is in **B** (DDR 2), with Autoplay on. **DSK 2's source is B**; DSK 3 is BUG, DSK 4 is A. Player **A** holds "PrimeTime Main BG" (a 5:00 clip), the green-screen background, and two "TSTV News Commercial" clips.
 - **Also on the screen:** EXPORT, STREAM / ENCODE, RECORD / REPLAY and GRAB along the top.
 
+## Camera command, confirmed Oct 30, 2026 (Phase 5)
+
+With RG's OK, in live mode, at the studio: `v1_a_row=INPUT2` is answered OK but **changes nothing**; the TC1 wants either the source's number on `v1_a_row` (`1` is input 2, counting from 0) or its name on **`v1_a_row_named_input=INPUT2`**. The show app uses the named form. (The simulator, built from the earlier guess, had accepted the name; it now ignores it, as the TC1 does.)
+
 ## Network notes
 
 - **Oct 30, 2026 (Phase 5): the Mac sent the TC1's traffic over Wi-Fi.** After working all session, the laptop suddenly couldn't reach 169.254.193.52: macOS had routed the self-assigned range to Wi-Fi (`route get` showed en0). Sending from the cable's own address (curl `--interface`, Node `localAddress`) reached it at once. The show app's live mode now sends everything to the TC1 (web control, state stream, change notifications) from the cable's address, as the probe does.

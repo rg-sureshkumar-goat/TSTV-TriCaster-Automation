@@ -17,20 +17,23 @@ describe('program runs through M/E 1', () => {
     expect(state('program_tally')).toBe('INPUT1');
   });
 
-  it('switches cameras on M/E 1, by name or by TC1 source number', () => {
+  it('switches cameras on M/E 1 by name (…_named_input) or by TC1 source number, as the TC1 does', () => {
     sw = new Switcher();
-    sw.command('http', 'v1_a_row', 'INPUT2');
+    sw.command('http', 'v1_a_row_named_input', 'INPUT2');
     expect(state('v1_a_row_named_input')).toBe('INPUT2');
     sw.command('http', 'v1_a_row', '2');
     expect(state('v1_a_row_named_input')).toBe('INPUT3');
     expect(state('program_tally')).toBe('INPUT3');
-    expect(sw.command('http', 'v1_a_row', 'INPUT99').result).toBe('rejected');
+    // The real TC1 ignores a name on v1_a_row (Oct 30, 2026).
+    expect(sw.command('http', 'v1_a_row', 'INPUT2').result).toBe('rejected');
+    expect(state('v1_a_row_named_input')).toBe('INPUT3');
+    expect(sw.command('http', 'v1_a_row_named_input', 'INPUT99').result).toBe('rejected');
   });
 
   it('takes the green screen (M/E 2) to air with its camera keyed over GFX 1', () => {
     sw = new Switcher();
-    sw.command('http', 'v2_a_row', 'INPUT1');
-    sw.command('http', 'main_a_row', 'V2');
+    sw.command('http', 'v2_a_row_named_input', 'INPUT1');
+    sw.command('http', 'main_a_row_named_input', 'V2');
     expect(state('main_a_row_named_input')).toBe('V2');
     expect(state('program_tally')).toBe('INPUT1|GFX1');
     const onPgm = sw.tallyColumns().filter((c) => c.onPgm).map((c) => c.name);
@@ -39,7 +42,7 @@ describe('program runs through M/E 1', () => {
 
   it('swaps program and preview on auto', () => {
     sw = new Switcher();
-    sw.command('http', 'main_b_row', 'V2');
+    sw.command('http', 'main_b_row_named_input', 'V2');
     sw.command('http', 'main_auto');
     expect([sw.program, sw.preview]).toEqual(['v2', 'v1']);
   });

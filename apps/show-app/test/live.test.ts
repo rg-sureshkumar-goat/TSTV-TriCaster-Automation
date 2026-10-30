@@ -86,7 +86,7 @@ describe('live mode’s driver', () => {
     const before = sim.externalCommands().length;
     await switcher.run([{ kind: 'camera', input: 2 }, { kind: 'cueClip', item: 1 }, { kind: 'dsk', on: true }, { kind: 'music', play: true, track: 0 }]);
     await switcher.run([{ kind: 'cueClip', item: 0 }, { kind: 'play' }, { kind: 'dsk', on: false }, { kind: 'music', play: false }]);
-    expect(commands().slice(before)).toEqual(['v1_a_row INPUT2', 'main_dsk2_value 1', 'main_dsk2_value 0']);
+    expect(commands().slice(before)).toEqual(['v1_a_row_named_input INPUT2', 'main_dsk2_value 1', 'main_dsk2_value 0']);
     expect(playout.calls).toEqual([
       'playlist A1_L3_Score=/usb/A1_L3_Score.mov,A2_SOT_Coach=/usb/A2_SOT_Coach.mov',
       'select 1',

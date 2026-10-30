@@ -197,6 +197,25 @@ export class Switcher extends EventEmitter {
       [this.program, this.preview] = [this.preview, this.program];
       return { result: 'ok', note: name.endsWith('auto') ? 'Transition shown as a cut in the simulator' : undefined };
     }
+    // A row by source name, as the TC1 takes it (confirmed Oct 30, 2026), on the main switcher or an M/E.
+    if ((m = name.match(/^(main|v\d)_(a|b)_row_named_input$/))) {
+      const source = this.resolveSource(value);
+      if (!source) return { result: 'rejected', note: `Unknown source "${value}"` };
+      if (m[1] === 'main') {
+        if (m[2] === 'a') this.program = source;
+        else this.preview = source;
+        return { result: 'ok' };
+      }
+      const me = this.mes[m[1]];
+      if (!me) return { result: 'rejected', note: `No M/E ${m[1].slice(1)}` };
+      if (m[2] === 'a') me.a = source;
+      else me.b = source;
+      return { result: 'ok' };
+    }
+    // A row by number: the real TC1 ignores a name here (it answers OK and changes nothing).
+    if (/^(main|v\d)_(a|b)_row$/.test(name) && !/^-?\d+$/.test(String(value ?? '').trim())) {
+      return { result: 'rejected', note: `The TC1 ignores a name on ${name}; use ${name}_named_input, or the source's number` };
+    }
     if ((m = name.match(/^v(\d)_(a_row|b_row|take|auto)$/))) {
       const me = this.mes[`v${m[1]}`];
       if (!me) return { result: 'rejected', note: `No M/E ${m[1]}` };

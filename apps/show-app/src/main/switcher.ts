@@ -297,7 +297,9 @@ export class Switcher extends EventEmitter {
         await this.sendLive(c, this.playout);
         continue;
       }
-      if (c.kind === 'camera') await this.send('v1_a_row', `INPUT${c.input}`);
+      // The TC1 takes a camera by its name on …_row_named_input; …_row wants its own number and ignores a
+      // name (confirmed on the TC1 at the studio, Oct 30, 2026).
+      if (c.kind === 'camera') await this.send('v1_a_row_named_input', `INPUT${c.input}`);
       else if (c.kind === 'cueClip') await this.send('ddr2_select_clips', String(c.item));
       else if (c.kind === 'play') await this.send('ddr2_play');
       else if (c.kind === 'dsk') await this.send('main_dsk2_value', c.on ? '1' : '0');

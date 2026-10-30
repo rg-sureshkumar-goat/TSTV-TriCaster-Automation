@@ -80,7 +80,7 @@ describe('probe against the simulator', () => {
       ask: async () => {
         // Step 2 is "take a different camera": do it on the simulated panel before answering.
         // On TSTV's TC1 cameras are switched on M/E 1, which is on program.
-        if (step === 0) sim.switcher.command('panel', 'v1_a_row', 'INPUT2');
+        if (step === 0) sim.switcher.command('panel', 'v1_a_row_named_input', 'INPUT2');
         if (step === 1) sim.switcher.command('panel', 'main_dsk2_take');
         return replies[step++] ?? 's';
       },
