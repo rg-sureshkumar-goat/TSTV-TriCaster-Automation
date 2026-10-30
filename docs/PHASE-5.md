@@ -20,7 +20,7 @@ Phase 5 connects the show app to TSTV's real TriCaster TC1. Decisions (RG, Oct 3
 
 ### At the studio (outside a show)
 
-6. **NDI over the cable**: does the TC1 see the laptop's source, and key it on DSK 2 with its see-through parts? Do the TC1's camera feeds play on the laptop? Which feed is which camera?
+6. **Done Oct 30, 2026: NDI over the cable works both ways** (see `docs/TC1-FINDINGS.md`): the laptop's see-through graphic keyed over Camera 1 on a spare DSK, its sound reached the TC1's mixer, and the cameras' and program feeds play live on the laptop. Asked at the time: does the TC1 see the laptop's source, and key it on DSK 2 with its see-through parts? Do the TC1's camera feeds play on the laptop? Which feed is which camera?
 7. **Commands**: cameras, DSK 2, and recording, one at a time.
 8. **The Phase 5 test: a rehearsal on the TC1 outside a show**, including back-to-back teases.
 

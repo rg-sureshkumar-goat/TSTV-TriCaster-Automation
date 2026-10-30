@@ -101,6 +101,19 @@ RG ran the probe at the studio (version 1.1), and I checked the cable from the l
 - **Inputs 1–3 are Cameras 1–3** (RG).
 - TSTV streams to YouTube straight from the TC1.
 
+## NDI both ways over the cable, tested Oct 30, 2026 (Phase 5)
+
+RG at the studio, laptop on the TC1's cable (laptop 169.254.41.47, TC1 169.254.193.52). Test scripts used the NDI runtime that comes with NDI Tools on the Mac, through koffi; nothing was installed on the TC1, and no TC1 commands were sent. RG made the TC1 changes by hand and didn't save the session.
+
+- **Laptop → TC1, picture:** the laptop offered a 1920×1080 NDI source, "TSTV Show App (test)": a blue bar, a white strip and a red square on a see-through background. On the TC1 it shows in input 4's source drop-down under **NDI_E29C47193CAF0BD9** (newer NDI announces the laptop under a coded name, not its computer name). Input 4 showed the shapes, and the laptop counted 2 connections from the TC1.
+- **See-through parts work:** with DSK 1's source set to input 4 and DSK 1 taken, Program showed Camera 1 with the green-screen background and the shapes on top. So the TC1 keys an NDI source's alpha. (RG used DSK 1, which shows don't use.)
+- **Laptop → TC1, sound:** a 440 Hz test tone sent with the picture moved input 4's meters in the TC1's **AUDIO MIXER** (a tab beside **SOUND** under the PGM/PREV rows); the channel was muted, as inputs are until the TD unmutes them.
+- **TC1 → laptop, video:** feeds `(1)`, `(2)` and `(3)` are the three cameras (three angles of the green-screen set; `(3)` the wide shot) at **1280×720, 59.94 fps, progressive**, received at a steady 60 frames a second. `(MIX 1)` is program, the same. `(4)` was black (input 4 empty, 1920×1080). Oct 29's still-then-black was NDI Video Monitor; the app's own receiver gets live frames.
+- **The TC1 doesn't re-send an NDI input:** once input 4 was the laptop's source, feed `(4)` disappeared.
+- **Program sound** comes in MIX 1 (48 kHz, 4 channels).
+- **From RG's photo of the screen:** the media players are labeled **A** and **B**; the show's playlist (TSTV Ident 2022 News, A2_TEASE_…, Intro Sequence Fall 2023, …) is in **B** (DDR 2), with Autoplay on. **DSK 2's source is B**; DSK 3 is BUG, DSK 4 is A. Player **A** holds "PrimeTime Main BG" (a 5:00 clip), the green-screen background, and two "TSTV News Commercial" clips.
+- **Also on the screen:** EXPORT, STREAM / ENCODE, RECORD / REPLAY and GRAB along the top.
+
 ## Network notes
 
 - The laptop's USB Ethernet adapter linked at 1 gigabit, full duplex.

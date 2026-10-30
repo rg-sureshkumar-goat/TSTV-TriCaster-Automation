@@ -188,7 +188,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 - RG plugs the graphics drive into the laptop and imports as today. **No files are copied to the TC1**, so the TC1 needs no Windows login and its owner doesn't need to sign off.
 - The show app plays each graphic itself and sends it to the TC1 over the cable as a live **NDI** source (with its see-through parts and sound). On the TC1, that source is set once as **DSK 2's source** in the TSTV session, in place of DDR 2; the app puts DSK 2 on and off as before.
 - The same NDI link brings the cameras' pictures into the app (in Phase 5, RG, Oct 30, 2026), and the app records the TC1's program feed onto the laptop, so recordings don't have to be copied off the TC1 (RG wants the recording on the laptop).
-- Proven on the laptop Oct 30, 2026 (send, find and receive with alpha, through the NDI runtime that comes with NDI Tools); still to prove over the cable to the TC1, the first studio test of Phase 5. Fallback: the TD loads DDR 2 from USB, and the app cues DDR 2 as in Phase 4.
+- **Proven at the studio Oct 30, 2026** (details in `docs/TC1-FINDINGS.md`): the TC1 shows the laptop's NDI source on an input, keys it over a camera with its see-through parts, and gets its sound; and the TC1's camera and program feeds play live on the laptop at 60 frames a second. Fallback: the TD loads DDR 2 from USB, and the app cues DDR 2 as in Phase 4.
 - The app sends NDI only on the cable to the TC1, never on campus Wi-Fi.
 
 **Send to TriCaster (before the show, at the station)** *(superseded Oct 30, 2026 by graphics over NDI above; kept for the USB fallback)*
