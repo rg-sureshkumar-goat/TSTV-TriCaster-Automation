@@ -1,17 +1,22 @@
-// The sound of the clip on Program, as the app plays it on the simulator: the clip goes through a fader and
-// a level meter to the laptop's speakers (RG, Oct 29, 2026). On the real TC1 (Phase 5) the fader will set
-// DDR 2's audio level on the switcher instead.
+// The sound on Program, as the app plays it on the simulator: the clip on DSK 2 and the music each go
+// through their own fader and level meter to the laptop's speakers (RG, Oct 29, 2026). On the real TC1
+// (Phase 5) the faders will set DDR 2's and the Sound player's audio levels on the switcher instead.
 
-let path: { audio: AudioContext; fader: GainNode; meter: AnalyserNode } | null = null;
+export type Channel = 'clip' | 'music';
 
-/** The one sound path, made the first time it's needed. */
+let path: { audio: AudioContext; channels: Record<Channel, { fader: GainNode; meter: AnalyserNode }> } | null = null;
+
+/** The sound paths, made the first time they're needed. */
 export function programSound() {
   if (!path) {
     const audio = new AudioContext();
-    const fader = audio.createGain();
-    const meter = audio.createAnalyser();
-    meter.fftSize = 1024;
-    fader.connect(meter).connect(audio.destination);
+    const channel = () => {
+      const fader = audio.createGain();
+      const meter = audio.createAnalyser();
+      meter.fftSize = 1024;
+      fader.connect(meter).connect(audio.destination);
+      return { fader, meter };
+    };
     // The laptop's sound takes over a second to wake for the first clip, which held that clip back. A
     // silent sound kept playing keeps it awake.
     const silent = audio.createGain();
@@ -19,27 +24,27 @@ export function programSound() {
     const silence = audio.createOscillator();
     silence.connect(silent).connect(audio.destination);
     silence.start();
-    path = { audio, fader, meter };
+    path = { audio, channels: { clip: channel(), music: channel() } };
   }
   return path;
 }
 
-/** Sends a playing clip's sound through the fader and meter; returns how to let it go. */
-export function connectClip(media: HTMLMediaElement): () => void {
-  const { audio, fader } = programSound();
+/** Sends a playing clip's or the music's sound through its channel's fader and meter; returns how to let it go. */
+export function connectSound(media: HTMLMediaElement, channel: Channel): () => void {
+  const { audio, channels } = programSound();
   const source = audio.createMediaElementSource(media);
-  source.connect(fader);
+  source.connect(channels[channel].fader);
   return () => source.disconnect();
 }
 
-/** The fader, from 0 (silent) to 2 (twice as loud, +6 dB). */
-export function setFader(level: number): void {
-  programSound().fader.gain.value = level;
+/** A channel's fader, from 0 (silent) to 2 (twice as loud, +6 dB). */
+export function setFader(channel: Channel, level: number): void {
+  programSound().channels[channel].fader.gain.value = level;
 }
 
-/** How loud the sound coming out of the fader is right now, in dB (about -60 when quiet, 0 at the top). */
-export function soundLevel(): number {
-  const { meter } = programSound();
+/** How loud a channel is right now, after its fader, in dB (-60 when quiet, 0 at the top). */
+export function soundLevel(channel: Channel): number {
+  const { meter } = programSound().channels[channel];
   const samples = new Float32Array(meter.fftSize);
   meter.getFloatTimeDomainData(samples);
   let peak = 0;

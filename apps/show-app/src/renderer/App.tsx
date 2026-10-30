@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
-import { connectClip, programSound, setFader, soundLevel } from './audio.ts';
+import { connectSound, programSound, setFader, soundLevel, type Channel } from './audio.ts';
 import { useTheme } from './theme.ts';
 
 declare global {
@@ -292,7 +292,7 @@ function Program({ state }: { state: AppState }) {
       {keyed && <ProgramClip key={onAir!.id} src={keyed} />}
       {still && <img className="program-clip" src={still} alt="" />}
       {/* On the simulator, the Sound player only pretends: the app plays the music out loud while it plays. */}
-      {state.switcher.musicPlaying && state.musicTrack?.playable && <audio src={state.musicTrack.playable} autoPlay />}
+      {state.switcher.musicPlaying && state.musicTrack?.playable && <ProgramMusic src={state.musicTrack.playable} />}
       <span className={`live-dot${state.live.on ? ' on' : ''}`}>{state.live.on ? '● LIVE' : '○ Not live'}</span>
       <span className="program-caption">
         <strong>{camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera')}</strong>
@@ -304,25 +304,43 @@ function Program({ state }: { state: AppState }) {
   );
 }
 
+/** The music, playing from its start while the Sound player plays, through the Sound strip's Music channel. */
+function ProgramMusic({ src }: { src: string }) {
+  const audio = useRef<HTMLAudioElement>(null);
+  useEffect(() => (audio.current ? connectSound(audio.current, 'music') : undefined), []);
+  return <audio ref={audio} src={src} autoPlay />;
+}
+
 /** The clip on DSK 2, playing from its start with its sound; a still is shown as it is. */
 function ProgramClip({ src }: { src: string }) {
   const video = useRef<HTMLVideoElement>(null);
   // Its sound goes through the Sound strip's fader and meter.
-  useEffect(() => (video.current ? connectClip(video.current) : undefined), []);
+  useEffect(() => (video.current ? connectSound(video.current, 'clip') : undefined), []);
   return src.endsWith('.png') ? <img className="program-clip" src={src} alt="" /> : <video ref={video} className="program-clip" src={src} autoPlay playsInline />;
 }
 
-const FADER_KEY = 'tstv-show-app-fader';
-
 /**
- * The Sound strip at the right (RG, Oct 29, 2026): a level meter for the clip playing on Program, and a
- * fader for its sound, from silent to +6 dB. Double-click the fader to go back to 0 dB. The laptop
- * remembers where it was left.
+ * The Sound strip at the right (RG, Oct 29, 2026): a level meter and a fader for each sound on Program,
+ * the clip on DSK 2 and the music, from silent to +6 dB. Double-click a fader to go back to 0 dB. The
+ * laptop remembers where each was left.
  */
 function SoundStrip() {
+  return (
+    <section className="cell panel sound-strip" aria-label="Sound">
+      <h2>Sound</h2>
+      <div className="sound-channels">
+        <SoundChannel channel="clip" name="Clip" />
+        <SoundChannel channel="music" name="Music" />
+      </div>
+    </section>
+  );
+}
+
+function SoundChannel({ channel, name }: { channel: Channel; name: string }) {
+  const key = `tstv-show-app-fader-${channel}`;
   const [level, setLevel] = useState(() => {
     try {
-      const saved = Number(localStorage.getItem(FADER_KEY) ?? 1);
+      const saved = Number(localStorage.getItem(key) ?? 1);
       return saved >= 0 && saved <= 2 ? saved : 1;
     } catch {
       return 1;
@@ -331,9 +349,9 @@ function SoundStrip() {
   const cover = useRef<HTMLDivElement>(null);
   const reading = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    setFader(level);
+    setFader(channel, level);
     try {
-      localStorage.setItem(FADER_KEY, String(level));
+      localStorage.setItem(key, String(level));
     } catch {
       // Not remembered; it still works.
     }
@@ -343,7 +361,7 @@ function SoundStrip() {
     let frame = 0;
     let shown = -60;
     const draw = () => {
-      const now = soundLevel();
+      const now = soundLevel(channel);
       // Up at once, down gently, like a studio meter.
       shown = now > shown ? now : Math.max(now, shown - 1);
       if (cover.current) cover.current.style.height = `${(-shown / 60) * 100}%`;
@@ -355,10 +373,10 @@ function SoundStrip() {
   }, []);
   const db = level === 0 ? '−∞' : `${level >= 1 ? '+' : ''}${(20 * Math.log10(level)).toFixed(1)}`;
   return (
-    <section className="cell panel sound-strip" aria-label="Sound">
-      <h2>Sound</h2>
+    <div className="sound-channel">
+      <strong className="small">{name}</strong>
       <div className="sound-columns">
-        <div className="meter" title="How loud the clip on Program is, in dB">
+        <div className="meter" title={`How loud the ${name.toLowerCase()} on Program is, in dB`}>
           <div className="meter-cover" ref={cover} />
         </div>
         <input
@@ -370,16 +388,16 @@ function SoundStrip() {
           value={level}
           onChange={(e) => setLevel(Number(e.target.value))}
           onDoubleClick={() => setLevel(1)}
-          aria-label="Sound of the clip on Program"
-          title="Drag to change the sound of the clip on Program. Double-click for 0 dB."
+          aria-label={`Sound of the ${name.toLowerCase()} on Program`}
+          title="Drag to change the sound. Double-click for 0 dB."
         />
       </div>
       <p className="small muted sound-readout">
-        Level <span ref={reading}>—</span>
+        <span ref={reading}>—</span>
         <br />
-        Fader <strong>{db} dB</strong>
+        <strong>{db}</strong>
       </p>
-    </section>
+    </div>
   );
 }
 
