@@ -33,8 +33,13 @@ function startFeeds(): void {
    * One viewer of a feed: an NDI receiver whose frames FFmpeg turns into moving JPEG for the page, at most
    * fps frames a second. Stops when the page stops watching.
    */
-  const watch = (feed: string, fps: number, res: http.ServerResponse, req: http.IncomingMessage) => {
-    const source = sourceFor(feed);
+  const watch = async (feed: string, fps: number, res: http.ServerResponse, req: http.IncomingMessage) => {
+    // Just after live mode starts, NDI may not have found the TC1's feeds yet: wait a few seconds for it.
+    let source = sourceFor(feed);
+    for (let i = 0; !source && i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      source = sourceFor(feed);
+    }
     if (!source) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('That feed isn’t on the cable right now.');
@@ -81,7 +86,7 @@ function startFeeds(): void {
       res.writeHead(404);
       return res.end();
     }
-    watch(match[1], match[1] === 'program' ? 30 : 15, res, req);
+    void watch(match[1], match[1] === 'program' ? 30 : 15, res, req);
   });
   server.listen(0, '127.0.0.1', () => post({ type: 'ready', port: (server.address() as { port: number }).port }));
 

@@ -523,9 +523,20 @@ function CameraControl({ state }: { state: AppState }) {
 
 function CameraPicture({ src }: { src: string | null }) {
   const [broken, setBroken] = useState(false);
+  // Each try asks afresh, so a feed that wasn't there a moment ago gets another chance.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => setBroken(false), [src]);
+  useEffect(() => {
+    if (!broken) return;
+    const timer = setTimeout(() => {
+      setAttempt((n) => n + 1);
+      setBroken(false);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [broken]);
   if (!src || broken) return <span className="camera-picture none">No picture</span>;
-  return <img className="camera-picture" src={src} alt="" onError={() => setBroken(true)} />;
+  const url = attempt ? `${src}${src.includes('?') ? '&' : '?'}try=${attempt}` : src;
+  return <img className="camera-picture" src={url} alt="" onError={() => setBroken(true)} />;
 }
 
 function Panel({ title, actions, className = '', children }: { title: string; actions?: ReactNode; className?: string; children: ReactNode }) {
