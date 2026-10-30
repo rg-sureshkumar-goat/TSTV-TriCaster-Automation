@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
-import { connectSound, programSound, setFader, soundLevel, type Channel } from './audio.ts';
+import { connectSound, programSound, setFader, soundLevel } from './audio.ts';
 import { useTheme } from './theme.ts';
 
 declare global {
@@ -304,10 +304,10 @@ function Program({ state }: { state: AppState }) {
   );
 }
 
-/** The music, playing from its start while the Sound player plays, through the Sound strip's Music channel. */
+/** The music, playing from its start while the Sound player plays, through the Sound strip. */
 function ProgramMusic({ src }: { src: string }) {
   const audio = useRef<HTMLAudioElement>(null);
-  useEffect(() => (audio.current ? connectSound(audio.current, 'music') : undefined), []);
+  useEffect(() => (audio.current ? connectSound(audio.current) : undefined), []);
   return <audio ref={audio} src={src} autoPlay />;
 }
 
@@ -315,29 +315,17 @@ function ProgramMusic({ src }: { src: string }) {
 function ProgramClip({ src }: { src: string }) {
   const video = useRef<HTMLVideoElement>(null);
   // Its sound goes through the Sound strip's fader and meter.
-  useEffect(() => (video.current ? connectSound(video.current, 'clip') : undefined), []);
+  useEffect(() => (video.current ? connectSound(video.current) : undefined), []);
   return src.endsWith('.png') ? <img className="program-clip" src={src} alt="" /> : <video ref={video} className="program-clip" src={src} autoPlay playsInline />;
 }
 
 /**
- * The Sound strip at the right (RG, Oct 29, 2026): a level meter and a fader for each sound on Program,
- * the clip on DSK 2 and the music, from silent to +6 dB. Double-click a fader to go back to 0 dB. The
- * laptop remembers where each was left.
+ * The Sound strip at the right (RG, Oct 29, 2026): one level meter and one fader for all of Program's
+ * sound, the clip on DSK 2 and the music together, from silent to +6 dB. Double-click the fader to go back
+ * to 0 dB. The laptop remembers where it was left.
  */
 function SoundStrip() {
-  return (
-    <section className="cell panel sound-strip" aria-label="Sound">
-      <h2>Sound</h2>
-      <div className="sound-channels">
-        <SoundChannel channel="clip" name="Clip" />
-        <SoundChannel channel="music" name="Music" />
-      </div>
-    </section>
-  );
-}
-
-function SoundChannel({ channel, name }: { channel: Channel; name: string }) {
-  const key = `tstv-show-app-fader-${channel}`;
+  const key = 'tstv-show-app-fader';
   const [level, setLevel] = useState(() => {
     try {
       const saved = Number(localStorage.getItem(key) ?? 1);
@@ -349,7 +337,7 @@ function SoundChannel({ channel, name }: { channel: Channel; name: string }) {
   const cover = useRef<HTMLDivElement>(null);
   const reading = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    setFader(channel, level);
+    setFader(level);
     try {
       localStorage.setItem(key, String(level));
     } catch {
@@ -361,7 +349,7 @@ function SoundChannel({ channel, name }: { channel: Channel; name: string }) {
     let frame = 0;
     let shown = -60;
     const draw = () => {
-      const now = soundLevel(channel);
+      const now = soundLevel();
       // Up at once, down gently, like a studio meter.
       shown = now > shown ? now : Math.max(now, shown - 1);
       if (cover.current) cover.current.style.height = `${(-shown / 60) * 100}%`;
@@ -373,10 +361,10 @@ function SoundChannel({ channel, name }: { channel: Channel; name: string }) {
   }, []);
   const db = level === 0 ? '−∞' : `${level >= 1 ? '+' : ''}${(20 * Math.log10(level)).toFixed(1)}`;
   return (
-    <div className="sound-channel">
-      <strong className="small">{name}</strong>
+    <section className="cell panel sound-strip" aria-label="Sound">
+      <h2>Sound</h2>
       <div className="sound-columns">
-        <div className="meter" title={`How loud the ${name.toLowerCase()} on Program is, in dB`}>
+        <div className="meter" title="How loud Program's sound (the clip and the music) is, in dB">
           <div className="meter-cover" ref={cover} />
         </div>
         <input
@@ -388,16 +376,16 @@ function SoundChannel({ channel, name }: { channel: Channel; name: string }) {
           value={level}
           onChange={(e) => setLevel(Number(e.target.value))}
           onDoubleClick={() => setLevel(1)}
-          aria-label={`Sound of the ${name.toLowerCase()} on Program`}
-          title="Drag to change the sound. Double-click for 0 dB."
+          aria-label="Program sound"
+          title="Drag to change Program's sound (the clip and the music). Double-click for 0 dB."
         />
       </div>
       <p className="small muted sound-readout">
-        <span ref={reading}>—</span>
+        Level <span ref={reading}>—</span>
         <br />
-        <strong>{db}</strong>
+        Fader <strong>{db} dB</strong>
       </p>
-    </div>
+    </section>
   );
 }
 

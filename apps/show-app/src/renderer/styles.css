@@ -464,7 +464,7 @@ h3 {
 /* Top: Program (with the cameras) · Playlist · status. Bottom: preview · permanent · green screen · music. */
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.55fr) minmax(0, 0.55fr) 132px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.55fr) minmax(0, 0.55fr) 92px;
   grid-template-areas:
     'program playlist status status sound'
     'preview permanent green music sound';
@@ -959,23 +959,10 @@ h3 {
   min-height: 0;
 }
 
-.sound-channels {
-  display: flex;
-  justify-content: space-around;
-  min-height: 0;
-}
-
-.sound-channel {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  justify-items: center;
-  gap: 6px;
-}
-
 .sound-columns {
   display: flex;
   justify-content: center;
-  gap: 6px;
+  gap: 12px;
   min-height: 220px;
 }
 
@@ -1000,7 +987,7 @@ h3 {
 .fader {
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 22px;
+  width: 28px;
   margin: 0;
   accent-color: var(--blue);
 }
