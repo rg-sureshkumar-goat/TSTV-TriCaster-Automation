@@ -172,16 +172,16 @@ function LiveSwitch({ state }: { state: AppState }) {
           <div className="window small-window live-confirm">
             <h2>Run the real TC1?</h2>
             <p>
-              Live mode sends commands to TSTV’s real TriCaster TC1: cameras, DSK 2, and the graphics and music over the cable. Before you turn it on, check:
+              Live mode sends commands to TSTV’s real TriCaster TC1: cameras, DSK 2, and the graphics and music over the cable. Check:
             </p>
             <ul>
               <li>The laptop is plugged into the TC1’s cable.</li>
-              <li>
-                On the TC1: <strong>input 4</strong> is the laptop’s source (<strong>TSTV Show App</strong>), <strong>DSK 2’s source is input 4</strong>, and input 4’s sound is on in the
-                audio mixer.
-              </li>
               <li>Nothing is on air that the app shouldn’t touch.</li>
             </ul>
+            <p className="small muted">
+              Once live mode is on, the TC1 needs (if the TSTV session doesn’t have it saved yet): <strong>input 4</strong> set to the laptop’s source,{' '}
+              <strong>TSTV Show App</strong>; <strong>DSK 2’s source</strong> set to input 4; and input 4’s sound on in the AUDIO MIXER.
+            </p>
             {state.liveError && <p className="error">{state.liveError}</p>}
             <div className="row">
               <button className="danger" onClick={turnOn} disabled={busy}>
@@ -831,6 +831,7 @@ function GreenScreenBox({ state }: { state: AppState }) {
   const g = state.greenScreen;
   return (
     <DropPanel title="Green screen" className="green" onFiles={(paths) => act({ kind: 'setGreenScreen', path: paths[0] })}>
+      {state.mode === 'live' && <p className="small muted">On the TC1, the background stays in media player A, where the TD keeps it.</p>}
       <div className="thumb small-thumb">{g?.thumbnail ? <img src={g.thumbnail} alt="" /> : <span>{g ? g.file : 'Drop the background here'}</span>}</div>
       {g && <p className="small">{g.file}</p>}
       <div className="row">
