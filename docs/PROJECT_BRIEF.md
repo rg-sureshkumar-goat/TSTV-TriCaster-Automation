@@ -183,7 +183,15 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 - Formats: L3, OTS and FSG files are Apple ProRes 4444 with alpha in QuickTime (.mov). VO, SOT and PKG files are .mov or .mp4.
 - **The media files never go to the cloud.** ProRes 4444 is far too large for free storage. Only file names, lengths and thumbnails sync to the website. The files stay on the laptop until they're sent to the TC1.
 
-**Send to TriCaster (before the show, at the station)**
+**Graphics reach the TC1 over NDI from the laptop (decided Oct 30, 2026, Phase 5)**
+
+- RG plugs the graphics drive into the laptop and imports as today. **No files are copied to the TC1**, so the TC1 needs no Windows login and its owner doesn't need to sign off.
+- The show app plays each graphic itself and sends it to the TC1 over the cable as a live **NDI** source (with its see-through parts and sound). On the TC1, that source is set once as **DSK 2's source** in the TSTV session, in place of DDR 2; the app puts DSK 2 on and off as before.
+- The same NDI link brings the cameras' pictures into the app (in Phase 5, RG, Oct 30, 2026), and the app records the TC1's program feed onto the laptop, so recordings don't have to be copied off the TC1 (RG wants the recording on the laptop).
+- Proven on the laptop Oct 30, 2026 (send, find and receive with alpha, through the NDI runtime that comes with NDI Tools); still to prove over the cable to the TC1, the first studio test of Phase 5. Fallback: the TD loads DDR 2 from USB, and the app cues DDR 2 as in Phase 4.
+- The app sends NDI only on the cable to the TC1, never on campus Wi-Fi.
+
+**Send to TriCaster (before the show, at the station)** *(superseded Oct 30, 2026 by graphics over NDI above; kept for the USB fallback)*
 
 - One button copies the episode's files to the TC1, builds the DDR2 playlist in rundown order with each item named by section, and loads any green-screen backgrounds.
 - The app then checks that the TC1 has everything and marks each element Ready or Missing. This also sets up the TD's fallback: the TC1 already holds the full show in order.
