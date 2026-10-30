@@ -60,7 +60,8 @@ You need: the laptop on the TC1's cable, NDI Tools on the laptop (already instal
 - **Oct 30, 2026, at the studio** (see `docs/TC1-FINDINGS.md`): NDI works both ways over the cable; the TC1 keys the laptop's source with its see-through parts and gets its sound; the TC1's feeds play live on the laptop at 60 frames a second.
 - **At home, automatically:** the playout over NDI on the laptop (see-through parts, last frame held, clip ended, straight cuts, sound, fader, input 4 cleared, music); live mode's driver against a simulator calling itself the TC1 (commands to the right place, the identity lock).
 - **On the real TC1's feeds, receiving only:** the camera boxes' feeds and a 6-second recording.
-- **Not yet tried on the real TC1:** live mode's commands (cameras, DSK 2), the playout keyed on DSK 2 during a show, and the rehearsal above. That's RG's to run, since only he turns live mode on.
+- **Oct 30, 2026: the full run-through on the TC1 went smoothly (RG).** Live mode on, the prompter on another computer, Start live broadcast on the website: cameras switched by section, graphics fired at their cues through DSK 2 from the laptop, with the green screen and music from the laptop too.
+- **Fixed during that session:** the Mac sending the TC1's traffic over Wi-Fi (live mode now sends from the cable's address); a crash on starting live mode (NDI frames are now copied, which Electron allows); camera boxes stuck on No picture; graphics not reaching the playout while the TC1's DSK 2 was already on (and a warning when DSK 2 isn't on input 4); a dead website connection (the app now reconnects by itself); and the camera command (the TC1 takes `v1_a_row_named_input`).
 
 ## Not yet
 

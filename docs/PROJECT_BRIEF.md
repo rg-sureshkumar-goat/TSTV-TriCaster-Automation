@@ -292,7 +292,7 @@ There's no deadline, so the plan aims for the fastest path to a first live test.
 2. **Script editor.** Section script pages with live co-editing, cue chips and talent tags. Test: two people edit the same script at once. *Approved Oct 29, 2026.*
 3. **Prompter.** Full-screen prompter with arrow-key control and live updates. Test: run a past show's script on the prompter computer. *Approved Oct 29, 2026.*
 4. **Show app on the simulator.** Producer screen, graphics import and matching, the cue engine with every rule above, cameras by section, Pause and manual cues. Test: a full mock show against the simulator. *Approved Oct 30, 2026* (with back-to-back teases left to revisit; see Open questions).
-5. **Real TC1.** Send to TriCaster, live cues, the green screen and recording on the switcher. Test: a rehearsal on the TC1 outside a show.
+5. **Real TC1.** Send to TriCaster, live cues, the green screen and recording on the switcher. Test: a rehearsal on the TC1 outside a show. *Full run-through on the TC1 went smoothly, Oct 30, 2026 (graphics, green screen and music over NDI from the laptop).*
 6. **Ship it.** Mac and Windows installers, a one-page producer guide, a pre-show checklist and the TD fallback sheet. Test: someone who has never used it runs a rehearsal from the guide alone.
 
 ## Open questions
