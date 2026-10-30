@@ -361,10 +361,14 @@ export class CueEngine {
     return commands;
   }
 
-  /** The clip on DDR 2 played to its end (in manual mode too: a SOT the producer fired still comes off). */
-  clipEnded(): SwitcherCommand[] {
+  /**
+   * The clip on DDR 2 played to its end (in manual mode too: a SOT the producer fired still comes off).
+   * item is the DDR 2 item that ended, when the switcher says: a clip that had just been replaced by
+   * another (one tease running out as the next one cuts in) changes nothing.
+   */
+  clipEnded(item: number | null = null): SwitcherCommand[] {
     const ended = this.element(this.state.onAir);
-    if (!ended || ended.behavior === 'graphic') return [];
+    if (!ended || ended.behavior === 'graphic' || (item !== null && item !== ended.ddrItem)) return [];
     const returning = this.element(this.state.returnTo);
     this.state.returnTo = null;
     if (ended.behavior === 'voiceover' && returning && returning.sectionId === this.state.sectionId && returning.ddrItem !== null) {

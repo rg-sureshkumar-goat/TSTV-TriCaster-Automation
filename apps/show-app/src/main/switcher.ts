@@ -162,9 +162,11 @@ export class Switcher extends EventEmitter {
     }
   }
 
+  /** Says which DDR 2 item ended, so a clip that was already replaced by another isn't taken for the new one. */
   private async checkClipEnd(): Promise<void> {
+    const item = this.snapshot.ddrItem;
     const remaining = await this.readTimecode();
-    if (remaining !== null && remaining <= 0.5 && this.snapshot.dskOn) this.emit('clipEnded');
+    if (remaining !== null && remaining <= 0.5 && this.snapshot.dskOn && this.snapshot.ddrItem === item) this.emit('clipEnded', item);
   }
 
   async readPlaylists(): Promise<void> {

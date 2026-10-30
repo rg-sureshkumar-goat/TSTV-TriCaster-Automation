@@ -106,7 +106,10 @@ describe('the cue engine', () => {
     ]);
     // When the prompter reaches the cue itself, it's already up.
     expect(engine.cueReached(tease2)).toEqual([]);
+    // The first tease running out just as the second cut in doesn't take the second one off.
+    expect(engine.clipEnded(1)).toEqual([]);
     expect(engine.state.onAir).toBe(tease2);
+    expect(engine.clipEnded(2)).toEqual([{ kind: 'dsk', on: false }]);
   });
 
   it('takes the section’s camera, cues its first clip, and starts the music with the tease', () => {

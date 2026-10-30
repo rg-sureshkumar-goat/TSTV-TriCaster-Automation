@@ -128,10 +128,10 @@ export class Runtime extends EventEmitter {
       // DDR 2 may have been waiting for the clip on air to finish.
       void this.syncSimulator();
     });
-    switcher.on('clipEnded', () => {
+    switcher.on('clipEnded', (item: number | null) => {
       if (!this.engine) return;
       const ended = this.view(this.engine.state.onAir);
-      void this.run(this.engine.clipEnded(), ended ? `${ended.label} ended` : 'Clip ended');
+      void this.run(this.engine.clipEnded(item), ended ? `${ended.label} ended` : 'Clip ended');
     });
     return switcher;
   }
