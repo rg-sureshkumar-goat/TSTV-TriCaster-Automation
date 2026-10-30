@@ -1,5 +1,7 @@
 # Phase 4: show app on the simulator
 
+*Approved by RG on Oct 30, 2026, after a full mock show. Left to revisit: back-to-back teases (see "Not yet").*
+
 Phase 4 adds the **show app**, the desktop app the producer runs during a show. It follows an episode on the website, hears the prompter's cues, and runs the switcher by the cue rules. In Phase 4 it only ever talks to the **simulator** (the fake TriCaster on your laptop). The real TC1 comes in Phase 5, behind a live mode you turn on yourself.
 
 ## What's new
