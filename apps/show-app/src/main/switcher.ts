@@ -136,7 +136,12 @@ export class Switcher extends EventEmitter {
     });
     // DDR 2 stopped by itself at the end of a clip, with DSK 2 still on: the clip ended.
     if (was && !ddrPlaying && changed.includes('ddr2_play')) void this.checkClipEnd();
-    // While a clip plays, its time left is read twice a second, for the producer's screen.
+    // While a clip plays, its time left is read twice a second, for the producer's screen. A clip that just
+    // started is read at once, so the last clip's time left doesn't show for it.
+    if (ddrPlaying && (!was || changed.includes('ddr2_select_clips'))) {
+      this.set({ ddrRemaining: null });
+      void this.readTimecode();
+    }
     if (ddrPlaying && !this.timecodeTimer) this.timecodeTimer = setInterval(() => void this.readTimecode(), 500);
     if (!ddrPlaying && this.timecodeTimer) {
       clearInterval(this.timecodeTimer);

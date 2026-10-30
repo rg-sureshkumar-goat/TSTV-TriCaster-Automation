@@ -567,10 +567,42 @@ h3 {
 }
 
 .on-air {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
   padding: 8px 10px;
   background: var(--panel-2);
   border-left: 4px solid var(--red);
   border-radius: 6px;
+}
+
+.on-air > .item {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The see-through bar that fills as the clip on air plays; the time left is read twice a second. */
+.clip-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgba(220, 38, 38, 0.28);
+  transition: width 0.5s linear;
+  pointer-events: none;
+}
+
+.on-air > .item,
+.on-air > .muted,
+.time-left {
+  position: relative;
+}
+
+.time-left {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .item {

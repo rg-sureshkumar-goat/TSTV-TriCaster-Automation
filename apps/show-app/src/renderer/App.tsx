@@ -340,7 +340,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
           </button>
         )}
       </h3>
-      <div className="on-air">{automation.onAir ? <Item element={automation.onAir} musicTrack={state.musicTrack?.file} /> : <span className="muted">Nothing on DSK 2</span>}</div>
+      <OnAir state={state} />
       <h3>
         Up next
         <span className="hand-buttons">
@@ -378,6 +378,42 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
 }
 
 /** One cue: its chip, its section, and the file that will play (RG, Oct 29, 2026), or the show's music track. */
+/**
+ * How far the clip on DSK 2 has played, while DDR 2 plays it: the share played, and the seconds left.
+ * Null for a still, or when DDR 2 is playing something else.
+ */
+function clipProgress(state: AppState): { played: number; left: number; total: number } | null {
+  const { onAir } = state.automation;
+  const { ddrPlaying, ddrRemaining, ddrItem } = state.switcher;
+  if (!onAir?.seconds || !ddrPlaying || ddrRemaining === null || ddrItem !== onAir.ddrItem) return null;
+  const total = Math.max(onAir.seconds, ddrRemaining);
+  return { played: 1 - ddrRemaining / total, left: ddrRemaining, total };
+}
+
+/** What's on DSK 2, with a see-through bar across it that fills as the clip plays (RG, Oct 29, 2026). */
+function OnAir({ state }: { state: AppState }) {
+  const onAir = state.automation.onAir;
+  const progress = clipProgress(state);
+  return (
+    <div className="on-air">
+      {onAir && progress && (
+        <span
+          key={onAir.id}
+          className="clip-progress"
+          style={{ width: `${progress.played * 100}%` }}
+          role="progressbar"
+          aria-label="Clip played"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(progress.total)}
+          aria-valuenow={Math.round(progress.total - progress.left)}
+        />
+      )}
+      {onAir ? <Item element={onAir} musicTrack={state.musicTrack?.file} /> : <span className="muted">Nothing on DSK 2</span>}
+      {progress && <span className="time-left">{duration(progress.left)} left</span>}
+    </div>
+  );
+}
+
 function Item({ element, musicTrack }: { element: ElementView; musicTrack?: string | null }) {
   const file = element.behavior === 'music' ? musicTrack : element.file;
   return (
@@ -417,7 +453,7 @@ function Skipped({ state }: { state: AppState }) {
 function Status({ state }: { state: AppState }) {
   const now = useNow();
   const { automation, clock, switcher, lastCue } = state;
-  const playing = automation.onAir && automation.onAir.behavior !== 'graphic' && switcher.ddrPlaying;
+  const playing = clipProgress(state) !== null;
   const ms = lastCue?.latencyMs ?? null;
   return (
     <section className="cell panel status">
