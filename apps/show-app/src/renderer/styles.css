@@ -342,11 +342,14 @@ h3 {
 }
 .pause {
   justify-content: center;
-  padding: 14px 10px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  padding: 14px 8px;
   border: none;
   background: var(--amber);
   color: #111;
-  font-size: 17px;
+  /* One line, always (RG, Oct 30, 2026): the words get a little smaller in a narrow window. */
+  font-size: clamp(11px, 8cqi, 17px);
   font-weight: 800;
 }
 .pause.resume {
@@ -499,7 +502,7 @@ h3 {
  */
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.5fr) minmax(0, 0.65fr) 92px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.47fr) minmax(0, 0.7fr) 92px;
   grid-template-areas:
     'program playlist playlist status sound'
     'preview permanent green music sound';
