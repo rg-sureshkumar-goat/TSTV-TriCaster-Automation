@@ -92,7 +92,7 @@ The browser works out timing from the shared rundown: script words ÷ words per 
 - **Only people on the invite list get in.** The TD (admin) adds email addresses on an admin page. Anyone else sees "Ask the TD for an invite."
 - The open question "invited people only, or anyone with a UT email?" becomes a setting: the invite list can also allow a whole email domain later.
 - **Authorship.** Every rundown row and script records who wrote it and who edited it, so the producer can see who wrote and edited each reader.
-- **The prompter computer signs in once with Google** (RG, Oct 29, 2026), ideally with a TSTV station Gmail an admin invites. **The show app connects with the episode's key** (RG, Oct 29, 2026): the producer copies it from the episode's Show app key button. The key lets the app follow that episode read-only, and making a new key cuts off the old one. There's no device pairing.
+- **The prompter computer signs in once with Google** (RG, Oct 29, 2026), ideally with a TSTV station Gmail an admin invites. **The show app connects with the episode's key** (RG, Oct 29, 2026): the producer copies it from the episode's RiGster key button. The key lets the app follow that episode read-only, and making a new key cuts off the old one. There's no device pairing.
   - **No one signs in to the show app itself** (RG's decision). Only one laptop is connected at a time, and running the TC1 means being in the studio.
   - **The one-time link keeps scripts and the cue feed private.** Its details get confirmed in Phase 4.
 - **Why not our own passwords:** Cloudflare's free tier allows 10 ms of computing per request, which is too little to store passwords safely. Google handles that part for us.

@@ -207,8 +207,8 @@ function LiveButton({ episodeId, live, onError }: { episodeId: string; live: boo
   const [busy, setBusy] = useState(false);
   const toggle = async () => {
     const question = live
-      ? 'End the live broadcast? The show app stops following the prompter.'
-      : 'Start the live broadcast? The show app’s automation will follow the prompter from now on.';
+      ? 'End the live broadcast? RiGster stops following the prompter.'
+      : 'Start the live broadcast? RiGster’s automation will follow the prompter from now on.';
     if (!confirm(question)) return;
     setBusy(true);
     try {
@@ -238,7 +238,7 @@ function AppKeyButton({ episodeId }: { episodeId: string }) {
     try {
       const data = await api<{ key: string }>(`/episodes/${episodeId}/app-key`, renew ? { method: 'POST' } : undefined);
       setKey(data.key);
-      setNote(renew ? 'New key made. Any show app using the old one is disconnected.' : null);
+      setNote(renew ? 'New key made. Any RiGster using the old one is disconnected.' : null);
     } catch (e) {
       setNote((e as Error).message);
     }
@@ -252,12 +252,12 @@ function AppKeyButton({ episodeId }: { episodeId: string }) {
         }}
         aria-expanded={Boolean(anchor)}
       >
-        Show app key
+        RiGster key
       </button>
       {anchor && (
         <Popover anchor={anchor} align="right" onClose={() => setAnchor(null)}>
-          <div className="app-key" role="dialog" aria-label="Show app key">
-            <p className="small">Paste this key into the show app to connect it to this episode. Keep it to the crew: anyone with it can follow the episode.</p>
+          <div className="app-key" role="dialog" aria-label="RiGster key">
+            <p className="small">Paste this key into RiGster to connect it to this episode. Keep it to the crew: anyone with it can follow the episode.</p>
             <code aria-label="Key">{key ?? 'Loading…'}</code>
             <div className="buttons">
               <button
@@ -270,7 +270,7 @@ function AppKeyButton({ episodeId }: { episodeId: string }) {
               >
                 Copy
               </button>
-              <button onClick={() => confirm('Make a new key? Any show app using the old one will be disconnected.') && void load(true)}>Make a new key</button>
+              <button onClick={() => confirm('Make a new key? Any RiGster using the old one will be disconnected.') && void load(true)}>Make a new key</button>
             </div>
             {note && <p className="small muted">{note}</p>}
           </div>
@@ -311,7 +311,7 @@ function PrompterBar({ others, lastCue, timing, live }: { others: Presence[]; la
       )}
       {app && (
         <span>
-          <strong>Show app</strong> {app.mode === 'live' ? 'LIVE on the TC1' : 'on the simulator'}
+          <strong>RiGster</strong> {app.mode === 'live' ? 'LIVE on the TC1' : 'on the simulator'}
           {!app.switcherConnected && ' · switcher not connected'}
           {app.paused && ' · automation paused'}
         </span>

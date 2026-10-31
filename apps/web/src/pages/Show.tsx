@@ -217,7 +217,7 @@ function ShowSettingsForm({ showId, name, logo, settings, onSaved }: { showId: s
       </label>
       <fieldset>
         <legend>TriCaster inputs</legend>
-        <p className="muted small">Which TriCaster input each camera is, for the show app. TSTV’s TC1 has cameras on inputs 1 to 3.</p>
+        <p className="muted small">Which TriCaster input each camera is, for RiGster. TSTV’s TC1 has cameras on inputs 1 to 3.</p>
         <div className="row wrap">
           {draft.cameras.map((camera) => (
             <label key={camera}>

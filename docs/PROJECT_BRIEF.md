@@ -153,14 +153,14 @@ The prompter is a full-screen page of the website, opened in a browser on the ex
 
 The show app is a desktop app for Mac and Windows, installed once on each laptop that will run shows. At showtime it connects to the TC1 over the cable and to the website over Wi-Fi. Nothing is installed on the TC1.
 
-**Name (decided Oct 30, 2026): the show app is called RiGster.** That's the name in its window title, at the top left of the app, and in its menus. Its NDI sources keep their names (**TSTV Show App** and **TSTV Show App Background**), so the TC1's input settings don't need changing. The app keeps what it remembers on the laptop in the same folder as before.
+**Name (decided Oct 30, 2026): the show app is called RiGster.** That's the name in its window title, at the top left of the app, and in its menus, and on the website wherever it's mentioned (the episode's **RiGster key** button, and the Prompter bar's RiGster status). Its NDI sources keep their names (**TSTV Show App** and **TSTV Show App Background**), so the TC1's input settings don't need changing. The app keeps what it remembers on the laptop in the same folder as before.
 
 **Connecting**
 
 - The producer plugs the USB-C-to-Ethernet adapter and the TC1 cable into her laptop and opens the app. The app finds the TC1 on the cable by itself. Producers never change network settings.
 - **No sign-in in the show app (decided Oct 28, 2026).** Only one laptop is connected at a time, and running the TC1 means being in the studio on the cable.
 - The app reads the rundown and cues from the website, using the episode key below.
-- **Episode key (decided Oct 29, 2026):** every episode has its own key, which the producer (or an admin) copies from the episode's **Show app key** button and pastes into the show app. The key alone lets the app follow that episode and its cues, read-only; there's no separate laptop approval. **Make a new key** cuts off any app using the old one.
+- **Episode key (decided Oct 29, 2026):** every episode has its own key, which the producer (or an admin) copies from the episode's **RiGster key** button and pastes into the show app. The key alone lets the app follow that episode and its cues, read-only; there's no separate laptop approval. **Make a new key** cuts off any app using the old one.
 - Status lights show whether the website, the prompter and the TriCaster are connected.
 
 **Producer screen**

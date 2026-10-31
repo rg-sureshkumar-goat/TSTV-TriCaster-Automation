@@ -11,7 +11,7 @@ Phase 4 adds the **show app**, the desktop app the producer runs during a show. 
 - **Start live broadcast** (RG, Oct 29, 2026). The producer who created the episode, or an admin, presses it on the episode's page when the show goes on air. From then on, the show app's automation follows the prompter. The button then reads **● Live · End live broadcast**, and pressing it again stops the automation. Everyone else sees a **● Live** badge.
   - Before the show is live (and after it ends), the show app ignores the prompter's cues. The camera buttons and Fire next still work by hand, for setting up and rehearsing.
   - It doesn't start recording; recording keeps its own button (Phase 5).
-- **Show app key.** Each episode has a **Show app key** button at the top. It shows the episode's key, a long code starting `tstv-`. Paste it into the show app to connect the app to that episode. Only the producer who created the episode and admins can see it.
+- **RiGster key.** Each episode has a **RiGster key** button at the top. It shows the episode's key, a long code starting `tstv-`. Paste it into the show app to connect the app to that episode. Only the producer who created the episode and admins can see it.
   - **Make a new key** cuts off any show app still using the old one.
   - Keep the key to the crew: anyone with it can follow the episode (but not change it).
 - **Files in the rundown.** Once the show app has graphics for an episode, each graphic in the rundown shows **✓** when it has its file, and a red underline when it doesn't. Hover for the file's name and length.
@@ -114,7 +114,7 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
    ```
 
    The Simulator light should be green.
-3. **Connect:** on the website, open the episode, click **Show app key**, **Copy**. In the app, click **Episode key** at the top right, paste it, and Connect. Check that the Website light goes green, and that the rundown page's Prompter bar says the show app is on the simulator.
+3. **Connect:** on the website, open the episode, click **RiGster key**, **Copy**. In the app, click **Episode key** at the top right, paste it, and Connect. Check that the Website light goes green, and that the rundown page's Prompter bar says the show app is on the simulator.
 4. **Graphics:** drop the permanent graphics on their box, and the background on the Green screen box. Then click **Import graphics** and pick the folder of episode graphics. Check:
    - files named after sections land on the right elements, with lengths and thumbnails
    - anything it couldn't place is listed, and you can put it on the right element

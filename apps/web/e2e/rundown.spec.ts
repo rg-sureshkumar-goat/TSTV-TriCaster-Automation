@@ -391,7 +391,7 @@ test('admins manage people, shows, episodes and commercial breaks', async ({ bro
   await expect(sam.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
 
   // The show app key: the producer copies it for the show app, which then reads the episode with it.
-  await rg.getByRole('button', { name: 'Show app key' }).click();
+  await rg.getByRole('button', { name: 'RiGster key' }).click();
   await expect(rg.getByLabel('Key', { exact: true })).toHaveText(/^tstv-/);
   const key = (await rg.getByLabel('Key', { exact: true }).textContent())!;
   const appReply = await rg.request.get('/api/app/episode', { headers: { Authorization: `Bearer ${key}` } });

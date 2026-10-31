@@ -95,7 +95,7 @@ export function App() {
       {!state.episode ? (
         <main className="empty">
           <p>
-            Click <strong>Episode key</strong> at the top right, and paste the key from the episode’s <strong>Show app key</strong> button on the website.
+            Click <strong>Episode key</strong> at the top right, and paste the key from the episode’s <strong>RiGster key</strong> button on the website.
           </p>
         </main>
       ) : (
@@ -256,7 +256,7 @@ function KeyPanel({ state, onDone }: { state: AppState; onDone: () => void }) {
         void act({ kind: 'connect', siteUrl, key });
       }}
     >
-      <p>On the website, open the episode, click <strong>Show app key</strong> and <strong>Copy</strong>, then paste it here.</p>
+      <p>On the website, open the episode, click <strong>RiGster key</strong> and <strong>Copy</strong>, then paste it here.</p>
       <label>
         Episode key
         <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="tstv-…" autoFocus required />

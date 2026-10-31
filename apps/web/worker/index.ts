@@ -280,7 +280,7 @@ async function appKeyFor(c: Context<App, '/episodes/:id/app-key'>, renew: boolea
   const user = c.get('user');
   const row = await visibleEpisode(c.env, user, c.req.param('id'));
   if (!row) return c.json({ error: 'Episode not found.' }, 404);
-  if (row.created_by !== user.id && !user.isAdmin) return c.json({ error: 'Only the producer who created this episode, or an admin, can get its show app key.' }, 403);
+  if (row.created_by !== user.id && !user.isAdmin) return c.json({ error: 'Only the producer who created this episode, or an admin, can get its RiGster key.' }, 403);
   let key = row.app_key ? String(row.app_key) : null;
   if (!key || renew) {
     key = newAppKey();
@@ -427,7 +427,7 @@ export default {
             const episode = await episodeForKey(env, key);
             if (!episode || episode.id !== lobby.name) return new Response('That key doesn’t match this episode.', { status: 401 });
             const headers = new Headers(req.headers);
-            headers.set('x-tstv-user', JSON.stringify({ id: 'show-app', name: 'Show app' }));
+            headers.set('x-tstv-user', JSON.stringify({ id: 'show-app', name: 'RiGster' }));
             headers.set('x-tstv-readonly', '1');
             headers.set('x-tstv-app', '1');
             return new Request(req, { headers });
