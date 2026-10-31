@@ -237,7 +237,7 @@ The show app is a desktop app for Mac and Windows, installed once on each laptop
 
 ## Cue rules
 
-Every element except MUSIC plays from DDR2 through DSK 2. Only one element is on DSK 2 at a time, so a new cue replaces whatever is up. **A clip that replaces another cuts straight to it** (decided Oct 29, 2026): DSK 2 stays on while DDR2 selects the new clip and plays it, so the camera never flashes between two clips, like back-to-back teases. Only a clip going up over the camera takes DSK 2 on (which plays it, with AutoPlay). To confirm on the TC1 in Phase 5. When a section starts, its first element is cued in DDR2 so it's ready to fire.
+Every element except MUSIC plays from DDR2 through DSK 2. Only one element is on DSK 2 at a time, so a new cue replaces whatever is up. **A clip that replaces another cuts straight to it** (decided Oct 29, 2026): DSK 2 stays on while DDR2 selects the new clip and plays it, so the camera never flashes between two clips, like back-to-back teases. Only a clip going up over the camera takes DSK 2 on (which plays it, with AutoPlay). Confirmed on the TC1: the teases worked well in the studio run-through (RG). When a section starts, its first element is cued in DDR2 so it's ready to fire.
 
 | Element | Goes up | Comes off |
 | --- | --- | --- |
@@ -299,13 +299,13 @@ There's no deadline, so the plan aims for the fastest path to a first live test.
 1. **Website foundation.** Sign-in, Shows and Episodes, the rundown grid, timing, archive and export. Test: build a real episode's rundown. *Approved Oct 29, 2026.*
 2. **Script editor.** Section script pages with live co-editing, cue chips and talent tags. Test: two people edit the same script at once. *Approved Oct 29, 2026.*
 3. **Prompter.** Full-screen prompter with arrow-key control and live updates. Test: run a past show's script on the prompter computer. *Approved Oct 29, 2026.*
-4. **Show app on the simulator.** Producer screen, graphics import and matching, the cue engine with every rule above, cameras by section, Pause and manual cues. Test: a full mock show against the simulator. *Approved Oct 30, 2026* (with back-to-back teases left to revisit; see Open questions).
-5. **Real TC1.** Send to TriCaster, live cues, the green screen and recording on the switcher. Test: a rehearsal on the TC1 outside a show. *Full run-through on the TC1 went smoothly, Oct 30, 2026 (graphics, green screen and music over NDI from the laptop). Approved Oct 30, 2026* (with back-to-back teases still to revisit; see Open questions).
+4. **Show app on the simulator.** Producer screen, graphics import and matching, the cue engine with every rule above, cameras by section, Pause and manual cues. Test: a full mock show against the simulator. *Approved Oct 30, 2026*. Back-to-back teases, left to revisit then, worked well on the TC1 in the studio run-through (RG).
+5. **Real TC1.** Send to TriCaster, live cues, the green screen and recording on the switcher. Test: a rehearsal on the TC1 outside a show. *Full run-through on the TC1 went smoothly, Oct 30, 2026 (graphics, green screen and music over NDI from the laptop). Approved Oct 30, 2026.*
 6. **Ship it.** Mac and Windows installers, a one-page producer guide, a pre-show checklist and the TD fallback sheet. Test: someone who has never used it runs a rehearsal from the guide alone.
 
 ## Open questions
 
-- [ ] **Back-to-back teases (to come back to; RG, Oct 29, 2026):** the change from one tease to the next still isn't right in the mock show, after the top-of-section cues and the clip-to-clip cut (see Cue rules). Revisit with RG, and on the TC1 (still open when Phase 5 was approved, Oct 30, 2026).
+- [x] **Back-to-back teases (RG, Oct 29, 2026):** the change from one tease to the next wasn't right in the mock show, after the top-of-section cues and the clip-to-clip cut (see Cue rules). *Settled: the teases worked well when RG ran the show on the TC1 in the studio, so there's nothing more to look into (RG).*
 
 - [ ] **How do the cameras' pictures reach the show app?** RG wants each camera's video playing in its button (Oct 29, 2026). The TC1 sends video over the network with NDI on 4 mix outputs, and its NDI ports (5960, 5961) were open on Oct 28, but one output already goes to TSTV's YouTube stream. *Oct 29, 2026, at the studio:* the TC1 sends 8 NDI feeds over the cable, `(1)` to `(4)` and `(MIX 1)` to `(MIX 4)`; all four mix outputs show Program. In NDI Video Monitor, the numbered feeds showed one still frame, then black. To settle in Phase 5: which feed is which camera, whether the feeds play live on the laptop (NDI's transport and the TC1's firewall), and whether to set spare mix outputs to cameras. Details in `docs/TC1-FINDINGS.md`. Showing cameras this way may mean setting spare mix outputs to cameras 1–3 (a TC1 setting, which needs the owner's OK) and installing NDI's free software on the laptop. Until then, the simulator gives each camera a moving test picture, and the three look nothing alike (Camera 1 blue, Camera 2 green, Camera 3 orange; Oct 29, 2026).
 - [x] Do SOTs and packages play to the end and then go back to the anchors, as assumed? *Yes (RG, Oct 29, 2026).*

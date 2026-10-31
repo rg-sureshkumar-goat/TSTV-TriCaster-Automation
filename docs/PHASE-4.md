@@ -1,6 +1,6 @@
 # Phase 4: show app on the simulator
 
-*Approved by RG on Oct 30, 2026, after a full mock show. Left to revisit: back-to-back teases (see "Not yet").*
+*Approved by RG on Oct 30, 2026, after a full mock show. Left to revisit: back-to-back teases (see "Not yet"), since settled: they worked well on the TC1 in the studio (RG).*
 
 Phase 4 adds the **show app**, the desktop app the producer runs during a show. It follows an episode on the website, hears the prompter's cues, and runs the switcher by the cue rules. In Phase 4 it only ever talks to the **simulator** (the fake TriCaster on your laptop). The real TC1 comes in Phase 5, behind a live mode you turn on yourself.
 
@@ -147,7 +147,7 @@ You need: the October 26 episode (or another with graphics in its rundown and cu
 
 ## Not yet
 
-- **Back-to-back teases still don't cut cleanly (come back to this; RG, Oct 29, 2026).** In the mock show, the change from one tease to the next still isn't right, even after the top-of-section cues and the clip-to-clip cut. RG asked to set it aside and return to it later.
+- **Back-to-back teases still don't cut cleanly (come back to this; RG, Oct 29, 2026).** In the mock show, the change from one tease to the next still isn't right, even after the top-of-section cues and the clip-to-clip cut. RG asked to set it aside and return to it later. *Settled in Phase 5: the teases worked well on the TC1 in the studio (RG).*
 
 - **The real cameras' video.** At the studio on Oct 29 we found the TC1 sends 8 NDI video feeds over the cable, but they didn't play live on the laptop yet (see `docs/TC1-FINDINGS.md`). Working out which feed is which camera, and getting them to play, is part of Phase 5. Until then, the simulator's test pictures stand in.
 - **The real TC1** (Phase 5): live mode with its three safety locks, Send to TriCaster, sending the green screen to the TC1, and the Record button.

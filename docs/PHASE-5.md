@@ -14,7 +14,7 @@ Phase 5 connects the show app to TSTV's real TriCaster TC1. Decisions (RG, Oct 3
   - **Run the real TC1…** (next to the SIMULATOR badge) asks for a confirmation. Then a red **LIVE: TC1** bar stays across the top, with **Back to the simulator**.
   - In live mode the app talks only to a switcher that says it's a **TriCaster TC1**; on the simulator, only to the simulator.
 - **Live mode needs the laptop on the TC1's cable.** The app finds the TC1 at its last address (169.254.193.52), or by the NDI feeds it announces on the cable. It keeps NDI on cable connections only, never on campus Wi-Fi.
-- **The playout** (in the background) plays each graphic at the TC1's size (1280×720, 29.97 frames a second), with its see-through parts and sound, and sends it to input 4. It works like DDR 2 for the cue rules: the cue engine cues a clip, plays it, stops it, and hears when it ends. When one clip replaces another, it cuts straight from one to the next (so back-to-back teases may finally work). When DSK 2 goes off, input 4 is cleared. A clip that ends holds its last frame.
+- **The playout** (in the background) plays each graphic at the TC1's size (1280×720, 29.97 frames a second), with its see-through parts and sound, and sends it to input 4. It works like DDR 2 for the cue rules: the cue engine cues a clip, plays it, stops it, and hears when it ends. When one clip replaces another, it cuts straight from one to the next (back-to-back teases worked well on the TC1 in the studio run-through, RG). When DSK 2 goes off, input 4 is cleared. A clip that ends holds its last frame.
 - **Cameras and DSK 2** are commands to the TC1, as on the simulator: cameras on M/E 1's A row, DSK 2 on and off.
 - **The TC1's feeds in the app:** the camera boxes show feeds (1)–(3), and the Program box the program (MIX 1), picture only.
 - **Record** (under Pause automation, live mode only) opens a save window where you type the recording's name and pick its folder (it suggests `Show_Episode_Date.mp4` in the folder used last time; type over it), then records the program; click again to stop. The file is written in pieces, so it plays even if the laptop stops partway.
@@ -73,4 +73,4 @@ You need: the laptop on the TC1's cable, NDI Tools on the laptop (already instal
 Left for later:
 
 - **TD fallback sheet** (a one-page printout of each section's camera and graphics): part of Phase 6, if still wanted with graphics over NDI.
-- **Back-to-back teases**: still to revisit (the straight cut may fix them on the real TC1).
+- ~~Back-to-back teases~~: settled. They worked well when RG ran the show on the TC1 in the studio, so there's nothing more to look into.
