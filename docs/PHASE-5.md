@@ -66,7 +66,11 @@ You need: the laptop on the TC1's cable, NDI Tools on the laptop (already instal
 - **Oct 30, 2026: the full run-through on the TC1 went smoothly (RG).** Live mode on, the prompter on another computer, Start live broadcast on the website: cameras switched by section, graphics fired at their cues through DSK 2 from the laptop, with the green screen and music from the laptop too.
 - **Fixed during that session:** the Mac sending the TC1's traffic over Wi-Fi (live mode now sends from the cable's address); a crash on starting live mode (NDI frames are now copied, which Electron allows); camera boxes stuck on No picture; graphics not reaching the playout while the TC1's DSK 2 was already on (and a warning when DSK 2 isn't on input 4); a dead website connection (the app now reconnects by itself); and the camera command (the TC1 takes `v1_a_row_named_input`).
 
-## Not yet
+## Approved
 
-- **TD fallback sheet** (a one-page printout of each section's camera and graphics), if still wanted with graphics over NDI.
-- **Back-to-back teases** to revisit at the rehearsal (the straight cut may fix them on the real TC1).
+**RG approved Phase 5 on Oct 30, 2026.**
+
+Left for later:
+
+- **TD fallback sheet** (a one-page printout of each section's camera and graphics): part of Phase 6, if still wanted with graphics over NDI.
+- **Back-to-back teases**: still to revisit (the straight cut may fix them on the real TC1).
