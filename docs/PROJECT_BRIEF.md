@@ -153,6 +153,8 @@ The prompter is a full-screen page of the website, opened in a browser on the ex
 
 The show app is a desktop app for Mac and Windows, installed once on each laptop that will run shows. At showtime it connects to the TC1 over the cable and to the website over Wi-Fi. Nothing is installed on the TC1.
 
+**Name (decided Oct 30, 2026): the show app is called RiGster.** That's the name in its window title, at the top left of the app, and in its menus. Its NDI sources keep their names (**TSTV Show App** and **TSTV Show App Background**), so the TC1's input settings don't need changing. The app keeps what it remembers on the laptop in the same folder as before.
+
 **Connecting**
 
 - The producer plugs the USB-C-to-Ethernet adapter and the TC1 cable into her laptop and opens the app. The app finds the TC1 on the cable by itself. Producers never change network settings.

@@ -118,7 +118,10 @@ function Header({ state }: { state: AppState }) {
   return (
     <header className="topbar">
       <ThemeSwitch />
-      <span className="title">{episode ? `${episode.showName} · ${episode.title}` : 'TSTV Show App'}</span>
+      <span className="title">
+        <strong className="app-name">RiGster</strong>
+        {episode ? ` · ${episode.showName} · ${episode.title}` : ''}
+      </span>
       <LiveSwitch state={state} />
       <span className="lights">
         <Light on={website.status === 'connected'} warn={website.status === 'connecting'} label="Website" detail={website.error ?? website.status} />

@@ -1,4 +1,4 @@
-// The show app's window. Everything the app does happens in Runtime; this file opens the window, hands
+// The show app (RiGster)'s window. Everything the app does happens in Runtime; this file opens the window, hands
 // the producer's actions to it, and sends its state back to the window.
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import path from 'node:path';
@@ -9,6 +9,13 @@ import { Store } from './store.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 let win: BrowserWindow | null = null;
+
+/** The app's name, shown wherever the app is (RG, Oct 30, 2026). */
+const APP_NAME = 'RiGster';
+// The app keeps what it remembers in the folder it used before it was renamed, so nothing is lost.
+app.setPath('userData', path.join(app.getPath('appData'), '@tstv', 'show-app'));
+app.setName(APP_NAME);
+app.setAboutPanelOptions({ applicationName: APP_NAME });
 
 const runtime = new Runtime({
   // Tests keep their own memory (TSTV_SHOW_APP_DATA), so they never change yours.
@@ -50,7 +57,7 @@ app.whenReady().then(async () => {
     height: 860,
     minWidth: 1000,
     minHeight: 640,
-    title: 'TSTV Show App',
+    title: APP_NAME,
     backgroundColor: '#14161a',
     // The Program box plays clips with their sound as they go on air, without a click first.
     webPreferences: { preload: path.join(root, 'preload.cjs'), contextIsolation: true, sandbox: true, autoplayPolicy: 'no-user-gesture-required' },

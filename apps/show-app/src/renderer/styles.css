@@ -402,8 +402,12 @@ h3 {
 /* The layout from RG's sketch (docs/show-app-sketch.pdf) */
 
 .title {
-  font-weight: 700;
+  font-weight: 500;
   font-size: 17px;
+}
+
+.title .app-name {
+  font-weight: 800;
 }
 
 .topbar {
