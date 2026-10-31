@@ -78,8 +78,12 @@ export type CuePoint = { kind: 'section'; sectionId: string } | { kind: 'cue'; e
 export interface ShowPlan {
   /** The sections that air, in order. */
   sections: ShowSection[];
-  /** When the music starts and stops (null: never by itself), and its Sound player track, counting from 0. */
-  music: { in: CuePoint | null; out: CuePoint | null; track: number };
+  /**
+   * When the music starts and stops (null: never by itself), and its Sound player track, counting from 0.
+   * withTeases: the music also plays whenever a TEASE fires (RG, Oct 30, 2026; the default), and stops when
+   * the teases end, except for teases before the out point, which keep it going until then.
+   */
+  music: { in: CuePoint | null; out: CuePoint | null; track: number; withTeases: boolean };
 }
 
 export type SwitcherCommand =
@@ -91,8 +95,9 @@ export type SwitcherCommand =
   | { kind: 'music'; play: boolean; track?: number };
 
 /**
- * The default music points (RG, Oct 29, 2026): the music starts when the first Tease section in block A
- * starts, and stops just before the Show Intro. Each show can change both in the show app.
+ * The music points of Oct 29, 2026: the music starts when the first Tease section in block A starts, and
+ * stops just before the Show Intro. Since Oct 30, 2026 the music starts whenever a TEASE fires instead (see
+ * ShowPlan's music), and this in point is one the producer can pick. Each show can change both in the show app.
  */
 export function defaultMusicPoints(sections: ShowSection[]): { in: CuePoint | null; out: CuePoint | null } {
   const tease = sections.find((s) => s.label.replace(/\d+$/, '') === 'A' && /tease/i.test(s.type));
@@ -123,7 +128,7 @@ export function buildShowPlan(
   files: Record<string, string>,
   ddrPlaylist: string[],
   soundTracks: string[],
-  music?: { in: CuePoint | null; out: CuePoint | null; track?: string | null },
+  music?: { in: CuePoint | null; out: CuePoint | null; track?: string | null; withTeases?: boolean },
   cameraCues: Record<string, { id: string; camera: string }[]> = {},
 ): ShowPlan {
   const playlist = ddrPlaylist.map(clipKey);
@@ -157,8 +162,9 @@ export function buildShowPlan(
   const musicElement = sections.flatMap((s) => s.elements).find((e) => e.type === 'MUSIC');
   const wanted = music?.track ?? musicElement?.name;
   const track = wanted ? soundTracks.map(clipKey).indexOf(clipKey(wanted)) : -1;
-  const points = music ?? defaultMusicPoints(sections);
-  return { sections, music: { in: points.in, out: points.out, track: track < 0 ? 0 : track } };
+  // By default the teases start the music, and it stops just before the Show Intro.
+  const points = music ?? { in: null, out: defaultMusicPoints(sections).out, withTeases: true };
+  return { sections, music: { in: points.in, out: points.out, track: track < 0 ? 0 : track, withTeases: points.withTeases ?? false } };
 }
 
 /** How a point reads in the show app: "A1 starts" or "★ Show Intro (A2)". */
@@ -222,6 +228,8 @@ export class CueEngine {
   };
   /** A clip to cue in DDR 2 once the one playing ends (cueing it now would cut that one off). */
   private waitingToCue: number | null = null;
+  /** The music was started by a tease after the out point, so it stops when the teases end. */
+  private musicUntilTeasesEnd = false;
   /** Cues fired as their section started (see sectionStarted), so the prompter reaching them fires nothing. */
   private firedEarly = new Set<string>();
 
@@ -270,7 +278,24 @@ export class CueEngine {
   private musicCommands(play: boolean): SwitcherCommand[] {
     if (play === this.state.musicPlaying) return [];
     this.state.musicPlaying = play;
+    this.musicUntilTeasesEnd = false;
     return [play ? { kind: 'music', play: true, track: this.plan.music.track } : { kind: 'music', play: false }];
+  }
+
+  /** Whether a section comes before the music's out point, so tease music there plays on until it. */
+  private beforeMusicOut(sectionId: string): boolean {
+    const out = this.plan.music.out;
+    if (!out) return false;
+    const index = (id: string) => this.plan.sections.findIndex((s) => s.id === id);
+    if (out.kind === 'section') return index(sectionId) < index(out.sectionId);
+    const outSection = this.element(out.elementId)?.sectionId;
+    return outSection !== undefined && index(sectionId) <= index(outSection);
+  }
+
+  /** Tease music (see ShowPlan's music) stops once no tease is on air. */
+  private teaseMusicCommands(): SwitcherCommand[] {
+    if (!this.musicUntilTeasesEnd || this.element(this.state.onAir)?.type === 'TEASE') return [];
+    return this.musicCommands(false);
   }
 
   /** The first clip of a section (or after a given element) that can be cued in DDR 2. */
@@ -335,6 +360,7 @@ export class CueEngine {
       commands.push(...this.fire(element));
       this.firedEarly.add(element.id);
     }
+    commands.push(...this.teaseMusicCommands());
     return commands;
   }
 
@@ -386,6 +412,11 @@ export class CueEngine {
       commands.push(...this.putUp(element.ddrItem));
       this.waitingToCue = null;
       this.state.onAir = element.id;
+      if (this.plan.music.withTeases && element.type === 'TEASE' && !this.state.musicPlaying) {
+        commands.push(...this.musicCommands(true));
+        this.musicUntilTeasesEnd = !this.beforeMusicOut(element.sectionId);
+      }
+      commands.push(...this.teaseMusicCommands());
     }
     if (this.isPoint(this.plan.music.in, 'cue', elementId)) commands.push(...this.musicCommands(true));
     return commands;
@@ -418,7 +449,7 @@ export class CueEngine {
       // The VO ended before the section did: the section's L3 comes straight back.
       const commands = this.putUp(returning.ddrItem);
       this.state.onAir = returning.id;
-      return commands;
+      return [...commands, ...this.teaseMusicCommands()];
     }
     const commands: SwitcherCommand[] = [{ kind: 'dsk', on: false }];
     this.state.onAir = null;
@@ -426,6 +457,7 @@ export class CueEngine {
     const waiting = this.waitingToCue ?? (this.state.sectionId ? this.firstClipFrom(this.state.sectionId, ended.sectionId === this.state.sectionId ? ended.id : null) : null);
     this.waitingToCue = null;
     commands.push(...this.cueCommands(waiting));
+    commands.push(...this.teaseMusicCommands());
     return commands;
   }
 
@@ -459,7 +491,7 @@ export class CueEngine {
     this.waitingToCue = null;
     // DSK 2 off also stops DDR 2 and moves it to its next item.
     this.state.cued = null;
-    return [{ kind: 'dsk', on: false }];
+    return [{ kind: 'dsk', on: false }, ...this.teaseMusicCommands()];
   }
 
   skip(elementId: string, skipped = true): void {

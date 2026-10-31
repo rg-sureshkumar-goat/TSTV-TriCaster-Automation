@@ -171,7 +171,8 @@ export class Runtime extends EventEmitter {
     return this.files[element.id] ?? (element.type === 'PERM' ? this.permanent[element.name.trim().toLowerCase()] : undefined);
   }
 
-  private musicPoints(): { in: CuePoint | null; out: CuePoint | null; track: string | null } {
+  /** The show's music points. Music in "default" (or "teases") plays it whenever a Tease fires (RG, Oct 30, 2026). */
+  private musicPoints(): { in: CuePoint | null; out: CuePoint | null; track: string | null; withTeases: boolean } {
     const showId = this.website.show?.id ?? '';
     const chosen = this.settings.music[showId] ?? { in: 'default', out: 'default' };
     const defaults = this.plan ? defaultMusicPoints(this.plan.sections) : { in: null, out: null };
@@ -182,7 +183,8 @@ export class Runtime extends EventEmitter {
       if (kind === 'cue' && id) return { kind: 'cue', elementId: id };
       return fallback;
     };
-    return { in: resolve(chosen.in, defaults.in), out: resolve(chosen.out, defaults.out), track: this.musicTrack?.path ?? null };
+    const withTeases = chosen.in === 'default' || chosen.in === 'teases';
+    return { in: withTeases ? null : resolve(chosen.in, defaults.in), out: resolve(chosen.out, defaults.out), track: this.musicTrack?.path ?? null, withTeases };
   }
 
   /** Rebuilds the show from the rundown, the files and the switcher's playlists. */
@@ -567,7 +569,7 @@ export class Runtime extends EventEmitter {
       music: {
         in: chosen.in,
         out: chosen.out,
-        defaults: { in: plan ? cuePointLabel(plan, defaults.in) : '', out: plan ? cuePointLabel(plan, defaults.out) : '' },
+        defaults: { in: 'Whenever a Tease fires', out: plan ? cuePointLabel(plan, defaults.out) : '' },
         points,
       },
       clock: this.clock,

@@ -120,11 +120,12 @@ describe('a mock show on the simulator', () => {
   });
 
   it('runs the tease with music, the intro, the L3 and VO, and the SOT, by the cue rules', async () => {
-    // A1 starts: camera 1, the tease is cued, and the music starts.
+    // A1 starts: camera 1, and the tease is cued. The tease fires with the music.
     cue('section', ids.a1);
-    await waitFor(() => state().mes.v1.a === 'input1' && state().players.sound.playing && ddr2().index === 1);
+    await waitFor(() => state().mes.v1.a === 'input1' && ddr2().index === 1);
+    expect(state().players.sound.playing).toBe(false);
     cue('cue', ids.tease);
-    await waitFor(() => clipOnAir() === 'A1_TEASE_Sports');
+    await waitFor(() => clipOnAir() === 'A1_TEASE_Sports' && state().players.sound.playing);
     // A2 starts: the tease (a voiceover) comes off; the intro fires and the music stops just before it.
     cue('section', ids.a2);
     await waitFor(() => !state().dsks.main_dsk2.onAir);

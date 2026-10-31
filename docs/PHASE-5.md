@@ -20,6 +20,7 @@ Phase 5 connects the show app to TSTV's real TriCaster TC1. Decisions (RG, Oct 3
 - **Record** (under Pause automation, live mode only) asks where to save, then records the program as `Show_Episode_Date.mp4`; click again to stop. The file is written in pieces, so it plays even if the laptop stops partway.
 - **The Sound strip** in live mode shows the level of the sound going to the TC1, and its fader sets it.
 - **Camera cues (RG, Oct 30, 2026):** the script editor has a **Cameras** row (one amber button per camera) that drops a **Take Camera 2** chip on a line of its own. When it reaches the prompter's reading line, the TC1 takes that camera, in the middle of the section. One at the very top of a script takes its camera as the section starts. Nothing happens in manual mode or with the cameras by hand. Works on the simulator too.
+- **Music with every tease (RG, Oct 30, 2026):** the show app's **Music in** is now **Whenever a Tease fires** by default. Each TEASE graphic starts the music. Teases at the top of A Block keep it going until just before the Show Intro, as before. A tease later in the show plays the music through back-to-back teases and stops it when the last one comes off. Picking a single point in **Music in** turns this off.
 - **Green screen (RG, Oct 30, 2026):** in live mode, the background dropped on the Green screen box goes to the TC1 as a second source, **TSTV Show App Background**: a still sent steadily, or a clip on a loop, filling the picture. If its file can't be read, the app's small copy goes instead.
 
 ## What the TC1 needs
@@ -51,7 +52,7 @@ You need: the laptop on the TC1's cable, NDI Tools on the laptop (already instal
    - **Fire next** (Space): the graphic plays on the TC1 through DSK 2, with its see-through parts over the camera, and its sound; the Sound meter moves
    - fire two teases one after the other: they cut straight from one to the next
    - **Pause automation**, then **↓**: the graphic comes off
-6. **Run the show from the prompter:** press **Start live broadcast** on the website, then run the prompter. Check the cameras switch by section and at each camera cue, the graphics fire at their cues, the music plays with the tease and stops before the Show Intro, and the Commercial Break holds through the break.
+6. **Run the show from the prompter:** press **Start live broadcast** on the website, then run the prompter. Check the cameras switch by section and at each camera cue, the graphics fire at their cues, the music plays with each tease (stopping before the Show Intro at the top of the show, and when the teases end later on), and the Commercial Break holds through the break.
 7. **Record:** click **Record**, pick a folder, run a minute, click **Stop recording**, and play the file.
 8. **Back to the simulator:** click **Back to the simulator** in the red bar. The app stops sending anything to the TC1.
 9. **Tell me** what didn't work or felt wrong, and whether Phase 5 is approved.

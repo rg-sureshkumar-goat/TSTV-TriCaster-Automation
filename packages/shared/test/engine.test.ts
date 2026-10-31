@@ -65,7 +65,9 @@ describe('the show plan', () => {
     expect(plan.sections[4]).toMatchObject({ camera: 'Camera 3', input: 3 });
     const vo = plan.sections[2].elements.find((e) => e.id === ids.vo)!;
     expect(vo).toMatchObject({ behavior: 'voiceover', ddrItem: 4 });
-    expect(plan.music).toEqual({ in: { kind: 'section', sectionId: ids.a1 }, out: { kind: 'cue', elementId: ids.intro }, track: 1 });
+    // By default the teases start the music (RG, Oct 30, 2026), and it stops just before the Show Intro.
+    expect(plan.music).toEqual({ in: null, out: { kind: 'cue', elementId: ids.intro }, track: 1, withTeases: true });
+    expect(defaultMusicPoints(plan.sections).in).toEqual({ kind: 'section', sectionId: ids.a1 });
     expect(defaultMusicPoints([] as ShowSection[])).toEqual({ in: null, out: null });
   });
 
@@ -118,12 +120,35 @@ describe('the cue engine', () => {
     expect(engine.sectionStarted(ids.a1)).toEqual([
       { kind: 'camera', input: 1 },
       { kind: 'cueClip', item: 1 },
+    ]);
+    // The tease plays while the anchor reads, with the music.
+    expect(engine.cueReached(ids.tease)).toEqual([
+      { kind: 'dsk', on: true },
       { kind: 'music', play: true, track: 1 },
     ]);
-    // The tease plays while the anchor reads.
-    expect(engine.cueReached(ids.tease)).toEqual([{ kind: 'dsk', on: true }]);
     // Firing the MUSIC cue too doesn't restart the track.
     expect(engine.cueReached(ids.music)).toEqual([]);
+  });
+
+  it('plays the music with a tease later in the show, through back-to-back teases, until the teases end', () => {
+    const { plan, ids } = show();
+    const tease = (id: string, ddrItem: number) => ({ id, sectionId: ids.b1, type: 'TEASE' as const, name: '', behavior: 'voiceover' as const, ddrItem });
+    plan.sections[4].elements.unshift(tease('later1', 1), tease('later2', 4));
+    const engine = new CueEngine(plan);
+    engine.sectionStarted(ids.b1);
+    expect(engine.cueReached('later1')).toContainEqual({ kind: 'music', play: true, track: 1 });
+    // The next tease cuts straight in, and the music carries on.
+    expect(engine.cueReached('later2')).toEqual([{ kind: 'cueClip', item: 4 }, { kind: 'play' }]);
+    // The first tease running out changes nothing; the last one ending stops the music.
+    expect(engine.clipEnded(1)).toEqual([]);
+    expect(engine.clipEnded(4)).toContainEqual({ kind: 'music', play: false });
+    expect(engine.state.musicPlaying).toBe(false);
+    // Taken off by hand, or by the section ending, it stops too.
+    engine.cueReached('later1');
+    expect(engine.takeOff()).toEqual([{ kind: 'dsk', on: false }, { kind: 'music', play: false }]);
+    // With Music in set to one point instead, a tease plays no music.
+    plan.music.withTeases = false;
+    expect(engine.cueReached('later2')).not.toContainEqual(expect.objectContaining({ kind: 'music' }));
   });
 
   it('stops the music just before the Show Intro fires, and plays the intro to its end', () => {
