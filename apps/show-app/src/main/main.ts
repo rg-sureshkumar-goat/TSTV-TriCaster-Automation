@@ -56,7 +56,7 @@ app.whenReady().then(async () => {
     width: 1360,
     height: 860,
     minWidth: 1000,
-    minHeight: 640,
+    minHeight: 700,
     title: APP_NAME,
     backgroundColor: '#14161a',
     // The Program box plays clips with their sound as they go on air, without a click first.
