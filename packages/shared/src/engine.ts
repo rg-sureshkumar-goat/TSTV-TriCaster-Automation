@@ -162,8 +162,8 @@ export function buildShowPlan(
   const musicElement = sections.flatMap((s) => s.elements).find((e) => e.type === 'MUSIC');
   const wanted = music?.track ?? musicElement?.name;
   const track = wanted ? soundTracks.map(clipKey).indexOf(clipKey(wanted)) : -1;
-  // By default the teases start the music, and it stops just before the Show Intro.
-  const points = music ?? { in: null, out: defaultMusicPoints(sections).out, withTeases: true };
+  // By default the teases start the music, and it stops when they end (RG, Oct 30, 2026).
+  const points = music ?? { in: null, out: null, withTeases: true };
   return { sections, music: { in: points.in, out: points.out, track: track < 0 ? 0 : track, withTeases: points.withTeases ?? false } };
 }
 

@@ -65,9 +65,10 @@ describe('the show plan', () => {
     expect(plan.sections[4]).toMatchObject({ camera: 'Camera 3', input: 3 });
     const vo = plan.sections[2].elements.find((e) => e.id === ids.vo)!;
     expect(vo).toMatchObject({ behavior: 'voiceover', ddrItem: 4 });
-    // By default the teases start the music (RG, Oct 30, 2026), and it stops just before the Show Intro.
-    expect(plan.music).toEqual({ in: null, out: { kind: 'cue', elementId: ids.intro }, track: 1, withTeases: true });
-    expect(defaultMusicPoints(plan.sections).in).toEqual({ kind: 'section', sectionId: ids.a1 });
+    // By default the teases start the music, and it stops when they end (RG, Oct 30, 2026).
+    expect(plan.music).toEqual({ in: null, out: null, track: 1, withTeases: true });
+    // The points the producer can pick instead: A1 starting, and just before the Show Intro.
+    expect(defaultMusicPoints(plan.sections)).toEqual({ in: { kind: 'section', sectionId: ids.a1 }, out: { kind: 'cue', elementId: ids.intro } });
     expect(defaultMusicPoints([] as ShowSection[])).toEqual({ in: null, out: null });
   });
 
@@ -151,8 +152,18 @@ describe('the cue engine', () => {
     expect(engine.cueReached('later2')).not.toContainEqual(expect.objectContaining({ kind: 'music' }));
   });
 
-  it('stops the music just before the Show Intro fires, and plays the intro to its end', () => {
+  it('by default, stops the tease’s music when the tease ends', () => {
     const { plan, ids } = show();
+    const engine = new CueEngine(plan);
+    engine.sectionStarted(ids.a1);
+    engine.cueReached(ids.tease);
+    expect(engine.state.musicPlaying).toBe(true);
+    expect(engine.clipEnded()).toContainEqual({ kind: 'music', play: false });
+  });
+
+  it('with Music out set to the Show Intro, keeps the tease’s music until just before it, and plays the intro to its end', () => {
+    const { plan, ids } = show();
+    plan.music.out = { kind: 'cue', elementId: ids.intro };
     const engine = new CueEngine(plan);
     engine.sectionStarted(ids.a1);
     engine.cueReached(ids.tease);

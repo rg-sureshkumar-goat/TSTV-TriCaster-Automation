@@ -126,7 +126,7 @@ describe('a mock show on the simulator', () => {
     expect(state().players.sound.playing).toBe(false);
     cue('cue', ids.tease);
     await waitFor(() => clipOnAir() === 'A1_TEASE_Sports' && state().players.sound.playing);
-    // A2 starts: the tease (a voiceover) comes off; the intro fires and the music stops just before it.
+    // A2 starts: the tease (a voiceover) comes off, and its music with it; then the intro fires.
     cue('section', ids.a2);
     await waitFor(() => !state().dsks.main_dsk2.onAir);
     cue('cue', ids.intro);

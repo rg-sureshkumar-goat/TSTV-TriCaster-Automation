@@ -876,7 +876,8 @@ function GreenScreenBox({ state }: { state: AppState }) {
 function Music({ state }: { state: AppState }) {
   const { music, musicTrack, switcher } = state;
   const inOptions = [{ id: 'default', label: `Default: ${music.defaults.in}` }, { id: 'none', label: 'Never by itself' }, ...music.points];
-  const outOptions = [{ id: 'default', label: `Default: ${music.defaults.out}` }, ...inOptions.slice(1)];
+  // The music stops just before an out point.
+  const outOptions = [{ id: 'default', label: `Default: ${music.defaults.out}` }, { id: 'none', label: 'Never by itself' }, ...music.points.map((p) => ({ ...p, label: `Just before ${p.label}` }))];
   return (
     <DropPanel title="Music" className="music" onFiles={(paths) => act({ kind: 'setMusicTrack', path: paths[0] })}>
       {/* The track the producer drops here is the one that plays (RG, Oct 29, 2026). */}
@@ -912,7 +913,7 @@ function Music({ state }: { state: AppState }) {
         </select>
       </label>
       <label>
-        Music out (just before)
+        Music out
         <select value={music.out} onChange={(e) => act({ kind: 'setMusic', in: music.in, out: e.target.value })}>
           {outOptions.map((o) => (
             <option key={o.id} value={o.id}>
