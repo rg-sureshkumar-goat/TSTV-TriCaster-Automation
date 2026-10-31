@@ -28,7 +28,7 @@ import {
   type SwitcherCommand,
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
-import { collectFiles, makePlayable, readable, readFile, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
+import { collectFiles, makePlayable, readable, readFile, thumbnail, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
 import { cableAddresses, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
 import { Feeds } from './feeds.ts';
 import { Playout } from './playout.ts';
@@ -534,7 +534,14 @@ export class Runtime extends EventEmitter {
           const file = this.permanent[name.toLowerCase()];
           return { name, withSound: show.settings.permanentWithSound.includes(name), file: file ? path.basename(file.path) : null, seconds: file?.seconds ?? null, thumbnail: file?.thumbnail ?? null };
         }) ?? [],
-      greenScreen: this.greenScreen ? { file: path.basename(this.greenScreen.path), seconds: this.greenScreen.seconds, thumbnail: this.greenScreen.thumbnail } : null,
+      greenScreen: this.greenScreen
+        ? {
+            file: path.basename(this.greenScreen.path),
+            seconds: this.greenScreen.seconds,
+            thumbnail: this.greenScreen.thumbnail,
+            playable: this.greenScreen.playable ? pathToFileURL(this.greenScreen.playable).href : null,
+          }
+        : null,
       musicTrack: this.musicTrack
         ? {
             file: path.basename(this.musicTrack.path),
@@ -613,22 +620,26 @@ export class Runtime extends EventEmitter {
 
   /**
    * Remakes thumbnails from before graphics kept their see-through parts, in the background, so the preview
-   * can lay each graphic over its camera. Files no longer on this laptop keep their old thumbnail.
+   * can lay each graphic over its camera, and makes the ones that are missing (JPEG stills had none until
+   * Oct 30, 2026). Files no longer on this laptop keep their old thumbnail, or get one from their playable copy.
    */
   private async refreshThumbnails(): Promise<void> {
     const episodeId = this.website.episode?.id;
     let changed = false;
-    for (const store of [this.files, this.permanent]) {
+    const greenScreen: Record<string, FileInfo> = this.greenScreen ? { greenScreen: this.greenScreen } : {};
+    for (const store of [this.files, this.permanent, greenScreen]) {
       for (const [key, info] of Object.entries(store)) {
-        if ((info.thumbnailVersion ?? 1) >= THUMBNAIL_VERSION) continue;
+        if ((info.thumbnailVersion ?? 1) >= THUMBNAIL_VERSION && info.thumbnail) continue;
         const fresh = await readFile(info.path);
         if (this.website.episode?.id !== episodeId) return;
+        fresh.thumbnail ??= info.playable ? await thumbnail(info.playable, info.seconds) : null;
         if (fresh.thumbnail) {
-          store[key] = fresh;
+          store[key] = { ...info, thumbnail: fresh.thumbnail, thumbnailVersion: THUMBNAIL_VERSION };
           changed = true;
         }
       }
     }
+    if (greenScreen.greenScreen) this.greenScreen = greenScreen.greenScreen;
     if (changed) await this.saveFiles();
   }
 

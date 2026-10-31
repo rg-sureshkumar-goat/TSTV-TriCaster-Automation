@@ -21,6 +21,8 @@ beforeAll(async () => {
     '-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le', '-y', path.join(folder, 'A1_L3_Score.mov'),
   ]);
   await run(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=320x180:d=2', '-pix_fmt', 'yuv420p', '-y', path.join(folder, 'A2_VO_Highlights.mp4')]);
+  // A green-screen background picture, as a JPEG.
+  await run(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=s=640x360', '-frames:v', '1', '-y', path.join(folder, 'Studio background.jpg')]);
 }, 30_000);
 
 afterAll(async () => {
@@ -47,6 +49,12 @@ describe('preview thumbnails', () => {
 
   it('makes video without see-through parts a JPEG', async () => {
     const info = await readFile(path.join(folder, 'A2_VO_Highlights.mp4'));
+    expect(info.thumbnail).toMatch(/^data:image\/jpeg;base64,/);
+  }, 20_000);
+
+  it('makes a thumbnail of a still picture, like a JPEG background', async () => {
+    const info = await readFile(path.join(folder, 'Studio background.jpg'));
+    expect(info.seconds).toBeNull();
     expect(info.thumbnail).toMatch(/^data:image\/jpeg;base64,/);
   }, 20_000);
 });

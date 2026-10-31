@@ -859,7 +859,16 @@ function GreenScreenBox({ state }: { state: AppState }) {
           Goes to the TC1 as <strong>TSTV Show App Background</strong>. On the TC1, use it as the background behind the keyed cameras.
         </p>
       )}
-      <div className="thumb small-thumb">{g?.thumbnail ? <img src={g.thumbnail} alt="" /> : <span>{g ? g.file : 'Drop the background here'}</span>}</div>
+      {/* What the background looks like (RG, Oct 30, 2026): a clip plays on a loop, without its sound. */}
+      <div className="thumb small-thumb">
+        {g?.playable && g.seconds ? (
+          <video src={g.playable} poster={g.thumbnail ?? undefined} autoPlay loop muted playsInline />
+        ) : g?.playable || g?.thumbnail ? (
+          <img src={g.playable ?? g.thumbnail!} alt="" />
+        ) : (
+          <span>{g ? g.file : 'Drop the background here'}</span>
+        )}
+      </div>
       {g && <p className="small">{g.file}</p>}
       <div className="row">
         <button className="small-button" onClick={() => act({ kind: 'chooseGreenScreen' })}>

@@ -769,7 +769,8 @@ h3 {
   text-align: center;
 }
 
-.thumb img {
+.thumb img,
+.thumb video {
   width: 100%;
   height: 100%;
   object-fit: contain;

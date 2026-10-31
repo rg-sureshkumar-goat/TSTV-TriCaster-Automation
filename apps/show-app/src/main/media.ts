@@ -82,8 +82,10 @@ export async function thumbnail(file: string, seconds: number | null, alpha = fa
   if (!ffmpegPath) return null;
   try {
     const at = seconds ? Math.min(5, seconds / 2) : 0;
+    // A still is read from its start: FFmpeg gives nothing back for a JPEG asked for "0 seconds in".
+    const seek = at > 0 ? ['-ss', String(at)] : [];
     const format = alpha ? ['-vf', 'scale=320:-2,format=rgba', '-vcodec', 'png'] : ['-vf', 'scale=320:-2', '-vcodec', 'mjpeg', '-q:v', '5'];
-    const { stdout } = await run(ffmpegPath, ['-v', 'error', '-ss', String(at), '-i', file, '-frames:v', '1', ...format, '-f', 'image2pipe', '-'], {
+    const { stdout } = await run(ffmpegPath, ['-v', 'error', ...seek, '-i', file, '-frames:v', '1', ...format, '-f', 'image2pipe', '-'], {
       encoding: 'buffer',
       timeout: 20_000,
       maxBuffer: 4 * 1024 * 1024,

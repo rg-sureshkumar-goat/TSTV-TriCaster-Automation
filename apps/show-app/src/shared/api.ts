@@ -57,7 +57,8 @@ export interface AppState {
   live: { on: boolean; startedAt: number | null };
   permanent: PermanentView[];
   /** The show's green-screen background. */
-  greenScreen: { file: string; seconds: number | null; thumbnail: string | null } | null;
+  /** The show's green-screen background: playable is the app's own copy, which the box shows (a clip plays on a loop). */
+  greenScreen: { file: string; seconds: number | null; thumbnail: string | null; playable: string | null } | null;
   /** The show's music track, and whether the Sound player has it. */
   /** playable: a copy the app plays out loud while the Sound player plays (on the simulator). */
   musicTrack: { file: string; seconds: number | null; inSoundPlayer: boolean; playable: string | null } | null;
