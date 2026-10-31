@@ -109,6 +109,29 @@ export function App() {
 
 // ---- Header: show and episode at the left; status lights and the episode key at the right ----
 
+/**
+ * A new version of RiGster (Phase 6). Mac: a button to the download page. Windows: it downloads by itself,
+ * then installs when RiGster is closed, or now with Restart to update, which isn't offered during a live show.
+ */
+function UpdateNote({ state }: { state: AppState }) {
+  const update = state.update;
+  if (!update) return null;
+  if (update.platform === 'mac') {
+    return (
+      <button className="update" onClick={() => act({ kind: 'getUpdate' })} title={`RiGster ${update.version} is out. Opens the download page: install it like the first time, and everything RiGster remembers stays.`}>
+        Get RiGster {update.version}
+      </button>
+    );
+  }
+  if (update.status === 'downloading') return <span className="update-note small muted">Downloading RiGster {update.version}…</span>;
+  if (state.live.on) return <span className="update-note small" title="It installs when you close RiGster after the show">RiGster {update.version} installs after the show</span>;
+  return (
+    <button className="update" onClick={() => act({ kind: 'getUpdate' })} title={`RiGster ${update.version} is ready. RiGster closes, installs it and opens again; everything it remembers stays.`}>
+      Update to {update.version}
+    </button>
+  );
+}
+
 function Header({ state }: { state: AppState }) {
   const { website, switcher, prompter, episode } = state;
   const [open, setOpen] = useState<'key' | 'simulator' | null>(episode ? null : 'key');
@@ -118,7 +141,7 @@ function Header({ state }: { state: AppState }) {
   return (
     <header className="topbar">
       <ThemeSwitch />
-      <span className="title">
+      <span className="title" title={episode ? `${episode.showName} · ${episode.title}` : undefined}>
         <strong className="app-name">RiGster</strong>
         {episode ? ` · ${episode.showName} · ${episode.title}` : ''}
       </span>
@@ -134,6 +157,7 @@ function Header({ state }: { state: AppState }) {
           </button>
         )}
       </span>
+      <UpdateNote state={state} />
       <button className={episode ? '' : 'primary'} onClick={() => setOpen(open === 'key' ? null : 'key')} aria-expanded={open === 'key'}>
         Episode key
       </button>

@@ -6,9 +6,11 @@ import { fileURLToPath } from 'node:url';
 import type { Action } from '../shared/api.ts';
 import { Runtime } from './runtime.ts';
 import { Store } from './store.ts';
+import { watchForUpdates } from './updates.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 let win: BrowserWindow | null = null;
+let updates: ReturnType<typeof watchForUpdates> | null = null;
 
 /** The app's name, shown wherever the app is (RG, Oct 30, 2026). */
 const APP_NAME = 'RiGster';
@@ -34,6 +36,7 @@ const runtime = new Runtime({
     return result.canceled ? null : (result.filePaths[0] ?? null);
   },
   recordingsFolder: app.getPath('videos'),
+  applyUpdate: () => updates?.apply(),
   pickRecording: async (suggested) => {
     const result = await dialog.showSaveDialog(win!, {
       title: 'Name the recording and choose where to save it',
@@ -71,6 +74,7 @@ app.whenReady().then(async () => {
   });
   await win.loadFile(path.join(root, 'dist/renderer/index.html'));
   await runtime.start();
+  updates = watchForUpdates((update) => runtime.setUpdate(update));
 });
 
 app.on('window-all-closed', () => {

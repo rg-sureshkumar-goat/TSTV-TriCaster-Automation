@@ -3,6 +3,7 @@
 import { EventEmitter } from 'node:events';
 import { Worker } from 'node:worker_threads';
 import type { FeedsMessage, FeedsReport } from './feeds-worker.ts';
+import { startWorker } from './workers.ts';
 
 export class Feeds extends EventEmitter {
   private worker: Worker;
@@ -12,7 +13,7 @@ export class Feeds extends EventEmitter {
 
   constructor() {
     super();
-    this.worker = new Worker(new URL('./worker-boot.mjs', import.meta.url), { workerData: { module: new URL('./feeds-worker.ts', import.meta.url).href } });
+    this.worker = startWorker('feeds-worker');
     this.worker.on('message', (report: FeedsReport) => {
       if (report.type === 'ready') this.port = report.port;
       else if (report.type === 'recording') this.recording = { file: report.file, seconds: report.seconds, error: report.error };

@@ -52,11 +52,15 @@ export interface PermanentView {
 }
 
 export interface AppState {
+  /**
+   * A new version of RiGster (Phase 6): available (Mac: to download), downloading or ready (Windows:
+   * installs when RiGster restarts). Null when this is the newest, or when run from the source.
+   */
+  update: { status: 'available' | 'downloading' | 'ready'; version: string; platform: 'mac' | 'windows' } | null;
   website: { status: LinkStatus; error: string | null; siteUrl: string; key: string };
   /** Start live broadcast on the website: automation follows the prompter only while it's on. */
   live: { on: boolean; startedAt: number | null };
   permanent: PermanentView[];
-  /** The show's green-screen background. */
   /** The show's green-screen background: playable is the app's own copy, which the box shows (a clip plays on a loop). */
   greenScreen: { file: string; seconds: number | null; thumbnail: string | null; playable: string | null } | null;
   /** The show's music track, and whether the Sound player has it. */
@@ -122,6 +126,8 @@ export interface AppState {
 }
 
 export type Action =
+  /** Mac: opens the download page for the new version. Windows: restarts RiGster into it. */
+  | { kind: 'getUpdate' }
   | { kind: 'connect'; siteUrl: string; key: string }
   | { kind: 'disconnect' }
   | { kind: 'connectSwitcher'; address: string }

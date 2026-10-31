@@ -4,6 +4,7 @@
 import { EventEmitter } from 'node:events';
 import { Worker } from 'node:worker_threads';
 import type { PlayoutMessage, PlayoutReport } from './playout-worker.ts';
+import { startWorker } from './workers.ts';
 
 export interface PlayoutState {
   item: number | null;
@@ -24,7 +25,7 @@ export class Playout extends EventEmitter {
   /** name is the NDI source's name, as the TC1 lists it. */
   constructor(name = 'TSTV Show App') {
     super();
-    this.worker = new Worker(new URL('./worker-boot.mjs', import.meta.url), { workerData: { module: new URL('./playout-worker.ts', import.meta.url).href, name } });
+    this.worker = startWorker('playout-worker', { name });
     this.worker.on('message', (report: PlayoutReport) => {
       if (report.type === 'ended') return void this.emit('ended', report.item);
       if (report.type === 'level') {

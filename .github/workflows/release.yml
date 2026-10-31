@@ -1,0 +1,66 @@
+# Builds RiGster's installers (Phase 6) on GitHub's free machines: a .dmg for Macs with Apple chips, one
+# for Intel Macs, and a Setup .exe for Windows.
+#
+# - Run by hand (Actions → Build RiGster → Run workflow): just builds them, to download from the run's
+#   page and try. Nothing is published.
+# - Pushing a version tag like v1.0.1 (the same as apps/show-app/package.json's version): builds them and
+#   publishes them as a GitHub Release, which is where RiGster looks for updates.
+name: Build RiGster
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, arch: arm64, name: mac-apple-chip }
+          - { os: macos-latest, arch: x64, name: mac-intel }
+          - { os: windows-latest, arch: x64, name: windows }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: FFmpeg for Intel Macs
+        if: matrix.name == 'mac-intel'
+        run: rm -f node_modules/ffmpeg-static/ffmpeg && npm_config_arch=x64 node node_modules/ffmpeg-static/install.js && file node_modules/ffmpeg-static/ffmpeg
+      - name: Check the version matches the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: test "v$(node -p "require('./apps/show-app/package.json').version")" = "${GITHUB_REF_NAME}"
+      - run: npm run package -w apps/show-app -- --arch=${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rigster-${{ matrix.name }}
+          path: |
+            apps/show-app/release/out/*.dmg
+            apps/show-app/release/out/*.exe
+            apps/show-app/release/out/*.blockmap
+            apps/show-app/release/out/latest*.yml
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The Apple-chip Mac's latest-mac.yml tells Macs the new version's number (they download by hand).
+          gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --title "RiGster ${GITHUB_REF_NAME#v}" \
+            --notes "Download RiGster: Mac with an Apple chip (M1 or newer): RiGster-${GITHUB_REF_NAME#v}-mac-arm64.dmg. Intel Mac: RiGster-${GITHUB_REF_NAME#v}-mac-x64.dmg. Windows: RiGster-Setup-${GITHUB_REF_NAME#v}.exe." \
+            out/rigster-mac-apple-chip/* out/rigster-mac-intel/*.dmg out/rigster-windows/*

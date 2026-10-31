@@ -8,7 +8,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { parentPort, workerData } from 'node:worker_threads';
-import ffmpegStatic from 'ffmpeg-static';
+import { ffmpegPath } from './ffmpeg.ts';
 import { FOURCC_BGRA, loadNdi, NDI_TIMECODE } from './ndi.ts';
 
 export const WIDTH = 1280;
@@ -19,7 +19,7 @@ const FPS = FPS_N / FPS_D;
 const RATE = 48000;
 const FRAME_BYTES = WIDTH * HEIGHT * 4;
 const SAMPLES_PER_FRAME = (RATE * FPS_D) / FPS_N;
-const ffmpeg = ffmpegStatic as unknown as string;
+const ffmpeg = ffmpegPath!;
 const run = promisify(execFile);
 
 export type PlayoutMessage =

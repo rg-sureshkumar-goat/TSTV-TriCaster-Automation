@@ -192,6 +192,32 @@ h3 {
   gap: 14px;
 }
 
+/* The top bar stays on one line: a long episode name is cut short with "…" (the whole name shows on hover). */
+.topbar > button,
+.topbar > .update-note {
+  flex: none;
+  white-space: nowrap;
+}
+
+.topbar > .title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A new version of RiGster is out (Phase 6). */
+.update {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+  font-weight: 700;
+}
+
+.update-note {
+  white-space: nowrap;
+}
+
 .light {
   display: flex;
   align-items: center;
@@ -1186,4 +1212,8 @@ button.danger {
   background: #fff;
   color: var(--red);
   font-weight: 700;
+}
+
+.go-live {
+  white-space: nowrap;
 }

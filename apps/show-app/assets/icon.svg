@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- RiGster's icon: TSTV blue, with the macOS icon shape and margin. -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#14679b"/>
+  <circle cx="752" cy="292" r="44" fill="#ef4444"/>
+  <text x="512" y="610" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="300" font-weight="700" fill="#ffffff" text-anchor="middle">RiG</text>
+  <rect x="300" y="680" width="424" height="28" rx="14" fill="#ffffff" opacity="0.55"/>
+</svg>

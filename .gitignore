@@ -34,3 +34,6 @@ desktop.ini
 # Browser test output
 apps/web/test-results/
 apps/web/playwright-report/
+
+# RiGster installers being built (apps/show-app/scripts/package.mjs)
+apps/show-app/release/

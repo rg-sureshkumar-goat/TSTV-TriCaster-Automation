@@ -6,10 +6,10 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import http from 'node:http';
 import { parentPort } from 'node:worker_threads';
-import ffmpegStatic from 'ffmpeg-static';
+import { ffmpegPath } from './ffmpeg.ts';
 import { BANDWIDTH, COLOR, FRAME, audioBuffer, copyBytes, copySound, listSources, loadNdi, videoBuffer } from './ndi.ts';
 
-const ffmpeg = ffmpegStatic as unknown as string;
+const ffmpeg = ffmpegPath!;
 
 export type FeedsMessage = { type: 'record'; file: string } | { type: 'stopRecording' } | { type: 'close' };
 export type FeedsReport =

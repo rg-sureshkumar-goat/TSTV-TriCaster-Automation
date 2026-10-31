@@ -34,6 +34,7 @@ import { Feeds } from './feeds.ts';
 import { Playout } from './playout.ts';
 import { DEFAULT_SETTINGS, type Settings, type Store } from './store.ts';
 import { askSwitcher, Switcher, type PlaylistClip, type SwitcherMode } from './switcher.ts';
+import type { UpdateState } from './updates.ts';
 import { WebsiteLink, type CueEvent } from './website.ts';
 
 /** The clip TSTV holds during each commercial break, at the start of every block in DDR 2 (probe, Oct 28, 2026). */
@@ -52,6 +53,8 @@ export interface RuntimeDeps {
   pickRecording?: (suggested: string) => Promise<string | null>;
   /** Where recordings go until the producer picks a folder (the laptop's Movies or Videos folder). */
   recordingsFolder?: string;
+  /** Gets the new version of RiGster (see updates.ts). */
+  applyUpdate?: () => void;
 }
 
 export class Runtime extends EventEmitter {
@@ -85,6 +88,8 @@ export class Runtime extends EventEmitter {
   /** Live mode's view of the TC1's camera and program feeds, and the recording. */
   private feeds: Feeds | null = null;
   private liveError: string | null = null;
+  /** A new version of RiGster, from main.ts's update checks. */
+  private update: UpdateState = null;
   /** The Sound fader, from 0 to 2, which the playout applies in live mode. */
   private fader = 1;
 
@@ -567,6 +572,7 @@ export class Runtime extends EventEmitter {
       programVideo: this.switcher.mode === 'live' ? (this.feeds?.url('program') ?? null) : null,
       recording: this.feeds ? { ...this.feeds.recording, error: this.feeds.recording.error ?? this.feeds.error } : null,
       liveError: this.liveError,
+      update: this.update ? { ...this.update, platform: process.platform === 'win32' ? 'windows' : 'mac' } : null,
       playout: this.playout ? { connections: this.playout.state.connections, error: this.playout.state.error } : null,
       prompter: { connected: p !== null, label: p?.label ?? '', speed: p?.speed ?? 0, paused: p?.paused ?? false },
       automation: {
@@ -792,6 +798,12 @@ export class Runtime extends EventEmitter {
     }
   }
 
+  /** A new version of RiGster is out, downloading or ready (or null). */
+  setUpdate(update: UpdateState): void {
+    this.update = update;
+    this.changed();
+  }
+
   async act(action: Action): Promise<void> {
     const engine = this.engine;
     switch (action.kind) {
@@ -810,6 +822,8 @@ export class Runtime extends EventEmitter {
         return this.setLiveMode(action.on);
       case 'record':
         return this.record(action.on);
+      case 'getUpdate':
+        return this.deps.applyUpdate?.();
       case 'setFader':
         this.fader = Math.max(0, Math.min(2, action.level));
         this.playout?.fader(this.fader);
