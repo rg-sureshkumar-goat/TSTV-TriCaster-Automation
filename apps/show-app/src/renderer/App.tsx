@@ -670,7 +670,9 @@ function Item({ element, musicTrack }: { element: ElementView; musicTrack?: stri
   const file = element.behavior === 'music' ? musicTrack : element.file;
   return (
     <span className="item">
-      <span className={`chip ${elementKind(element.type)}`}>{element.label}</span>
+      <span className={`chip ${elementKind(element.type)}`} title={element.label}>
+        {element.label}
+      </span>
       <span className="muted">{element.sectionLabel}</span>
       {file && (
         <span className="file-name" title={file}>

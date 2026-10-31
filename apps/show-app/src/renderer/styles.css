@@ -273,12 +273,16 @@ h3 {
   margin: 0;
   padding: 0;
   display: grid;
+  /* Each cue stays inside the Playlist box, however long its name. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 .queue li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
+  min-width: 0;
   padding: 8px 10px;
   background: var(--panel-2);
   border-radius: 6px;
@@ -926,14 +930,37 @@ h3 {
 }
 
 .queue li .item {
-  flex: 1;
+  /* With no room left beside it, the cue's buttons go on a line below. */
+  flex: 1 1 200px;
   min-width: 0;
 }
 
-.item > .chip,
 .item > .muted,
 .item > .missing {
   flex: none;
+  white-space: nowrap;
+}
+
+/*
+ * In a narrow box the file name shrinks first (cut short with "…"), then a warning like "not in DDR 2"
+ * goes on a line below; the cue's name is cut short only if it can't fit on a line by itself.
+ */
+.queue li .item,
+.on-air > .item {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.item > .chip {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item > .file-name {
+  flex: 1 1 60px;
 }
 
 /* The Playlist's buttons wrap onto a second line when the box is narrow. */
