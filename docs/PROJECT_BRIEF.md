@@ -60,6 +60,8 @@ Cues reach the laptop through the website because the prompter computer and the 
 
 ## Part 1 — Rundown and script website
 
+**Main color (decided Oct 30, 2026): blue, #14679b** (it was orange), for buttons, highlights and the browser-tab icon, in light and dark mode.
+
 The website replaces the Rundown Creator features TSTV actually uses, and only those. Anyone signed in can use it from any browser on Mac or Windows.
 
 **Shows and episodes**
