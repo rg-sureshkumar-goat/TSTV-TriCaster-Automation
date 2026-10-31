@@ -17,7 +17,7 @@ Phase 5 connects the show app to TSTV's real TriCaster TC1. Decisions (RG, Oct 3
 - **The playout** (in the background) plays each graphic at the TC1's size (1280×720, 29.97 frames a second), with its see-through parts and sound, and sends it to input 4. It works like DDR 2 for the cue rules: the cue engine cues a clip, plays it, stops it, and hears when it ends. When one clip replaces another, it cuts straight from one to the next (so back-to-back teases may finally work). When DSK 2 goes off, input 4 is cleared. A clip that ends holds its last frame.
 - **Cameras and DSK 2** are commands to the TC1, as on the simulator: cameras on M/E 1's A row, DSK 2 on and off.
 - **The TC1's feeds in the app:** the camera boxes show feeds (1)–(3), and the Program box the program (MIX 1), picture only.
-- **Record** (under Pause automation, live mode only) asks where to save, then records the program as `Show_Episode_Date.mp4`; click again to stop. The file is written in pieces, so it plays even if the laptop stops partway.
+- **Record** (under Pause automation, live mode only) opens a save window where you type the recording's name and pick its folder (it suggests `Show_Episode_Date.mp4` in the folder used last time; type over it), then records the program; click again to stop. The file is written in pieces, so it plays even if the laptop stops partway.
 - **The Sound strip** in live mode shows the level of the sound going to the TC1, and its fader sets it.
 - **The app is called RiGster (RG, Oct 30, 2026)**, in its window and at the top left, and on the website (the episode's button is now **RiGster key**). Its NDI sources keep their names, so the TC1 needs no changes.
 - **Camera cues (RG, Oct 30, 2026):** the script editor has a **Cameras** row (one amber button per camera) that drops a **Take Camera 2** chip on a line of its own. When it reaches the prompter's reading line, the TC1 takes that camera, in the middle of the section. One at the very top of a script takes its camera as the section starts. Nothing happens in manual mode or with the cameras by hand. Works on the simulator too.
@@ -54,7 +54,7 @@ You need: the laptop on the TC1's cable, NDI Tools on the laptop (already instal
    - fire two teases one after the other: they cut straight from one to the next
    - **Pause automation**, then **↓**: the graphic comes off
 6. **Run the show from the prompter:** press **Start live broadcast** on the website, then run the prompter. Check the cameras switch by section and at each camera cue, the graphics fire at their cues, the music plays with each tease (stopping before the Show Intro at the top of the show, and when the teases end later on), and the Commercial Break holds through the break.
-7. **Record:** click **Record**, pick a folder, run a minute, click **Stop recording**, and play the file.
+7. **Record:** click **Record**, type a name, pick a folder, click the window's **Record** button, run a minute, click **Stop recording**, and play the file.
 8. **Back to the simulator:** click **Back to the simulator** in the red bar. The app stops sending anything to the TC1.
 9. **Tell me** what didn't work or felt wrong, and whether Phase 5 is approved.
 

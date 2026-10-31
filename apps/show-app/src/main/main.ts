@@ -33,9 +33,16 @@ const runtime = new Runtime({
     const result = await dialog.showOpenDialog(win!, { title: 'Choose the file', properties: ['openFile'] });
     return result.canceled ? null : (result.filePaths[0] ?? null);
   },
-  pickFolder: async (startAt) => {
-    const result = await dialog.showOpenDialog(win!, { title: 'Where should the recording be saved?', buttonLabel: 'Record here', properties: ['openDirectory', 'createDirectory'], defaultPath: startAt ?? undefined });
-    return result.canceled ? null : (result.filePaths[0] ?? null);
+  recordingsFolder: app.getPath('videos'),
+  pickRecording: async (suggested) => {
+    const result = await dialog.showSaveDialog(win!, {
+      title: 'Name the recording and choose where to save it',
+      buttonLabel: 'Record',
+      defaultPath: suggested,
+      filters: [{ name: 'MP4 video', extensions: ['mp4'] }],
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    });
+    return result.canceled || !result.filePath ? null : result.filePath;
   },
 });
 

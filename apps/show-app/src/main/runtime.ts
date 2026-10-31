@@ -45,8 +45,13 @@ export interface RuntimeDeps {
   pickFiles: () => Promise<string[]>;
   /** Asks the producer for one file. */
   pickFile: () => Promise<string | null>;
-  /** Asks the producer for a folder (where to save a recording), starting at one used before. */
-  pickFolder?: (startAt: string | null) => Promise<string | null>;
+  /**
+   * Asks the producer what to call a recording and where to save it, starting with a suggested name in
+   * the folder used before (RG, Oct 30, 2026: the producer names each recording).
+   */
+  pickRecording?: (suggested: string) => Promise<string | null>;
+  /** Where recordings go until the producer picks a folder (the laptop's Movies or Videos folder). */
+  recordingsFolder?: string;
 }
 
 export class Runtime extends EventEmitter {
@@ -725,7 +730,8 @@ export class Runtime extends EventEmitter {
 
   /**
    * Record (live mode): saves the TC1's program feed, picture and sound, on the laptop (RG, Oct 30, 2026),
-   * in a folder the producer picks, as Show_Episode_Date.mp4.
+   * under the name and in the folder the producer picks. Show_Episode_Date.mp4 is suggested, in the
+   * folder used last time.
    */
   private async record(on: boolean): Promise<void> {
     if (!this.feeds) return;
@@ -734,17 +740,20 @@ export class Runtime extends EventEmitter {
       this.note('Recording stopped');
       return this.changed();
     }
-    const folder = await this.deps.pickFolder?.(this.settings.recordFolder || null);
-    if (!folder) return;
-    this.settings = { ...this.settings, recordFolder: folder };
-    await this.deps.store.saveSettings(this.settings);
     const episode = this.website.episode;
     const words = (text: string) => text.replace(/[^A-Za-z0-9]+/g, ' ').trim().replace(/ /g, '-') || 'Show';
     const date = episode?.airDate || new Date().toISOString().slice(0, 10);
     const name = `${words(this.website.show?.name ?? 'Show')}_${words(episode?.title ?? 'Episode')}_${date}`;
-    // Never over an earlier recording.
-    let file = path.join(folder, `${name}.mp4`);
-    for (let n = 2; await stat(file).then(() => true, () => false); n++) file = path.join(folder, `${name}_${n}.mp4`);
+    // The suggestion is never an earlier recording's name.
+    const folder = this.settings.recordFolder || this.deps.recordingsFolder || '';
+    let suggested = path.join(folder, `${name}.mp4`);
+    for (let n = 2; await stat(suggested).then(() => true, () => false); n++) suggested = path.join(folder, `${name}_${n}.mp4`);
+    const picked = await this.deps.pickRecording?.(suggested);
+    if (!picked) return;
+    // It's always an MP4, whatever the name typed ends with.
+    const file = path.extname(picked).toLowerCase() === '.mp4' ? picked : `${picked}.mp4`;
+    this.settings = { ...this.settings, recordFolder: path.dirname(file) };
+    await this.deps.store.saveSettings(this.settings);
     this.feeds.record(file);
     this.note(`Recording to ${file}`);
     this.changed();

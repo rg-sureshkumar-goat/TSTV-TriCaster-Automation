@@ -710,8 +710,8 @@ function Skipped({ state }: { state: AppState }) {
 }
 
 /**
- * Record (live mode): saves the TC1's program, picture and sound, on the laptop, in a folder the producer
- * picks, as Show_Episode_Date.mp4 (RG, Oct 30, 2026).
+ * Record (live mode): saves the TC1's program, picture and sound, on the laptop, under the name and in the
+ * folder the producer picks (RG, Oct 30, 2026).
  */
 function RecordButton({ state }: { state: AppState }) {
   const recording = state.recording;
