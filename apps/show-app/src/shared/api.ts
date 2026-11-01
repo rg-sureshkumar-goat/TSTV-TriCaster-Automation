@@ -80,6 +80,8 @@ export interface AppState {
   recording: { file: string | null; seconds: number; error: string | null } | null;
   /** Why live mode couldn't start, if it couldn't. */
   liveError: string | null;
+  /** While live mode is being turned on: what RiGster is waiting for (the cable, the TC1, or its session). */
+  liveWaiting: string | null;
   /** Live mode's playout: how many receivers take the laptop's NDI source (the TC1's input 4), and any problem. */
   playout: { connections: number; error: string | null } | null;
   switcher: {

@@ -1217,3 +1217,14 @@ button.danger {
 .go-live {
   white-space: nowrap;
 }
+
+/* Turning on live mode: what RiGster is waiting for (the cable, the TC1, or its session). */
+.mode.waiting {
+  background: var(--amber);
+  color: #111;
+  white-space: nowrap;
+}
+
+.waiting-banner {
+  border-left: 4px solid var(--amber);
+}

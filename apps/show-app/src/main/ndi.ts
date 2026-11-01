@@ -62,8 +62,19 @@ export const BANDWIDTH = { lowest: 0, highest: 100 } as const;
 export const COLOR = { BGRX_BGRA: 0, fastest: 100 } as const;
 export const FRAME = { none: 0, video: 1, audio: 2, metadata: 3, error: 4 } as const;
 
-/** The NDI runtime's functions this app uses (NDI 5 and 6 share them). */
-export function loadNdi(file = findRuntime()) {
+const loaded = new Map<string, ReturnType<typeof openNdi>>();
+
+/**
+ * The NDI runtime's functions this app uses (NDI 5 and 6 share them), loaded once per thread: live mode
+ * looks for the TC1 again and again while it waits for it.
+ */
+export function loadNdi(file = findRuntime()): ReturnType<typeof openNdi> {
+  if (!file) return openNdi(file);
+  if (!loaded.has(file)) loaded.set(file, openNdi(file));
+  return loaded.get(file)!;
+}
+
+function openNdi(file: string | null) {
   if (!file) {
     throw new Error('NDI isn’t installed on this laptop. Install NDI Tools (free, from ndi.video/tools), then open the show app again.');
   }

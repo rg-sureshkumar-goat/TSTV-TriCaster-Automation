@@ -1,10 +1,12 @@
 // The show app's core: it follows the episode on the website, runs the cue engine on the prompter's cues,
 // sends the engine's commands to the switcher, and keeps track of each element's file. It knows nothing
 // about Electron (the window and file pickers come in from main.ts), so it can be tested on its own.
+import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import {
   breakCueId,
   breakGraphic,
@@ -55,6 +57,8 @@ export interface RuntimeDeps {
   recordingsFolder?: string;
   /** Gets the new version of RiGster (see updates.ts). */
   applyUpdate?: () => void;
+  /** The laptop's cable addresses (tests pretend; the app reads them from the network settings). */
+  cable?: () => string[];
 }
 
 export class Runtime extends EventEmitter {
@@ -88,6 +92,13 @@ export class Runtime extends EventEmitter {
   /** Live mode's view of the TC1's camera and program feeds, and the recording. */
   private feeds: Feeds | null = null;
   private liveError: string | null = null;
+  /**
+   * While live mode is being turned on: what RiGster is waiting for (the cable, the TC1, or its session),
+   * as the producer reads it. It keeps trying until it connects or the producer cancels (RG, Nov 1, 2026).
+   */
+  private liveWaiting: string | null = null;
+  /** Each search for the TC1 has its own number, so cancelling one stops it. */
+  private liveSearch = 0;
   /** A new version of RiGster, from main.ts's update checks. */
   private update: UpdateState = null;
   /** The Sound fader, from 0 to 2, which the playout applies in live mode. */
@@ -572,6 +583,7 @@ export class Runtime extends EventEmitter {
       programVideo: this.switcher.mode === 'live' ? (this.feeds?.url('program') ?? null) : null,
       recording: this.feeds ? { ...this.feeds.recording, error: this.feeds.recording.error ?? this.feeds.error } : null,
       liveError: this.liveError,
+      liveWaiting: this.liveWaiting,
       update: this.update ? { ...this.update, platform: process.platform === 'win32' ? 'windows' : 'mac' } : null,
       playout: this.playout ? { connections: this.playout.state.connections, error: this.playout.state.error } : null,
       prompter: { connected: p !== null, label: p?.label ?? '', speed: p?.speed ?? 0, paused: p?.paused ?? false },
@@ -674,7 +686,14 @@ export class Runtime extends EventEmitter {
    * TC1's cable, where NDI is kept; the playout then sends the graphics and music to input 4.
    */
   private async setLiveMode(on: boolean, simulatorStatePort?: number): Promise<void> {
-    if (on === (this.switcher.mode === 'live')) return;
+    if (!on && this.liveWaiting !== null) {
+      // Cancelled while still looking for the TC1.
+      this.liveSearch++;
+      this.liveWaiting = null;
+      this.note('Stopped looking for the TC1');
+      return this.changed();
+    }
+    if (on === (this.switcher.mode === 'live') || (on && this.liveWaiting !== null)) return;
     this.liveError = null;
     if (!on) {
       this.switcher.close();
@@ -690,36 +709,82 @@ export class Runtime extends EventEmitter {
       this.rebuild();
       return;
     }
-    const cable = cableAddresses();
-    if (!cable.length) {
-      this.liveError = 'The laptop isn’t on the TC1’s cable. Plug it in, wait a minute, and try again.';
-      return this.changed();
+    void this.lookForTc1();
+  }
+
+  /**
+   * Turning on live mode: waits for the cable, then for the TC1 and its session, saying which it's waiting
+   * for, and connects as soon as everything's there (RG, Nov 1, 2026: turn on the TC1, plug in the cable,
+   * and RiGster takes it from there). Only a switcher that isn't a TC1 stops it.
+   */
+  private async lookForTc1(): Promise<void> {
+    const search = ++this.liveSearch;
+    const started = Date.now();
+    const searching = () => search === this.liveSearch;
+    const waitFor = (message: string) => {
+      if (this.liveWaiting !== message) {
+        this.liveWaiting = message;
+        this.changed();
+      }
+    };
+    waitFor('Looking for the TC1…');
+    let ndiReady = false;
+    while (searching()) {
+      const cable = (this.deps.cable ?? cableAddresses)();
+      if (!cable.length) {
+        waitFor(
+          Date.now() - started < 90_000
+            ? 'Waiting for the TC1’s cable. The laptop takes up to a minute to see it after it’s plugged in.'
+            : 'Still no cable. Check the cable is plugged into the laptop’s adapter and into the TC1.',
+        );
+      } else {
+        // NDI reads which connections it may use once, as it starts, so it's only set up once there's a cable.
+        if (!ndiReady) keepNdiOnCable(this.deps.store.ndiFolder(), cable);
+        ndiReady = true;
+        let found: { address: string; localAddress: string } | null = null;
+        try {
+          found = await this.findTc1(cable);
+        } catch (e) {
+          waitFor(`Looking for the TC1… (${e instanceof Error ? e.message : String(e)})`);
+        }
+        if (!searching()) return;
+        if (found && (await this.goLive(found))) return;
+        if (!searching()) return;
+        if (!found) {
+          const tc1 = this.settings.tc1Address;
+          waitFor(
+            tc1 && (await answersPing(tc1, cable))
+              ? 'The TC1 is on, but its session isn’t open yet. Open the show’s session on the TC1 (or turn on its Auto-Launch Session), and RiGster connects as soon as it’s open.'
+              : 'The cable’s in, but the TC1 isn’t answering. Check it’s turned on; RiGster connects as soon as it is.',
+          );
+        }
+      }
+      await new Promise((r) => setTimeout(r, 3000));
     }
-    keepNdiOnCable(this.deps.store.ndiFolder(), cable);
-    let found: { address: string; localAddress: string } | null;
-    try {
-      found = await this.findTc1(cable);
-    } catch (e) {
-      this.liveError = e instanceof Error ? e.message : String(e);
-      return this.changed();
-    }
-    if (!found) {
-      this.liveError = 'Couldn’t find the TC1 on the cable. Check it’s on, wait a minute after plugging in, and try again.';
-      return this.changed();
-    }
-    const { address, localAddress } = found;
+  }
+
+  /** Connects live mode to the TC1 that was found. False (and keeps looking) if it couldn't connect yet. */
+  private async goLive({ address, localAddress }: { address: string; localAddress: string }): Promise<boolean> {
     const playout = new Playout('TSTV Show App');
     playout.on('level', (db: number) => this.emit('level', db));
     playout.fader(this.fader);
     playout.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
     const live = this.newSwitcher(address, 5951, 'live', playout, localAddress);
     await live.connect();
-    if (live.snapshot.status !== 'connected') {
-      this.liveError = live.snapshot.error;
+    if (live.snapshot.status !== 'connected' || !this.liveWaiting) {
       live.close();
       await playout.close();
-      return this.changed();
+      // Not a TC1 (the identity lock): that's not something waiting fixes.
+      if (live.snapshot.status === 'refused') {
+        this.liveSearch++;
+        this.liveWaiting = null;
+        this.liveError = live.snapshot.error;
+        this.changed();
+        return true;
+      }
+      return false;
     }
+    this.liveWaiting = null;
     this.switcher.close();
     this.switcher = live;
     this.playout = playout;
@@ -732,6 +797,7 @@ export class Runtime extends EventEmitter {
     this.note(`Live mode: running the TC1 at ${address}`);
     this.reportStatus();
     this.rebuild();
+    return true;
   }
 
   /**
@@ -983,4 +1049,21 @@ export class Runtime extends EventEmitter {
     this.feeds?.stopRecording();
     void this.feeds?.close();
   }
+}
+
+/**
+ * Whether host answers a ping from one of the cable's addresses: the TC1 answers even before its session
+ * is open, when its remote control doesn't yet. Uses the computer's own ping (Mac and Windows).
+ */
+export async function answersPing(host: string, cable: string[]): Promise<boolean> {
+  for (const from of cable) {
+    const args = process.platform === 'win32' ? ['-n', '1', '-w', '1500', '-S', from, host] : ['-c', '1', '-t', '2', '-S', from, host];
+    const output = await promisify(execFile)('ping', args, { timeout: 4000 }).then(
+      (r) => r.stdout,
+      (e: { stdout?: string }) => e.stdout ?? '',
+    );
+    // A reply has a TTL; Windows also prints "Destination host unreachable" with a successful exit.
+    if (/ttl=/i.test(output)) return true;
+  }
+  return false;
 }

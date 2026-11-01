@@ -181,6 +181,17 @@ function LiveSwitch({ state }: { state: AppState }) {
     setAsking(false);
   };
   if (state.mode === 'live') return <span className="mode live">LIVE: TC1</span>;
+  // Turning on: RiGster waits for the cable, the TC1 and its session, and connects by itself (RG, Nov 1, 2026).
+  if (state.liveWaiting) {
+    return (
+      <>
+        <span className="mode waiting" title={state.liveWaiting}>
+          Connecting to the TC1…
+        </span>
+        <button onClick={() => act({ kind: 'setLiveMode', on: false })}>Cancel</button>
+      </>
+    );
+  }
   return (
     <>
       <span className="mode" title="The app runs the simulator until live mode is turned on">
@@ -332,6 +343,11 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
   const { automation, website, prompter, live } = state;
   return (
     <main className="show">
+      {state.liveWaiting && (
+        <div className="banner waiting-banner" role="status">
+          {state.liveWaiting}
+        </div>
+      )}
       {automation.manual ? (
         <div className="banner manual-banner" role="alert">
           Manual mode: the prompter fires nothing. <kbd>Space</kbd> or <kbd>→</kbd> fires the next graphic, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off. Click a camera to take it.{' '}
