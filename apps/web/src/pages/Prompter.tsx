@@ -36,7 +36,10 @@ export interface PrompterSettings {
   /** Text size, in pixels. */
   fontSize: number;
   lineSpacing: number;
-  /** Space on each side, as a percentage of the screen's width. */
+  /**
+   * Space on each side that the prompter's hood hides, as a percentage of the screen's width. The arrows
+   * sit just inside it, and the text just inside them.
+   */
   margin: number;
   textColor: string;
   background: string;
@@ -401,8 +404,9 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
         </div>
       </div>
       <div className="prompter-reading-line" aria-hidden="true">
-        <span>▶</span>
-        <span>◀</span>
+        {/* Drawn as text, never as an emoji. */}
+        <span>{'\u25B6\uFE0E'}</span>
+        <span>{'\u25C0\uFE0E'}</span>
       </div>
 
       <div className="prompter-hud" role="status">
@@ -557,7 +561,7 @@ function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSett
       <p className="small">Saved on this computer.</p>
       {number('fontSize', 'Text size', 24, 160, 2, ' px')}
       {number('lineSpacing', 'Line spacing', 1, 2.2, 0.05)}
-      {number('margin', 'Side margins', 0, 30, 1, '%')}
+      {number('margin', 'Side margins (hidden by the hood)', 0, 30, 1, '%')}
       {number('readingLine', 'Reading line, from the top', 10, 70, 1, '%')}
       {number('markerSize', 'Marker Size', 30, 250, 5, '%')}
       {number('speedStep', 'Speed change per arrow press', 1, 10, 1)}

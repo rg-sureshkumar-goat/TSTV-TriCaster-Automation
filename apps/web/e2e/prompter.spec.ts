@@ -100,12 +100,27 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await expect(prompter.locator('.p-text', { hasText: 'A BRAND NEW LINE.' })).toHaveCount(1);
   expect(Math.abs((await topOf()) - before)).toBeLessThanOrEqual(2);
 
-  // The reading-line arrows can be made bigger in the settings.
+  // The reading-line arrows can be made bigger in the settings. Each sits between the side margin (which
+  // the studio prompter's hood hides) and the text, and never covers the text, however big (RG, Nov 1, 2026).
   const arrowSize = () => prompter.locator('.prompter-reading-line').evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  const arrowsFit = () =>
+    prompter.evaluate(() => {
+      const range = document.createRange();
+      const glyph = (span: Element) => (range.selectNodeContents(span), range.getBoundingClientRect());
+      const [left, right] = Array.from(document.querySelectorAll('.prompter-reading-line > span')).map(glyph);
+      const text = Array.from(document.querySelectorAll('.prompter-content > *')).map((el) => el.getBoundingClientRect());
+      const textLeft = Math.min(...text.map((r) => r.left));
+      const textRight = Math.max(...text.map((r) => r.right));
+      const margin = (parseFloat(getComputedStyle(document.querySelector('.prompter')!).getPropertyValue('--p-margin')) / 100) * innerWidth;
+      return { leftClear: left.right <= textLeft, rightClear: right.left >= textRight, leftInside: left.left >= margin - 1, rightInside: right.right <= innerWidth - margin + 1 };
+    });
+  const allFit = { leftClear: true, rightClear: true, leftInside: true, rightInside: true };
+  expect(await arrowsFit()).toEqual(allFit);
   const arrowsBefore = await arrowSize();
   await prompter.keyboard.press('s');
-  await prompter.getByLabel('Marker Size').fill('200');
+  await prompter.getByLabel('Marker Size').fill('250');
   expect(await arrowSize()).toBeGreaterThan(arrowsBefore * 1.5);
+  expect(await arrowsFit()).toEqual(allFit);
   await prompter.keyboard.press('Escape');
 
   // The down arrow slows it, then runs it backwards.
