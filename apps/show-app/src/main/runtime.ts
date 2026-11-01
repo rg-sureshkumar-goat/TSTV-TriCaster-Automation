@@ -450,7 +450,7 @@ export class Runtime extends EventEmitter {
     this.greenScreen = file ? await readFile(file) : null;
     await this.deps.store.saveGreenScreen(show.id, this.greenScreen);
     // On the simulator, a still goes in GFX 1 and a clip in DDR 1. In live mode the playout sends it to the
-    // TC1 as the "TSTV Show App Background" source (RG, Oct 30, 2026).
+    // TC1 as the RIGSTER (Green Screen) source (RG, Oct 30 and Nov 1, 2026).
     this.playout?.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
     void this.makePlayables();
     if (this.greenScreen && this.switcher.snapshot.status === 'connected' && this.switcher.mode === 'simulator') {
@@ -765,7 +765,7 @@ export class Runtime extends EventEmitter {
 
   /** Connects live mode to the TC1 that was found. False (and keeps looking) if it couldn't connect yet. */
   private async goLive({ address, localAddress }: { address: string; localAddress: string }): Promise<boolean> {
-    const playout = new Playout('TSTV Show App');
+    const playout = new Playout();
     playout.on('level', (db: number) => this.emit('level', db));
     playout.fader(this.fader);
     playout.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);

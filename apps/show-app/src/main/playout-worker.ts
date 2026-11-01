@@ -1,7 +1,8 @@
 // The playout (Phase 5, runs in a background worker): plays the show's graphics and music on the laptop and
 // sends them to the TC1's input 4 over NDI, picture with its see-through parts, and sound (decided Oct 30,
-// 2026). It also sends the show's green-screen background as a second source, "… Background", which the TC1
-// uses behind the keyed cameras (RG, Oct 30, 2026). It stands in for DDR 2: the app selects a clip, plays it, stops it, and hears when it ends. FFmpeg
+// 2026). It also sends the show's green-screen background as a second source, which the TC1 uses behind
+// the keyed cameras (RG, Oct 30, 2026). On the TC1 they're RIGSTER (Graphics) and RIGSTER (Green Screen),
+// whichever laptop sends them (RG, Nov 1, 2026; see keepNdiOnCable). It stands in for DDR 2: the app selects a clip, plays it, stops it, and hears when it ends. FFmpeg
 // reads each file at the TC1 session's size (1280×720) and 29.97 frames a second. The music and the clip's
 // sound are mixed, through the Sound fader. See playout.ts for the app's side.
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -235,10 +236,10 @@ class Music {
   }
 }
 
-function startPlayout(name: string): void {
+function startPlayout(name: string, backgroundName: string): void {
   const ndi = loadNdi();
   const sender = ndi.sendCreate({ p_ndi_name: name, p_groups: null, clock_video: false, clock_audio: false });
-  const backgroundSender = ndi.sendCreate({ p_ndi_name: `${name} Background`, p_groups: null, clock_video: false, clock_audio: false });
+  const backgroundSender = ndi.sendCreate({ p_ndi_name: backgroundName, p_groups: null, clock_video: false, clock_audio: false });
   let background: Background | null = null;
   // The latest background asked for wins, if two come quickly.
   let backgroundAsked = 0;
@@ -424,7 +425,8 @@ function startPlayout(name: string): void {
 }
 
 try {
-  startPlayout((workerData as { name?: string } | undefined)?.name ?? 'TSTV Show App');
+  const names = (workerData ?? {}) as { name?: string; backgroundName?: string };
+  startPlayout(names.name ?? 'Graphics', names.backgroundName ?? 'Green Screen');
 } catch (e) {
   post({ type: 'error', message: e instanceof Error ? e.message : String(e) });
 }

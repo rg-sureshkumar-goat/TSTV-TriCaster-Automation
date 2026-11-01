@@ -38,12 +38,20 @@ export function cableAddresses(): string[] {
 }
 
 /**
- * Keeps NDI on the cable: NDI reads its settings from NDI_CONFIG_DIR, and this one allows only the cables'
- * addresses, so nothing is sent or announced on campus Wi-Fi. Call before NDI starts.
+ * The name the laptop's NDI sources go by, instead of the laptop's own name, so the TC1's saved session
+ * finds RiGster on any laptop: RIGSTER (Graphics) and RIGSTER (Green Screen) (RG, Nov 1, 2026). Only one
+ * laptop is on the TC1's cable at a time, so the name is never taken twice.
+ */
+export const NDI_MACHINE_NAME = 'RIGSTER';
+
+/**
+ * Sets NDI up for the TC1's cable: NDI reads its settings from NDI_CONFIG_DIR, and this one allows only the
+ * cables' addresses, so nothing is sent or announced on campus Wi-Fi, and names the laptop RIGSTER on NDI.
+ * Call before NDI starts.
  */
 export function keepNdiOnCable(folder: string, addresses: string[]): void {
   mkdirSync(folder, { recursive: true });
-  writeFileSync(path.join(folder, 'ndi-config.v1.json'), JSON.stringify({ ndi: { adapters: { allowed: addresses } } }, null, 1));
+  writeFileSync(path.join(folder, 'ndi-config.v1.json'), JSON.stringify({ ndi: { machinename: NDI_MACHINE_NAME, adapters: { allowed: addresses } } }, null, 1));
   process.env.NDI_CONFIG_DIR = folder;
 }
 

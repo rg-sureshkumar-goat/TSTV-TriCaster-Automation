@@ -26,12 +26,17 @@ Phase 5 connects the show app to TSTV's real TriCaster TC1. Decisions (RG, Oct 3
 
 ## What the TC1 needs
 
-In the TSTV session, once (after it works, save the session so it stays):
+**A RiGster session on the TC1 (RG, Nov 1, 2026):** a copy of the PrimeTime session (so PrimeTime stays as the TDs know it, as the fallback), set up once and saved. With live mode on in RiGster:
 
-1. **Input 4's source: TSTV Show App** (in input 4's drop-down, under the laptop's coded NDI name, like `NDI_E29C…`). It appears once live mode is on.
-2. **DSK 2's source: input 4** (instead of player B).
-3. **Input 4's sound on** in the **AUDIO MIXER** tab (not muted, and not following video, so the music plays under the cameras).
-4. **The green-screen background:** a spare input (like **input 5**) set to **TSTV Show App Background** (under the same coded NDI name), and M/E 1's background (where media player A's PrimeTime Main BG or GFX 1 is today) set to that input.
+1. **Input 4 → RIGSTER (Graphics).**
+2. **DSK 2's source → input 4.**
+3. **AUDIO MIXER → input 4:** not muted, and not following video (so the music plays under the cameras).
+4. **Input 5 → RIGSTER (Green Screen).**
+5. **M/E 1's background → input 5** (instead of media player A).
+6. Cameras 1–3 stay on inputs 1–3.
+7. **Save the session.**
+
+**It works with any laptop with RiGster:** since Nov 1, 2026, RiGster's sources are named **RIGSTER (Graphics)** and **RIGSTER (Green Screen)** on every laptop (NDI's machine name, set by RiGster), instead of the laptop's own name, which on a Mac changes with its Wi-Fi address. Only one laptop is on the TC1's cable at a time. (Until Nov 1 they were "TSTV Show App" and "TSTV Show App Background", under the laptop's name.)
 
 ## The Phase 5 test: a rehearsal on the TC1, outside a show
 

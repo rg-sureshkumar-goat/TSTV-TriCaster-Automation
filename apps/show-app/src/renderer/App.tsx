@@ -217,9 +217,9 @@ function LiveSwitch({ state }: { state: AppState }) {
               <li>Nothing is on air that the app shouldn’t touch.</li>
             </ul>
             <p className="small muted">
-              Once live mode is on, the TC1 needs (if the TSTV session doesn’t have it saved yet): <strong>input 4</strong> set to the laptop’s source,{' '}
-              <strong>TSTV Show App</strong>; <strong>DSK 2’s source</strong> set to input 4; input 4’s sound on in the AUDIO MIXER; and, for the green screen, a spare
-              input (like input 5) set to <strong>TSTV Show App Background</strong>, used as M/E 1’s background.
+              Once live mode is on, the TC1 needs (if its RiGster session doesn’t have it saved yet): <strong>input 4</strong> set to the laptop’s source,{' '}
+              <strong>RIGSTER (Graphics)</strong>; <strong>DSK 2’s source</strong> set to input 4; input 4’s sound on in the AUDIO MIXER; and, for the green screen,
+              input 5 set to <strong>RIGSTER (Green Screen)</strong>, used as M/E 1’s background. Save it in the TC1’s RiGster session once, and it works with any laptop.
             </p>
             {state.liveError && <p className="error">{state.liveError}</p>}
             <div className="row">
@@ -896,7 +896,7 @@ function GreenScreenBox({ state }: { state: AppState }) {
     <DropPanel title="Green screen" className="green" onFiles={(paths) => act({ kind: 'setGreenScreen', path: paths[0] })}>
       {state.mode === 'live' && (
         <p className="small muted">
-          Goes to the TC1 as <strong>TSTV Show App Background</strong>. On the TC1, use it as the background behind the keyed cameras.
+          Goes to the TC1 as <strong>RIGSTER (Green Screen)</strong>. On the TC1, use it as the background behind the keyed cameras.
         </p>
       )}
       {/* What the background looks like (RG, Oct 30, 2026): a clip plays on a loop, without its sound. */}

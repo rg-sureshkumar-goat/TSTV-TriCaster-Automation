@@ -22,10 +22,10 @@ export class Playout extends EventEmitter {
   private worker: Worker;
   state: PlayoutState = { item: null, playing: false, remaining: null, musicPlaying: false, connections: 0, level: -60, error: null };
 
-  /** name is the NDI source's name, as the TC1 lists it. */
-  constructor(name = 'TSTV Show App') {
+  /** The NDI sources' names, as the TC1 lists them after the machine's name (RIGSTER). */
+  constructor(name = 'Graphics', backgroundName = 'Green Screen') {
     super();
-    this.worker = startWorker('playout-worker', { name });
+    this.worker = startWorker('playout-worker', { name, backgroundName });
     this.worker.on('message', (report: PlayoutReport) => {
       if (report.type === 'ended') return void this.emit('ended', report.item);
       if (report.type === 'level') {

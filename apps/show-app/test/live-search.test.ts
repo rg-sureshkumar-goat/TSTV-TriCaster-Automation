@@ -1,9 +1,10 @@
 // Turning on live mode (RG, Nov 1, 2026): RiGster waits for the cable and the TC1, says what it's waiting
 // for, keeps trying until it connects, and stops when the producer cancels.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { keepNdiOnCable } from '../src/main/ndi.ts';
 import { answersPing, Runtime } from '../src/main/runtime.ts';
 import { Store } from '../src/main/store.ts';
 
@@ -36,6 +37,15 @@ describe('turning on live mode', () => {
     expect(runtime.state().liveWaiting).toBeNull();
     expect(runtime.state().mode).toBe('simulator');
     runtime.close();
+  });
+
+  it('names the laptop RIGSTER on NDI, so the TC1's saved session finds it on any laptop, and keeps NDI on the cable', async () => {
+    const before = process.env.NDI_CONFIG_DIR;
+    keepNdiOnCable(path.join(folder, 'ndi'), ['169.254.54.241']);
+    const config = JSON.parse(await readFile(path.join(folder, 'ndi', 'ndi-config.v1.json'), 'utf8'));
+    expect(config).toEqual({ ndi: { machinename: 'RIGSTER', adapters: { allowed: ['169.254.54.241'] } } });
+    if (before === undefined) delete process.env.NDI_CONFIG_DIR;
+    else process.env.NDI_CONFIG_DIR = before;
   });
 
   it('tells whether a computer answers a ping, from a given address', async () => {
