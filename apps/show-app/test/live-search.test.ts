@@ -39,7 +39,7 @@ describe('turning on live mode', () => {
     runtime.close();
   });
 
-  it('names the laptop RIGSTER on NDI, so the TC1's saved session finds it on any laptop, and keeps NDI on the cable', async () => {
+  it('names the laptop RIGSTER on NDI, so the TC1’s saved session finds it on any laptop, and keeps NDI on the cable', async () => {
     const before = process.env.NDI_CONFIG_DIR;
     keepNdiOnCable(path.join(folder, 'ndi'), ['169.254.54.241']);
     const config = JSON.parse(await readFile(path.join(folder, 'ndi', 'ndi-config.v1.json'), 'utf8'));
