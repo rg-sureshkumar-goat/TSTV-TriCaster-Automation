@@ -1,0 +1,1731 @@
+commit 4aea7b4e4493e2350f65aea07cbc823e23c43340
+Date:   2026-10-28T12:04:22-05:00
+Author: RG Sureshkumar
+
+Set up project structure and add project brief
+
+Moves PROJECT_BRIEF.md to docs/PROJECT_BRIEF.md as the source of truth,
+adds the folder layout for the website, show app, probe and simulator,
+and line-ending rules so the repo behaves the same on Mac and Windows.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit a4cf7b1641afde7e18d641d5cfa9a4f11a11a5a8
+Date:   2026-10-28T12:12:12-05:00
+Author: RG Sureshkumar
+
+Add proposed architecture for RG's review
+
+Recommends Cloudflare (Workers, Durable Objects, D1) over the brief's
+suggested Supabase default, Sign in with Google with a TD-controlled
+invite list, Electron for the show app, and the TriCaster's built-in
+network control over the cable. Includes the free-tier limits checked
+today and the decisions waiting on RG.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 3301af80b2c3a509e16259c1928ff16f202f184e
+Date:   2026-10-28T12:21:24-05:00
+Author: RG Sureshkumar
+
+Record the Cloudflare decision in the brief and architecture
+
+RG approved Cloudflare over Supabase. The Cloudflare account starts as
+RG's personal account; the architecture notes how a later move to a
+TSTV-owned account works. Google sign-in is still to confirm before
+Phase 1.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit afd6177ac9b81b6f45a5bd79a907bd5a86d622fb
+Date:   2026-10-28T12:50:07-05:00
+Author: RG Sureshkumar
+
+Phase 0: read-only TriCaster probe and TC1 simulator
+
+Probe (tools/probe, no dependencies): finds the TC1 on the cable using
+ARP, multicast DNS, UPnP, IPv6 neighbors and a last-resort search of
+self-assigned addresses; reads /v1/version and dictionary data; listens
+to the port-5951 state stream and change notifications while the TD
+walks through guided panel steps; checks file sharing; saves a JSON
+results file and a plain-language summary answering the brief's
+'Verify on the TC1 first' questions. A single guard module limits it to
+GET requests on a fixed read-only list and the register/keep-alive
+messages; tests fail if command text appears in its code.
+
+Simulator (tools/simulator): a fake TC1 speaking the same web API,
+change notifications and port-5951 protocol, with real-time DDR
+playback, DSKs, M/Es (M/E 2 green screen), recording, macros, tally,
+practice problems (unplugged, ignored commands, slow replies, LivePanel
+password) and a page that logs every command it receives.
+
+Tests run the real probe against the simulator and check the simulator
+received zero commands. GitHub Actions runs them on Mac and Windows.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit b518d40ca2f63b02860e251ee892d545c7a7df01
+Date:   2026-10-28T12:52:28-05:00
+Author: RG Sureshkumar
+
+Probe: Ctrl+C at a guided step stops and saves
+
+Readline swallows Ctrl+C while a question is open, which left the probe
+waiting. Pass it on so the run stops and saves, using process.emit so
+Windows doesn't end the process before saving. An interrupted step is
+no longer recorded as done.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 9d47d7d59a531d8af43e2238ff790028fa4ed648
+Date:   2026-10-28T13:12:48-05:00
+Author: RG Sureshkumar
+
+Simulator page: show only what TSTV uses
+
+RG asked for a simpler page. It now shows a Program monitor, an 'On air
+now' summary, buttons for Camera 1-3, green screen (M/E 2), DSK 2, the
+DDR 2 playlist and Record, and a plain-English list of what the show
+app sent. Practice problems fold away at the bottom. The fake TC1 behind
+the page is unchanged, so the show app is still tested against a full
+switcher. Phase 0 test steps updated to match.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 8cca9b321cfc4036d1d19e0fa3276aaf51e98e9f
+Date:   2026-10-28T18:12:54-05:00
+Author: RG Sureshkumar
+
+Probe: wait quietly for the TC1 instead of searching every address
+
+At the studio the search of all 65,000 self-assigned addresses coincided
+with campus Wi-Fi dropping twice, and on a Mac that address range is
+also attached to Wi-Fi. The probe now waits up to 90 seconds for the TC1
+to appear in the laptop's device list (--wait). Also:
+- read the ARP table with arp -an on Mac; plain arp -a stalled looking
+  up names while Wi-Fi was down
+- strip the null character the TC1 puts after every notification, so
+  follow-up reads (record_configuration, ddr_playlist) happen
+- summary lists everything that moved during a step, skips the copies
+  the TC1 keeps for other control-panel models, and notes the readable
+  playlist and clip timing
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit c6079143a2d16ef9eff0a56d6a7aedfe30f13d67
+Date:   2026-10-28T18:12:54-05:00
+Author: RG Sureshkumar
+
+Simulator matches TSTV's real TC1; record Phase 0 findings
+
+From the Oct 28 studio probe and RG's answers:
+- program runs through M/E 1 (cameras on its A row); green screen is
+  M/E 2, a camera keyed over GFX 1; cameras are inputs 1-3
+- DSK 2 shows DDR 2 with AutoPlay: DSK on plays the cued clip, DSK off
+  stops and cues the next, a clip ending leaves DSK 2 on
+- real state names, values, types and source numbers; ddr_playlist,
+  ddr_timecode and record_configuration data; null-terminated and
+  state.<name> notifications; unknown data names drop the connection
+- practice playlist starts each block with the break clip
+- simulator page: camera roles, keyed-camera choice, and buttons act on
+  press so redraws during playback can't swallow them
+
+docs/TC1-FINDINGS.md records what was learned (no serial numbers). The
+brief's studio facts, probe answers and open questions are updated, and
+the architecture notes Safari on the prompter Mac and the confirmed
+network behavior.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 78355c6b5297365b686f47ac653038b03b7d6e98
+Date:   2026-10-28T18:23:28-05:00
+Author: RG Sureshkumar
+
+Record sign-in decisions: Google for the website, none in the show app
+
+RG decided: the rundown website uses Sign in with Google with the TD's
+invite list, and records who wrote and edited each section and reader.
+The show app has no sign-in, since one laptop runs the TC1 at a time
+from the studio. Proposed for Phase 4: link each show laptop to the
+website once, so scripts and the cue feed stay private.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 12f4da8d87ab31a2520ef763e943043f6a2ff900
+Date:   2026-10-28T18:41:49-05:00
+Author: RG Sureshkumar
+
+Phase 1: website with Google sign-in, shows, episodes and a live rundown grid
+
+Cloudflare Worker + D1 + one Durable Object per episode (Yjs via
+y-partyserver), React pages built with Vite.
+
+- Sign in with Google limited to the TD's invite list; People page for
+  admins; pretend sign-in on localhost only for development
+- Shows with settings (target, reading speed, cameras, default camera,
+  talent colors, segment types) and episodes with air date and time
+- Live rundown grid: blocks and numbered sections, drag or menu to
+  reorder, float, insert, delete; edits appear for everyone within a
+  second, with presence and cell highlights; every row records who
+  created and last edited it
+- Timing: total, over/under, block lengths, clock back-times
+- Archive (read-only, pushed to open pages), search, CSV and PDF export
+- packages/shared holds the rundown model, numbering and timing for the
+  prompter and show app to reuse
+
+Tests: shared logic and CSV unit tests, and Playwright browser tests in
+which two people build one rundown at once. CI also builds the site and
+runs the browser tests on Mac and Windows. docs/PHASE-1.md explains how
+to try it locally, put it online, set up Google sign-in, and test.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 205c5bd2ca2b280a03fad1e80c2d367abddb563a
+Date:   2026-10-28T18:56:44-05:00
+Author: RG Sureshkumar
+
+Rundown: sections list their elements in order (Reader + L3 + VO)
+
+RG: a section can have several things happening, like a reader with a
+VO playing over it, and the TriCaster cueing needs to know. Type stays
+the section's main kind; the Elements column now holds any number of
+elements in firing order (L3, OTSL, OTSR, FSG, VO, SOT, PKG), each with
+an optional name.
+
+- Elements are a shared Yjs list per section, so two people adding
+  elements at once both keep theirs; moving a section keeps them
+- Chips in the grid (graphics blue, clips orange): + to add, click to
+  rename, change type, move earlier or later, or remove
+- Menus now float above the table so bottom rows aren't cut off
+- Elements appear in CSV/PDF export and in search
+- Brief records the decision; Phase 2 links elements to cue chips and
+  Phase 4 to files with Ready/Missing
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 7e862180769ea4cd430c81f43d6c3a7473f1a9ab
+Date:   2026-10-28T19:02:09-05:00
+Author: RG Sureshkumar
+
+Section types are Intro, Tease, Reader and Cross Talk
+
+RG's list for the rundown's Type column. What plays during a section
+(VO, SOT, L3...) lives in its Elements. Shows still on the first default
+list switch to the new one automatically; each show can still edit its
+list in Show settings. Brief and Phase 1 doc updated.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 39e480ff5942ef216d6a188bd1c7f9f757e5bd00
+Date:   2026-10-28T19:06:50-05:00
+Author: RG Sureshkumar
+
+Add Package and SOT to the section types
+
+Types are now Intro, Tease, Reader, Cross Talk, Package and SOT. Shows
+still on either earlier default list switch over automatically. Brief
+and Phase 1 doc updated.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit f7d60fcd958e70a2b7d3245fa550d40973206f98
+Date:   2026-10-28T19:11:52-05:00
+Author: RG Sureshkumar
+
+Rundown: Writer column after Type; Writer and Talent are typed in
+
+RG asked for a Writer column between Type and Talent, with both as text
+boxes instead of dropdowns. A typed talent name that matches the show's
+talent list still gets its color. Writer is in CSV/PDF export (after
+Type) and search; the account-based authorship column in exports is now
+'Added by' so it isn't confused with the typed Writer. Column widths
+retuned so the grid fits a 1440px laptop screen without scrolling.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 4b1a457c7e8a9458f4fea4a3e66dee2c17a91e6e
+Date:   2026-10-28T19:16:10-05:00
+Author: RG Sureshkumar
+
+Remove the rundown's Green screen column; one background per show
+
+RG: every show has its own green screen that doesn't change during the
+show, so sections don't need one. The column, the field and its export
+and search entries are gone; older rows that still carry the field are
+ignored when read. The brief now says the show app has a single
+green-screen drop box where the producer drops the show's image or clip,
+loaded on the TC1 as the background for the whole show (stills in GFX
+1, clips in DDR 1). Open question updated: whether the key is on air the
+whole time and through which M/E.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 443ec84d07daf222fd2f3cde140e5ff9f84cf8e8
+Date:   2026-10-28T19:18:39-05:00
+Author: RG Sureshkumar
+
+Rundown: title the Elements column Graphics
+
+RG's wording. The column header, add button, chip and editor labels,
+and the CSV/PDF export header now say Graphics. The data model keeps
+calling them elements (as the brief does); the brief notes the rundown
+shows the column as Graphics.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit f15327b7eebd04804de4dbe0460104b13a492ace
+Date:   2026-10-28T19:21:26-05:00
+Author: RG Sureshkumar
+
+Rundown: Notes column after Graphics
+
+A typed-in notes box per section, synced live like the other cells, and
+included in CSV/PDF export and search. Brief and Phase 1 doc updated.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 0b834371de6261860368053d0933b8b94d2d3937
+Date:   2026-10-28T19:32:46-05:00
+Author: RG Sureshkumar
+
+Publish rundown, and script pages linked from each slug
+
+RG: the producer builds the rundown, then clicks Publish rundown so
+everyone can see it; each slug links to a page for typing that
+section's script, with a word counter and a read-time estimate at
+143-154 words a minute.
+
+- Episodes start as drafts, visible only to whoever created them and
+  admins (lists, episode page, search and live connections all check);
+  Publish rundown / Unpublish for the creator or an admin; migration
+  0002 adds episodes.published_at
+- Scripts are shared Yjs text per section, created only by the episode
+  room so two people opening a new script can't clash; a plain text box
+  is bound to it (smallest-edit diff out, cursor-preserving updates in)
+- Script page: word count, read time range, who edited and who was last,
+  previous/next section links; archived episodes are read-only
+- Slugs are links; an empty slug or the rename (pencil) button gives a
+  text box; script text is included in search
+- Brief and Phase 1 doc record both decisions; browser test covers
+  drafts, publishing and two people typing one script
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit d98544c9dc3954edab7599fedf454da8a16ef591
+Date:   2026-10-28T19:37:13-05:00
+Author: RG Sureshkumar
+
+Est. fills in from each script's read time unless typed in
+
+A section's estimated length is its script's read time at 148.5 words a
+minute (the middle of 143-154), shown in grey in the Est. box; typing a
+length overrides it and clearing the box goes back to the script's time.
+Totals, back-times, CSV/PDF export and the episode summary all use it.
+Brief and Phase 1 doc updated; browser test covers the fallback.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 98e5823aa3eb1fc55899253c2c7a6ec63d50d36b
+Date:   2026-10-28T21:50:33-05:00
+Author: RG Sureshkumar
+
+Anchors and correspondents per episode
+
+RG: every episode has a different set of anchors and correspondents.
+Each episode now has an On-air talent section where the producer types
+them in; the list is shared live in the episode room (two people adding
+at once both keep theirs). Each person gets a color, anchors first, and
+a section whose typed Talent names them shows it (rundown and script
+page). The PDF export lists them at the top. Brief and Phase 1 doc
+updated; unit and browser tests cover it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 293c9229a258d306a91c4dcde4dc62521367e411
+Date:   2026-10-28T21:54:19-05:00
+Author: RG Sureshkumar
+
+Talent is a dropdown of the episode's anchors and correspondents
+
+RG: the producer picks who reads each section instead of typing it. The
+Talent column lists this episode's anchors and correspondents (grouped),
+keeps showing a name picked earlier if it's been removed, and prompts to
+add talent when the list is empty. Brief and Phase 1 doc updated.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 15be3c9dfb6d58f29948e6d730428cc57f5cfd9e
+Date:   2026-10-28T22:10:50-05:00
+Author: RG Sureshkumar
+
+Point the website at its online D1 database
+
+The website is published at https://tstv-show.tstv-rundown.workers.dev
+on the Cloudflare free plan. A database ID isn't a secret: using it
+still needs the account's sign-in.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 05314947c24751fb61434d77a59c72850a354fa8
+Date:   2026-10-28T22:23:49-05:00
+Author: RG Sureshkumar
+
+Public privacy page, for Google's sign-in setup
+
+Google's console wants a home page and privacy policy link before an
+External app can be published. /privacy explains what the site stores
+(name, email and picture from Google; what people write; a sign-in
+cookie) and why; it's readable without signing in and linked from the
+sign-in page. Deployed.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 6f1b70f27a506dbcba521f86967ba7b2e76cb278
+Date:   2026-10-28T23:18:23-05:00
+Author: RG Sureshkumar
+
+Phase 1 guide: website is live; Branding links unlock Publish app
+
+Records that the site is published at tstv-show.tstv-rundown.workers.dev
+with Google sign-in in production, and that Google keeps Publish app
+gray until the Branding page has a home page and privacy policy link.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 209a5045c3fc7f134ded978fb46d59e6fa8698f3
+Date:   2026-10-29T00:43:48-05:00
+Author: RG Sureshkumar
+
+Rundown: permanent graphics, Headline and Assign Graphics, cross talk
+
+- Each show has a list of permanent graphics (Station ID, Show Intro,
+  Commercial Break, Social Media L3, Website L3, Station Outro), editable
+  in its settings and pickable in the Graphics column.
+- New graphics types TEASE and LITES; new section types Q&A and
+  Permanent Graphic.
+- Talent can be "Everyone (cross talk)".
+- Headline column after Camera; Assign Graphics column after Notes.
+- Column headers stay in view while scrolling the rundown.
+- The script page shows who reads the section and which camera to look at.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 456210c2dd39b321649b24afe3a4c1ce300ac573
+Date:   2026-10-29T00:54:57-05:00
+Author: RG Sureshkumar
+
+Talent: pick one or more people per section
+
+Sections where several people talk (cross talk, Q&A) list everyone who
+reads them. The Talent cell opens a checklist of the episode's anchors and
+correspondents. Sections saved with one typed-in name still read correctly.
+The script page lists every reader and reminds writers to mark each part
+with {Name}; CSV/PDF exports list all readers.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit e4a93fe8d1a67980fda0dff0730eb7b0f67547df
+Date:   2026-10-29T00:58:14-05:00
+Author: RG Sureshkumar
+
+Talent: Everyone (cross talk) for unscripted cross talk
+
+Picked on its own in the Talent checklist (it clears named people, and
+naming someone clears it). The script page explains there's no formal
+script, so the prompter just says CROSS TALK, and Est. needs typing in.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit fdf2820fc3c7ad2b47a82a416e3d1cfb02104665
+Date:   2026-10-29T01:18:44-05:00
+Author: RG Sureshkumar
+
+Commercial breaks between blocks; LITES is video (red)
+
+- A commercial break row appears automatically before every block except
+  the first, showing the show's Commercial Break permanent graphic. Its
+  length is a show setting (0:00 by default) and counts toward the total,
+  back-times, episode list and CSV/PDF exports.
+- LITES counts as a clip, and clips (video) are now red in the rundown.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit a2e46bbeac1b1baf57c12b84e620af66e540ac87
+Date:   2026-10-29T01:21:10-05:00
+Author: RG Sureshkumar
+
+MUSIC element for the intro music, played from the TC1 Sound player
+
+Music is a rundown element (purple), named by its Sound player track,
+such as the intro music under the tease. The brief records the TC1's Sound
+player and its tracks from the Oct 28 probe, the MUSIC cue rule, and the
+open questions about when the intro music stops.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 329cc0ec1648e8f92030063a08d6066fc0c682c9
+Date:   2026-10-29T01:27:48-05:00
+Author: RG Sureshkumar
+
+Phase 1 guide: describe today's rundown additions
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 217366378adad2a58b42fb2cca50f94b0bdf0cc1
+Date:   2026-10-29T01:29:19-05:00
+Author: RG Sureshkumar
+
+Phase 1 approved
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 52d7b13f085bf64f9a08968e7a20213f3e1ee23c
+Date:   2026-10-29T01:41:42-05:00
+Author: RG Sureshkumar
+
+Phase 2: script editor with cue chips and speaker tags
+
+- Scripts become shared TipTap documents (Yjs XML fragments). The episode
+  room copies each Phase 1 plain-text script in, word for word, one
+  paragraph per line, and keeps the plain text as a backup.
+- Cue chips: locked inline items linked to a section's graphic by id. The
+  toolbar drops one for each graphic, or makes a new graphic with its cue.
+  Chips follow renames, flag removed graphics and duplicates.
+- Speaker tags: {Name} shows in that person's color, unknown names are
+  flagged, and Speakers buttons start a part. Tags and chips aren't
+  counted as read words.
+- Everyone's cursor shows in the script, with their name.
+- The rundown marks graphics that have no cue in a script yet (dashed).
+- The script editor loads only on script pages.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 4394f7291c741cafadca679f76447161082f4973
+Date:   2026-10-29T01:45:17-05:00
+Author: RG Sureshkumar
+
+Phase 2: admin Usage page and the Phase 2 guide
+
+- Usage page (admins): today's Cloudflare usage against the free limits,
+  read from Cloudflare's analytics API with a read-only token the TD sets
+  as CF_API_TOKEN and CF_ACCOUNT_ID secrets. Each number is fetched on its
+  own, so one Cloudflare can't report doesn't hide the rest.
+- docs/PHASE-2.md: what's new, Usage setup, and the Phase 2 test.
+- Brief and architecture record the Phase 2 decisions.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 881caa981d259682fc8c44b2114d9e6fce22cebc
+Date:   2026-10-29T11:53:38-05:00
+Author: RG Sureshkumar
+
+Script window over the rundown, capitals, cue lines and readers' names
+
+- Clicking a slug opens its script in a window over the rundown (Escape, x
+  or a click outside closes it), using the rundown page's live connection.
+- Scripts are capitals only: typing, pasting and spell-check fixes. Each
+  episode room switches older scripts to capitals once.
+- Each cue chip is a line of its own; adding one mid-line splits the line.
+  Older inline cues move to their own lines in the same one-time update.
+- The room fills each reader's {NAME} into scripts with no words yet, and
+  adds it to the top of written one-reader scripts with no name.
+- The room saves its own changes immediately, so a restart can't redo
+  them and leave doubled lines.
+- The Type column is now Story Type, in exports and show settings too.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit d45df08cd4c99aaf9b26473f1c0fe5d38ae90c3b
+Date:   2026-10-29T12:46:44-05:00
+Author: RG Sureshkumar
+
+Admin and contributor accounts, show logos, theme switch, admin breaks
+
+- Accounts are Admin or Contributor: invites can tick Give Admin Access,
+  and an admin can give a contributor admin access from the People page.
+  The top right shows "(Admin)" or "(Contributor)".
+- New people type their first and last name the first time they sign in.
+- Top bar: a light/dark switch and (admins) an info icon for Usage at the
+  top left; the menu reads Shows, People, Search.
+- Shows page: Add at the top, optional small logos, list or card layout.
+- Admins can delete episodes for good (the room erases its storage).
+- Admins can remove commercial breaks, add one above any row, and give a
+  break its own length in the rundown.
+- Deploy applies database updates first; this one adds name, admin
+  invite and logo columns.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit d4804bca60807d05cd8757f6dd6c07cdb572dc9a
+Date:   2026-10-29T13:09:49-05:00
+Author: RG Sureshkumar
+
+Break controls at the left of the break line; row menus beside the number
+
+- The x that removes a commercial break sits left of "Commercial break".
+- The break's length is edited right where the line says "The show's
+  break length".
+- Each section's and block's menu sits beside its number (A1 ...).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 0f722b5b5b9c28730def2fc51bfedd8946399312
+Date:   2026-10-29T13:22:45-05:00
+Author: RG Sureshkumar
+
+Phase 2 approved
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 86a8205a94d97c9d947d72d1107988756618f8a0
+Date:   2026-10-29T13:33:43-05:00
+Author: RG Sureshkumar
+
+Phase 3: the prompter
+
+- A full-screen prompter page (/prompter/<episode>), opened from the
+  episode's Open prompter button, built from the live episode room.
+- Sections show their number, readers in color and camera; speaker tags
+  become markers; cues become colored markers; floated sections are left
+  out; blocks, breaks and the end of the show are marked.
+- Keys: up faster, down slower then backwards, Space pause, Page Down/Up
+  and arrows between sections, Home, F full screen, S settings, ? help.
+- Settings saved on the prompter computer: text size, spacing, margins,
+  reading line, speed step, colors.
+- Edits keep the line on the reading line in place.
+- Section starts and cues that cross the reading line go to the room,
+  which passes them on; the rundown page shows the prompter's place and
+  last cue.
+- A copy of the episode is kept in the browser for internet drops.
+- Browser tests run the prompter in Chrome and Safari's engine.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 394f7a9e3bbc78b5bdb715739d3b2a46c54e70d1
+Date:   2026-10-29T13:47:50-05:00
+Author: RG Sureshkumar
+
+Prompter: big white reading-line arrows; section number green on red, with only the camera
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 9225b56f801561ed70cd92c9e2116bb5fbbdd5f4
+Date:   2026-10-29T13:53:18-05:00
+Author: RG Sureshkumar
+
+Prompter setting for the reading-line arrows' size; Escape hands the keys back from the settings
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 1142871b898fe034e84d490aad0f090cd6237995
+Date:   2026-10-29T13:58:15-05:00
+Author: RG Sureshkumar
+
+Prompter: call the arrows setting Marker Size
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit bfef8f43e4081e9ff2545200f7e2ec23b0228cf1
+Date:   2026-10-29T14:27:10-05:00
+Author: RG Sureshkumar
+
+Prompter: H goes back to the top; a Go to section list jumps to any section
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 4a9e56167aeb93df417bf0b010abe7991275ff74
+Date:   2026-10-29T14:32:10-05:00
+Author: RG Sureshkumar
+
+Prompter: cross talk shows as **CROSS TALK**, asterisks included
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 94c4f7d3eaddddb201ed0d4fe80560a8ade982da
+Date:   2026-10-29T14:37:12-05:00
+Author: RG Sureshkumar
+
+Phase 3 approved
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 84ff131c42e22e58ac29292c52ab513886ef3e15
+Date:   2026-10-29T15:27:45-05:00
+Author: RG Sureshkumar
+
+Phase 4: the show app on the simulator
+
+- Cue engine (packages/shared/src/engine.ts): the brief's cue rules as
+  tested logic. TEASE and LITES play like a VO; SOT, PKG and permanent
+  graphics with their own audio play to their end; the L3 comes back
+  after a VO that ends first; music starts with the first Tease in block
+  A and stops just before the Show Intro by default.
+- File-name matcher (media.ts): TSTV's names and the real playlist's
+  spellings, NAMES as L3 and RDR as OTS; it asks when unsure, including
+  when a slug doesn't look like its section's.
+- Website: each episode's show app key (D1 migration 0004), the app's
+  read-only key connection, file status and clip lengths reported by the
+  app (shown in the rundown and added to Est.), and show settings for
+  TriCaster inputs and permanent graphics with their own audio.
+- Simulator: the Sound player.
+- Show app (apps/show-app, Electron): switcher driver locked to the
+  simulator, website link, importer with FFmpeg lengths and thumbnails,
+  and the producer screen (cameras, On air / Up next, skip, play next,
+  fire next, preview, Pause, show clock, latency, graphics, music).
+- A mock-show test runs the app's core against the simulator with real
+  clips.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit e1a9d43e172dd09eba9180a0d8c28e3ee5f459f9
+Date:   2026-10-29T16:00:23-05:00
+Author: RG Sureshkumar
+
+Deploy: retry the database update once
+
+Right after Wrangler renews its Cloudflare sign-in, the first database
+request can be refused (error 7403); the second one works.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 5bf882d1386931ed2eb67476857543709f53072a
+Date:   2026-10-29T17:22:30-05:00
+Author: RG Sureshkumar
+
+Show app laid out from RG's sketch; Start live broadcast
+
+- Website: Start / End live broadcast on the episode's page (the
+  episode's producer and admins). The episode room keeps it in the
+  episode, so the show app and every page see it at once.
+- Show app: automation follows the prompter only while the show is
+  live; by hand, the cameras and Fire next always work. Elapsed counts
+  from the broadcast's start.
+- The producer screen follows docs/show-app-sketch.pdf: Program
+  placeholder with the LIVE dot and cameras, Playlist with Import
+  graphics, Pause / Section / Elapsed / Time left on current GFX, and
+  Up next preview, Permanent graphics and Green screen drop boxes and
+  Music along the bottom. Episode key and status lights at the top
+  right; the Graphics window opens after importing.
+- Permanent graphics match dropped files by name; the green screen is
+  remembered per show and loaded into the simulator.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 6156395b6f3b076027729c85e79059ccd2276645
+Date:   2026-10-29T17:25:16-05:00
+Author: RG Sureshkumar
+
+Deploy: say it's retrying when Cloudflare refuses the first database request
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 8fe432d2618b3c5a39c6bbe7572f049bc20ffa15
+Date:   2026-10-29T17:42:13-05:00
+Author: RG Sureshkumar
+
+Show app: color cues like the rundown and prompter (permanent graphics green)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 3bd3b229d08626d297a447c5ef2b6f612ab3a635
+Date:   2026-10-29T17:50:37-05:00
+Author: RG Sureshkumar
+
+Camera pictures in the show app; the probe lists NDI video feeds
+
+- Show app: each camera box plays that camera's picture; click to take
+  it, red frame on air. On the simulator, each camera has a moving test
+  picture (FFmpeg, streamed as JPEG frames only while someone watches).
+- Probe 1.1.0: always asks the cable which NDI video feeds are announced
+  (a question only; it never opens a feed), and the summary says
+  whether the TC1 sends feeds the app could show. Oct 28's results show
+  the TC1's NDI ports open, but the feeds weren't listed then.
+- Brief: how the real cameras' video reaches the app is an open
+  question for the station (one NDI output already goes to YouTube).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 132928c8ebfc896110527a64f3d5f9da6fbfddd1
+Date:   2026-10-29T18:23:54-05:00
+Author: RG Sureshkumar
+
+Probe reads the TC1's NDI feed list; record the studio's video findings
+
+- Probe: reads the list of feeds the TC1 sends on port 5960 (it connects
+  and listens, sending nothing), and checks NDI ports 5960-5968. The
+  network question alone missed the feeds at the studio.
+- TC1 findings (Oct 29, 2026): 8 NDI feeds, (1)-(4) and (MIX 1)-(MIX 4);
+  all mix outputs show Program; the feeds didn't play live in NDI Video
+  Monitor yet. Which feed is which camera is left for Phase 5.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 02c6850ec256c24ed7ffe18c2154b230634b9c05
+Date:   2026-10-29T18:33:53-05:00
+Author: RG Sureshkumar
+
+Show app preview: the next graphic over its camera's picture
+
+- Thumbnails keep graphics' see-through parts (PNG with alpha for
+  ProRes 4444 and other formats with alpha; JPEG for video without),
+  taken from the middle of the clip so an animated graphic is fully on.
+  Thumbnails made before are remade in the background on connect.
+- The Up next preview plays the camera the cue goes over, with the
+  graphic laid on top; a VO, SOT or package fills the frame.
+- Up next says "not in DDR 2" for a file that isn't in the playlist yet,
+  instead of "no file".
+- Test: a real ProRes 4444 graphic keeps its transparency, checked pixel
+  by pixel.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 0edb6ad2672dce745b3ece21ed74e922b3daba93
+Date:   2026-10-29T18:41:34-05:00
+Author: RG Sureshkumar
+
+Show app: drop the music track on the Music box
+
+- The producer drops the show's music track on the Music box (or picks
+  it), and that's the track the music cues play. The box shows its name,
+  length, and when it's playing; the app remembers it for the show.
+- On the simulator the app loads it into the Sound player (on drop, on
+  connecting, and with Load into the simulator). On the real TC1 the box
+  warns when the Sound player doesn't have it (sending it is Phase 5).
+- The show plan finds the chosen track in the Sound player by file name,
+  ahead of the MUSIC element's name.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 497602ddf5585046c2f4fc84690be65c8e239aaa
+Date:   2026-10-29T18:48:28-05:00
+Author: RG Sureshkumar
+
+Show app playlist: each cue's file next to its section number
+
+- The Playlist shows the file each cue will play (or the show's music
+  track for a music cue), shortened with an ellipsis when long.
+- Matching: a file for a section with no slug yet isn't doubted (there's
+  nothing to compare), instead of being sent to "place by hand".
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit c313110d4053871ff45687cd4da60baf8dc70e1c
+Date:   2026-10-29T18:58:35-05:00
+Author: RG Sureshkumar
+
+Show app playlist: Edit graphics button; the missing button lists just what's missing
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 6faf528b7b9a88dee1e187d576c7a41e4e3b444b
+Date:   2026-10-29T19:15:38-05:00
+Author: RG Sureshkumar
+
+Show app: load missing graphics in from the missing list
+
+The missing list gets Import graphics, Choose file on each graphic, drag and
+drop, Load into the simulator, and the files to place by hand. A file it
+couldn't place is no longer offered elements the same import just filled.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 5d3fdc80d0f53dce4b871893ab789187d3989215
+Date:   2026-10-29T19:31:18-05:00
+Author: RG Sureshkumar
+
+Show app: Pause automation switches to manual mode
+
+In manual mode the prompter's cues fire nothing and take no cameras. The
+producer fires the next graphic with Space or the right arrow, goes back one
+with the left arrow, takes the graphic off with the down arrow, and clicks a
+camera to take it. Continue automation hands the show back to the prompter
+from its current place. Decision recorded in the brief (RG, Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit b1a3652089829fb49afde1cc02ea56f1b9db7f18
+Date:   2026-10-29T19:36:29-05:00
+Author: RG Sureshkumar
+
+Show app: the arrow keys work only in manual mode
+
+Before Start live broadcast they worked too; now Back, Take off and the
+arrows are only for manual mode, as RG asked. Space still fires the next cue
+at any time.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 2fe47965124c659ed40f18676bc791472ec992c6
+Date:   2026-10-29T19:43:02-05:00
+Author: RG Sureshkumar
+
+Show app: light and dark mode switch at the top left
+
+The same switch as the website's. The app starts dark and remembers the
+choice on the laptop; the video boxes stay black in both modes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 7a2bb967c7e730451428c96bdc01ddc548f23502
+Date:   2026-10-29T19:52:07-05:00
+Author: RG Sureshkumar
+
+Show app: a see-through bar shows how far the clip on air has played
+
+The On air item fills with a see-through red bar while DDR 2 plays its clip,
+with the time left at its end. Time left on current GFX now counts graphics
+too, and a clip that just started no longer shows the last clip's time left.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 85c32f97eccdaff6438487286a574350a2e21451
+Date:   2026-10-29T20:12:35-05:00
+Author: RG Sureshkumar
+
+Mock show on the simulator: Program box plays the camera and the clips
+
+- The Program box shows the camera on air, playing, with the clip on DSK 2
+  playing over it with its sound, from small WebM/PNG copies the app makes
+  on the laptop (ProRes can't play in the window; see-through parts kept).
+- The simulator's cameras look nothing alike: blue, green and orange, each
+  with its name and a clock; a large size for the Program box.
+- The simulator's DDR 2 loads itself whenever the files change, waiting
+  while a clip is on air, so the Load buttons are gone.
+
+Decisions recorded in the brief (RG, Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit a41a91f0873a884d09a57aced60617e055271f6e
+Date:   2026-10-29T20:24:09-05:00
+Author: RG Sureshkumar
+
+Show app: graphics on an unplugged drive get their copies when it's back
+
+The playable copies are remembered with each file, so they play after the
+drive is unplugged. A file whose drive isn't plugged in is no longer given
+up on: the app checks again every 10 seconds, a banner names the drive, the
+Playlist marks the cue, and the Program box shows the graphic's still.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 685b85d5ea0cf40e88889571e0981a73131b6405
+Date:   2026-10-29T22:08:15-05:00
+Author: RG Sureshkumar
+
+Show app: say when macOS blocks a drive, and refresh files imported again
+
+The app tells a drive that isn't plugged in from one macOS won't let it
+read, and the banner says what to do for each. Importing files that are
+already on cues reads them again in place, which also lets the app into
+the drive, so their playable copies get made.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 7f789372395fc4c3e8c28f076b33ab56d9c74c9d
+Date:   2026-10-29T22:12:38-05:00
+Author: RG Sureshkumar
+
+Commercial breaks fire the show's break graphic
+
+The prompter's COMMERCIAL BREAK line now fires a cue when it reaches the
+reading line, and the show app plays the show's break graphic (Commercial
+Break) for it, like a SOT: the last cue of the section before the break,
+with the next block's camera taken underneath. On the simulator, DDR 2's
+break clip at the top of each block is the break graphic's file. Cue rule
+added to the brief (RG, Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 9415098753c8ab9ec4ead0cf219767c7380c0f2e
+Date:   2026-10-29T22:22:42-05:00
+Author: RG Sureshkumar
+
+The break graphic holds through the whole commercial break
+
+It stays up after its clip ends, and comes off onto the next section's
+camera when that section starts. Cue rule updated in the brief (RG,
+Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit b1c719e43ca6b3990b2230ca3f9daba754ff4e33
+Date:   2026-10-29T22:30:32-05:00
+Author: RG Sureshkumar
+
+Cues at the top of a section fire as the section starts
+
+Teases played with the camera between them, because each tease's cue only
+fired once its section's number, camera and talent lines had scrolled past
+the reading line. Now the cues above a section's first words fire with the
+section's start, and the prompter reaching them later fires nothing. The
+switcher also sends each batch of commands only after the one before it,
+so a section start and its cue never mix. Cue rule added to the brief (RG,
+Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit b4d672208c77b1cf4866d392216384d8047f9205
+Date:   2026-10-29T22:42:55-05:00
+Author: RG Sureshkumar
+
+Clip to clip with no camera between them
+
+When a clip replaces another (back-to-back teases, an L3 to a VO and
+back), DSK 2 stays on while DDR 2 selects the next clip and plays it,
+instead of DSK 2 going off and on, which showed the camera for a few
+frames. Only a clip going up over the camera takes DSK 2 on. The mock
+show checks DSK 2 isn't touched. Recorded in the brief, with a check for
+the real TC1 in Phase 5 (RG, Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit ea11b380428d0fdd7006e0409618e244657bf557
+Date:   2026-10-29T22:52:03-05:00
+Author: RG Sureshkumar
+
+Ignore the end of a clip that was already replaced
+
+A clip's end now says which DDR 2 item ended, so one tease running out
+just as the next one cuts in no longer takes the new one off. The mock
+show waits for DDR 2 to play the clip, not just to move to it, which made
+it fail now and then after the clip-to-clip change.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 10f7bc51c0f019a09743216132cf9a8de0dd1f0f
+Date:   2026-10-29T23:02:58-05:00
+Author: RG Sureshkumar
+
+Music plays out loud on the simulator; note the tease issue for later
+
+The simulator's Sound player only pretends to play, so the show app now
+plays the music track itself while the Sound player plays, from a
+sound-only copy it makes on the laptop (an MP3's cover art isn't taken for
+video). Back-to-back teases still aren't right in the mock show: noted in
+the brief's open questions and the Phase 4 guide to come back to (RG,
+Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 113ad693fdd02e4d2bf49661dedc0ea4f5d31aaa
+Date:   2026-10-29T23:10:37-05:00
+Author: RG Sureshkumar
+
+Show app: a Sound strip with a level meter and fader for the clip on Program
+
+Down the right edge: a meter for how loud the clip on Program is, and a
+fader from silent to +6 dB (double-click for 0 dB, remembered on the
+laptop). On the simulator it sets the sound the app plays; on the real TC1
+it should set DDR 2's audio level (Phase 5). Recorded in the brief (RG,
+Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit b3432f6990fd9e15576864038400d8c4fc0fd9cd
+Date:   2026-10-29T23:20:41-05:00
+Author: RG Sureshkumar
+
+Sound strip: separate Clip and Music channels
+
+The music now goes through its own meter and fader, next to the clip's,
+so the tease music can be set under a tease clip without changing the
+clip (RG, Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 77a9376b5fc6e020f90839abf66fec9cb8c22632
+Date:   2026-10-29T23:22:26-05:00
+Author: RG Sureshkumar
+
+Sound strip: one meter and one fader for the clip and the music
+
+RG wanted a single sound bar and adjuster for everything, so the clip on
+DSK 2 and the music go through the same fader and meter again.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit ba5a43654acf47caa2b599d5420228139609d210
+Date:   2026-10-29T23:28:02-05:00
+Author: RG Sureshkumar
+
+Show app: switch cameras by hand while the graphics follow the prompter
+
+A button under the camera boxes takes the cameras off the prompter: sections
+starting take no cameras and the producer clicks them, while the graphics
+still fire from the prompter. Giving them back, the next section takes its
+camera. Recorded in the brief (RG, Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 0ea322273705dd580632ae792b214e0be5694711
+Date:   2026-10-29T23:37:01-05:00
+Author: RG Sureshkumar
+
+Website: Sign in with Microsoft, for school Microsoft 365 accounts
+
+A "Sign in with Microsoft" button, under the same invite rule as Google,
+for school (Microsoft 365) and personal Microsoft accounts. A school
+account signs in as its sign-in name or, when that's who was invited, the
+email in its account if its domain matches (UT: abc123@eid.utexas.edu or
+name@utexas.edu); an email from an organization that doesn't own its
+domain isn't trusted. Email matching now ignores capitals. Shows only once
+RG adds the Microsoft app's ID and secret. Setup steps in PHASE-1.md;
+decision in the brief (RG, Oct 29, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 4b7d08c67baae8c14e6ca535c8ba9bd45931125a
+Date:   2026-10-29T23:41:21-05:00
+Author: RG Sureshkumar
+
+PHASE-1: Microsoft sign-in setup with a UT account, and what to do if UT blocks it
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit ed6fb2a023f20b448b928aa7f3f40ffa8aa96bb1
+Date:   2026-10-29T23:56:33-05:00
+Author: RG Sureshkumar
+
+PHASE-1: a personal Microsoft account needs a free Azure directory to register the sign-in app
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 4ac90e506772687699342c6815ea9e2951538bde
+Date:   2026-10-30T00:15:29-05:00
+Author: RG Sureshkumar
+
+People page: invites work for Google or Microsoft accounts, and no email is sent
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit d04da0e3b701302660b240036673faad61bd35d7
+Date:   2026-10-30T00:31:19-05:00
+Author: RG Sureshkumar
+
+Brief: Microsoft sign-in works for personal accounts; UT needs admin approval; the secret expires
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 537a8ce227aa28e49dbbbbc04ba11f8a7e58fb7c
+Date:   2026-10-30T00:32:49-05:00
+Author: RG Sureshkumar
+
+Phase 4 approved (RG, Oct 30, 2026)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit e0841e4ff0e532a317484f21144873145de684ff
+Date:   2026-10-30T00:42:08-05:00
+Author: RG Sureshkumar
+
+Phase 5 plan: graphics to the TC1 over NDI from the laptop
+
+RG's decisions (Oct 30, 2026): the graphics drive stays on the laptop and
+the app sends each graphic to the TC1 as an NDI source keyed on DSK 2, so
+no files or Windows login on the TC1; camera video over NDI is in Phase 5;
+recordings end up on the laptop. NDI send, find and receive with alpha
+proven on the laptop through the NDI Tools runtime.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 81b9f812bdedd601ce0886c3231bde6f144efe94
+Date:   2026-10-30T01:24:30-05:00
+Author: RG Sureshkumar
+
+Studio test: NDI works both ways between the laptop and the TC1
+
+The TC1 shows the laptop's NDI source, keys it over Camera 1 with its
+see-through parts, and gets its sound; the TC1's camera and program feeds
+play live on the laptop at 60 frames a second. Recorded in TC1-FINDINGS,
+the brief and the Phase 5 plan (studio, Oct 30, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 64542af748c51cd4a6479d099c87e8c4a1afe41c
+Date:   2026-10-30T01:30:14-05:00
+Author: RG Sureshkumar
+
+Brief: Phase 5 decisions for input 4, music from the laptop, the Program box, and recording
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 7eb19b4951b968a56211a80555c71629fbe2baf6
+Date:   2026-10-30T01:35:55-05:00
+Author: RG Sureshkumar
+
+Show app: NDI, and a playout that sends graphics and music to the TC1
+
+Phase 5 (RG, Oct 30, 2026): ndi.ts calls the NDI runtime from NDI Tools
+through koffi (send, find, receive), and keeps NDI on the TC1's cable. The
+playout runs in a background worker: it plays each graphic with FFmpeg at
+1280x720, 29.97 fps, and sends picture with its see-through parts and sound
+to the TC1's input 4 over NDI, mixing in the music through the Sound fader.
+It stands in for DDR 2 (select, play, stop, clip ended, last frame held),
+cuts straight from clip to clip, and clears input 4 when DSK 2 goes off.
+Tested on the laptop over NDI (skipped without NDI).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 3785ba2c879f60a1c25c7dc17a1f98019d47cbf1
+Date:   2026-10-30T01:55:52-05:00
+Author: RG Sureshkumar
+
+Show app: live mode for the real TC1, with its three safety locks
+
+Phase 5 (decided Oct 30, 2026). The app always opens on the simulator and
+never remembers live mode; "Run the real TC1" asks for a confirmation that
+lists what the TC1 needs (input 4 the laptop, DSK 2 from input 4, input 4's
+sound on), then a red LIVE: TC1 bar stays across the top; and the driver
+talks only to a TriCaster TC1. Live mode needs the laptop on the TC1's
+cable, keeps NDI there, finds the TC1 at its last address or by its NDI
+feeds, and starts the playout. Cameras and DSK 2 go to the TC1; clips,
+playing and music go to the playout, which stands in for DDR 2 and the Sound
+player, through the Sound fader. Tested at home with a simulator calling
+itself the TC1 (the app was never put in live mode against the real TC1).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 068bb96d5334a7dc612343c086cdee75135d71aa
+Date:   2026-10-30T01:59:41-05:00
+Author: RG Sureshkumar
+
+Show app: the TC1's cameras and program in live mode, and Record
+
+Phase 5. A feeds worker receives the TC1's NDI feeds on the cable and serves
+them as moving pictures: the camera boxes show feeds (1)-(3) at 15 a second,
+the Program box shows the real program (MIX 1) at 30, picture only. Record
+(live mode) saves the program feed, picture and sound, to a folder the
+producer picks, as Show_Episode_Date.mp4 (H.264 and AAC, written in pieces
+so a cut-off file still plays). NDI is allowed on every cable address, never
+Wi-Fi. Checked on the real TC1's feeds at the studio, receiving only: all
+four feeds play, and a 6-second recording is 1280x720 at 59.94 with stereo
+sound (RG, Oct 30, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit df5f763c6b08a2a130d0ff26d4db30c2d39bc093
+Date:   2026-10-30T02:01:07-05:00
+Author: RG Sureshkumar
+
+Phase 5 test guide; the live confirmation and the green screen box in live mode
+
+The confirmation no longer asks for input 4 to be set before live mode is
+on (the laptop's source only appears then); it says what the TC1 needs once
+it is. In live mode the Green screen box says the background stays in the
+TC1's player A. PHASE-5.md is now the Phase 5 test guide: what's built, what
+the TC1 needs, and the rehearsal steps.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit aa3ac99ff5ecae3eb92c7c0f9445bcb9bf97f971
+Date:   2026-10-30T03:03:01-05:00
+Author: RG Sureshkumar
+
+Playout: play the app's small copy when an original can't be read
+
+If a graphic's drive is unplugged or blocked mid-show, the playout plays the
+small playable copy the app keeps on the laptop instead of nothing, and says
+so. Tested on the laptop.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 1d5db117a13802e07dfebb62cacc89416ff12f29
+Date:   2026-10-30T03:07:27-05:00
+Author: RG Sureshkumar
+
+Green screen from the laptop: the background as a second NDI source
+
+In live mode, the image or clip dropped on the Green screen box goes to the
+TC1 as "TSTV Show App Background" (a still sent steadily, a clip on a loop,
+filling the picture), for M/E 1's background behind the keyed cameras. The
+small copy goes if the original can't be read. Tested over NDI on the
+laptop. Decision in the brief, steps in PHASE-5.md (RG, Oct 30, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit cfe4690666f0f46b769eccd771e97e29a78d402d
+Date:   2026-10-30T03:14:01-05:00
+Author: RG Sureshkumar
+
+Live mode: send everything to the TC1 from the cable's own address
+
+At the studio the Mac routed the TC1's address over Wi-Fi, so live mode
+couldn't reach the TC1. The driver now sends the web control, state stream
+and change notifications from the cable's address in live mode, and finds
+which cable address reaches the TC1. Checked against the TC1 (reading only).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit b7c280b66b2077733f3fae39f18f62e898cc2521
+Date:   2026-10-30T03:19:15-05:00
+Author: RG Sureshkumar
+
+Fix the crash on turning on live mode: copy NDI frames instead of pointing at them
+
+The feeds worker used koffi.view, which points straight at NDI's memory.
+Plain Node allows it, but Electron forbids it and stopped the whole app the
+moment live mode started at the studio. Frames and sound are now copied
+(copyBytes, copySound in ndi.ts), and a new test runs that inside Electron's
+engine. The feeds check against the TC1's real feeds now passes inside
+Electron's engine too (reading only).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit aefcf5cbf65aa941ecae702b7011cbb4a4b5fe97
+Date:   2026-10-30T03:22:57-05:00
+Author: RG Sureshkumar
+
+Live mode: camera boxes no longer stay on No picture after starting
+
+Just after live mode starts, NDI hadn't found the TC1's feeds yet, so the
+first camera boxes got "not found" and never asked again (RG saw cameras 1
+and 2 say No picture at the studio). The feeds worker now waits a few
+seconds for a feed to appear, and a box with No picture tries again every
+3 seconds. Checked against the TC1's feeds inside Electron's engine.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 544c12aa545a3ec0e43a5b394191ec7e48b315f6
+Date:   2026-10-30T03:30:28-05:00
+Author: RG Sureshkumar
+
+Playout: check an unreadable file again next time, in case its drive is back
+
+After RG unplugged and replugged the graphics drive at the studio, a file the
+playout couldn't read stayed on its small copy. It now asks again each time.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 3fd8488634eac1719b7b02676c7dfcb7cc0ecf09
+Date:   2026-10-30T03:52:05-05:00
+Author: RG Sureshkumar
+
+Live mode: the playout gets the graphics even with the TC1's DSK 2 on; warn when DSK 2 isn't input 4
+
+At the studio no graphic played: the TC1's DSK 2 was on from before, so the
+app waited to give the playout its list (a wait meant for the simulator's
+DDR 2), and DSK 2's source was still DDR 2. In live mode the list now loads
+whenever the playout isn't playing, and the red bar warns while DSK 2's
+source isn't input 4, as the TC1 reports it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 95fb845093362aea5842cbec406d0855b1bdb7d2
+Date:   2026-10-30T04:12:38-05:00
+Author: RG Sureshkumar
+
+Show app: reconnect to the website by itself when the connection goes quiet
+
+At the studio the app's connection to the episode went dead without closing
+(the laptop's network changed under it), so it missed Start live broadcast
+and the prompter. The link now asks the room for news every 15 seconds, and
+drops and remakes a connection that has heard nothing for 40. Checked on the
+real website: the check-ins are answered every 15 seconds.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 1fc1b4c79c11ed7dd2dadb0d298b07e026f35aa7
+Date:   2026-10-30T04:23:58-05:00
+Author: RG Sureshkumar
+
+Cameras: use the command form the real TC1 accepts
+
+At the studio the app's camera switches did nothing: v1_a_row=INPUT2 is
+answered OK but ignored by the TC1. With RG's OK, tried in live mode: the
+TC1 switches on v1_a_row_named_input=INPUT2 (or v1_a_row=1). The app now
+sends the named form, and the simulator ignores a name on the number form,
+as the TC1 does. Recorded in TC1-FINDINGS (Oct 30, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 90487b4d0d33847a410a9395bd244a43b306798b
+Date:   2026-10-30T04:42:50-05:00
+Author: RG Sureshkumar
+
+Phase 5: the full run-through on the TC1 went smoothly (RG, Oct 30, 2026)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 37b829efd133abdc8a773cc4df9b4df00a4cefea
+Date:   2026-10-30T12:14:47-05:00
+Author: RG Sureshkumar
+
+Website: email people the link when they're invited
+
+Inviting someone on People now emails them the website's link and how to
+sign in, through a small free Google Apps Script in a Google account (RG's
+Gmail for now, a TSTV Gmail later). The People page says whether the email
+went, and each pending invite has Resend email; if the email fails, the
+invite still works. Setup steps in PHASE-1.md; decision in the brief (RG,
+Oct 30, 2026).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 27c7f3a0055f6d03ff9b8f1598ea3164ffbcfd5a
+Date:   2026-10-30T18:55:07-05:00
+Author: RG Sureshkumar
+
+Camera cues: switch cameras in the middle of a section
+
+The script editor gets a Cameras row that drops a "Take Camera 2" chip on a
+line of its own. The prompter shows it as an amber marker and fires it like a
+graphic's cue; the show app takes that camera (not in manual mode or with the
+cameras by hand). One at the very top of a script takes its camera as the
+section starts.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 2ecaab7ad55ec5898ed4d043cbf4450794be2abe
+Date:   2026-10-30T19:06:24-05:00
+Author: RG Sureshkumar
+
+Music plays whenever a Tease fires
+
+The show app's Music in gets "Whenever a Tease fires", now the default. Each
+TEASE graphic starts the music; teases before the music-out point (the top of
+A Block) keep it going until the Show Intro, and later teases stop it when the
+last back-to-back tease comes off. Picking a single Music in point turns it off.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 74fd3569906f11751ec7ead2dbe16c8c29b115d4
+Date:   2026-10-30T19:12:12-05:00
+Author: RG Sureshkumar
+
+Show app: call it RiGster
+
+The window title, the app's menus and About box, and the top left of the app
+now say RiGster. The NDI sources keep their names, so the TC1's input settings
+don't change, and the app keeps using its old folder on the laptop, so it
+remembers everything as before.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 282073b98822871c896b6fb0233882260f66351f
+Date:   2026-10-30T19:15:01-05:00
+Author: RG Sureshkumar
+
+Website: call the show app RiGster
+
+The episode's "Show app key" button is now "RiGster key", and the website's
+messages and Prompter bar say RiGster. RiGster's own instructions point to
+the renamed button.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 403f1c0953ba2773c51a936c5f57bd7926fdbe99
+Date:   2026-10-30T19:23:27-05:00
+Author: RG Sureshkumar
+
+Music out defaults to when the teases end
+
+With Music in on "Whenever a Tease fires", Music out now defaults to
+"Whenever a Tease ends", so the music stops when the last back-to-back tease
+comes off, at the top of the show too. Picking a Music out point keeps the
+teases before it playing until then. The out choices now read "Just before ...".
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit ff282a433e135c6479447955f1a829dd3755b733
+Date:   2026-10-30T19:30:38-05:00
+Author: RG Sureshkumar
+
+RiGster: fit the whole app in the window, with no scrolling
+
+The app now fills the window exactly: the top bar, banners and bottom row take
+what they need, and the Program box takes the rest, with its picture kept in
+shape. A long Up next list scrolls inside the Playlist box, a long music track
+name takes one line, and the bottom row's pictures shrink in a short window.
+The smallest window is now 700 tall, so the Program box stays usable.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit ec7f5a2a53f84eca610e05a3228984e356f6b1ee
+Date:   2026-10-30T19:35:17-05:00
+Author: RG Sureshkumar
+
+RiGster: keep the Up next cues inside the Playlist box
+
+Each cue now fits the box's width: its file name is cut short first, a
+warning like "not in DDR 2" moves to a line below when there's no room, and
+the Play next and Skip buttons go under the cue in a narrow box. The cue's name
+shows in full (and on hover).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 9ead86fb1ddf48bf59cb6937076a90c3e6c96529
+Date:   2026-10-30T19:41:10-05:00
+Author: RG Sureshkumar
+
+RiGster: widen the Playlist, narrow the Pause automation panel
+
+The Playlist now reaches over the Green screen box's column, and the panel
+with Pause automation sits over the Music box alone. Its labels go above
+their numbers when the window is narrow.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 528617944671a2a62b8574ca61e53311193dcf65
+Date:   2026-10-30T19:43:42-05:00
+Author: RG Sureshkumar
+
+RiGster: keep Pause automation on one line
+
+The button never wraps: its words shrink a little in a narrow window, and its
+panel is a bit wider (taken from the Green screen's column under the Playlist).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 95d66ef32efcece697440dbbb92d529a99ca5b51
+Date:   2026-10-30T19:49:12-05:00
+Author: RG Sureshkumar
+
+RiGster: show the green screen background in its box
+
+The Green screen box now shows the picture, or plays the clip on a loop
+without its sound, from the app's own copy (so it shows with the drive
+unplugged too). JPEG pictures had no thumbnail at all: FFmpeg gives nothing
+back for a still asked for "0 seconds in". Missing thumbnails are now made
+again when the app starts.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 33e7f273e2945ecbe07e0dda99928aba1f5816d9
+Date:   2026-10-30T19:56:31-05:00
+Author: RG Sureshkumar
+
+Website: main color blue #14679b instead of orange
+
+Buttons, highlights and the browser-tab icon, in light and dark mode.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 6e3245ba59803a315dc92d0da4795d681f00b5d2
+Date:   2026-10-30T20:03:58-05:00
+Author: RG Sureshkumar
+
+RiGster: the producer names each recording
+
+Record now opens a save window: type the recording's name and pick its folder.
+It suggests Show_Episode_Date.mp4 in the folder used last time (never an
+earlier recording's name), always saves an MP4, and records nothing when
+cancelled.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 0dd1e81c08cd8f250a8797f9d1bffb08fdc48862
+Date:   2026-10-30T20:06:07-05:00
+Author: RG Sureshkumar
+
+Phase 5 approved (RG, Oct 30, 2026)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 8b4dc2e238e0577ac369b8365e147c04df6fd8a1
+Date:   2026-10-30T20:09:11-05:00
+Author: RG Sureshkumar
+
+Back-to-back teases: settled, they worked well on the TC1 (RG)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit aa4e3669b83948f73f5c59e2cc2b13f3ceb99a12
+Date:   2026-10-30T20:28:39-05:00
+Author: RG Sureshkumar
+
+Phase 6: RiGster installers for Mac and Windows, with updates
+
+- scripts/package.mjs bundles RiGster's code (so it runs without the
+  terminal), puts the app's folder together with its own FFmpeg and koffi,
+  and makes a .dmg or a Setup .exe with electron-builder. Free, so the Mac app
+  is signed only by the computer that built it.
+- .github/workflows/release.yml builds the Apple-chip and Intel Mac .dmgs and
+  the Windows installer on GitHub; a version tag publishes them as a Release.
+- Updates come from those Releases: Windows downloads and installs them
+  itself (never mid-show); the Mac shows a "Get RiGster ..." button that opens
+  the download page.
+- The top bar stays on one line. A blue RiGster icon.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit c96b045bc0bbfbb27309bff3da5da318b6613b3b
+Date:   2026-11-01T15:38:55-06:00
+Author: RG Sureshkumar
+
+RiGster: live mode waits for the cable, the TC1 and its session
+
+Turn on live mode, and RiGster keeps trying until it connects: it waits for
+the cable's address, then the TC1, then the TC1's session, and says which
+("The TC1 is on, but its session isn't open yet" when the TC1 answers a ping
+but not its remote control). Cancel stops it. Only a switcher that isn't a
+TC1 stops it by itself. NDI is now loaded once and reused.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 68fcc4408e512a838c8266f1be010c7d4422f70d
+Date:   2026-11-01T15:56:08-06:00
+Author: RG Sureshkumar
+
+RiGster's NDI sources: RIGSTER (Graphics) and RIGSTER (Green Screen) on any laptop
+
+NDI names sources after the laptop, and a Mac's name changes with its Wi-Fi
+address, so a TC1 session saved with one laptop's source wouldn't find it
+again. RiGster now sets NDI's machine name to RIGSTER in the settings it
+already writes for live mode, so the TC1's RiGster session works with any
+laptop that has RiGster. The sources are also renamed Graphics and Green
+Screen (were "TSTV Show App" and "TSTV Show App Background").
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit d446bd6bf70c043a9c8832ebcaf3c3c68f406ec0
+Date:   2026-11-01T15:56:16-06:00
+Author: RG Sureshkumar
+
+Fix a test name's apostrophe
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 88f83e7ba2fa36871901606f19449cdc1c11e268
+Date:   2026-11-01T16:47:26-06:00
+Author: RG Sureshkumar
+
+Prompter: the reading-line arrows sit right beside the text
+
+The studio prompter's hood hides the screen's left edge, where the left arrow
+was. Each arrow now has its own space between the side margin and the text,
+so the left one points straight at the words, and a bigger arrow moves the
+text over instead of covering it. Side margins is now the strip the hood
+hides. Browser tests check it at normal and the largest arrow sizes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
+commit 20c72bdbb4e59e51913d3ff4e121d7d777ba0f9c
+Date:   2026-11-02T01:12:06-06:00
+Author: RG Sureshkumar
+
+Add the project transcript (docs/PROJECT-TRANSCRIPT.md)
+
+The whole conversation between RG and Claude Code that built the project:
+RG's messages and Claude's replies in full, one line per tool step, no tool
+output. Episode keys and other secrets are blanked out.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+----------------------------------------------------------------------
