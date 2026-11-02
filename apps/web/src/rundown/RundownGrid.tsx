@@ -26,6 +26,7 @@ import {
   toggleTalent,
   updateElement,
   updateRow,
+  type ColumnKey,
   type CommercialBreak,
   type ComputedRow,
   type Element,
@@ -62,9 +63,63 @@ interface GridProps {
   isAdmin: boolean;
   others: Presence[];
   setFocus: (focus: string | null) => void;
+  /**
+   * The columns after the handle and the number, in order: the rundown's own, copied from the show's
+   * template when it was made (RG, Nov 2, 2026; see readColumns).
+   */
+  columns: ColumnKey[];
 }
 
-export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, media, airTime, me, readOnly, isAdmin, others, setFocus }: GridProps) {
+/** Each column's heading. */
+const HEADINGS: Record<ColumnKey, { label: string; className?: string; title?: string }> = {
+  slug: { label: 'Slug' },
+  type: { label: 'Story Type', className: 'type-col', title: 'What kind of story this section is' },
+  writer: { label: 'Writer', title: "Who writes this section's script" },
+  talent: { label: 'Talent', title: 'Who reads it on air' },
+  camera: { label: 'Camera', className: 'camera-col' },
+  headline: { label: 'Headline', className: 'headline-col', title: 'The on-screen headline for this section' },
+  graphics: { label: 'Graphics', title: "Graphics and clips that play during this section, in order (graphics in blue, video in red, music in purple, the show's permanent graphics in green)" },
+  notes: { label: 'Notes', className: 'notes-col' },
+  assignGraphics: { label: 'Assign Graphics', className: 'person-col', title: "Who makes this section's graphics" },
+  est: { label: 'Est.', className: 'time-col', title: 'Estimated length' },
+  backTime: { label: 'Back-time', className: 'time-col' },
+  lastEdit: { label: 'Last edit' },
+};
+
+/**
+ * A block or commercial-break line's cells: its times go under the Est. and Back-time columns (and an
+ * empty one under Last edit), wherever they are, and the other columns between them are joined into wide
+ * cells, the first of which holds the line's title.
+ */
+function lineCells(columns: ColumnKey[], own: Partial<Record<ColumnKey, ReactNode>>, title: ReactNode): ReactNode[] {
+  const cells: ReactNode[] = [];
+  let span = 0;
+  let titled = false;
+  const flush = (key: string) => {
+    if (!span) return;
+    cells.push(
+      <td key={key} colSpan={span}>
+        {titled ? null : title}
+      </td>,
+    );
+    titled = true;
+    span = 0;
+  };
+  for (const column of columns) {
+    if (column === 'est' || column === 'backTime' || column === 'lastEdit') {
+      flush(`span-${column}`);
+      cells.push(
+        <td key={column} className={column === 'lastEdit' ? undefined : 'time-col'}>
+          {own[column] ?? null}
+        </td>,
+      );
+    } else span++;
+  }
+  flush('span-end');
+  return cells;
+}
+
+export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, media, airTime, me, readOnly, isAdmin, others, setFocus, columns }: GridProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const ids = timing.rows.map((c) => c.row.id);
 
@@ -93,6 +148,7 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, me
         editable={canEditBreaks}
         doc={doc}
         me={me}
+        columns={columns}
       />
     );
 
@@ -103,20 +159,11 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, me
           <tr>
             <th className="handle-col" aria-label="Drag to reorder" />
             <th className="num-col">#</th>
-            <th>Slug</th>
-            <th className="type-col" title="What kind of story this section is">Story Type</th>
-            <th title="Who writes this section's script">Writer</th>
-            <th title="Who reads it on air">Talent</th>
-            <th className="camera-col">Camera</th>
-            <th className="headline-col" title="The on-screen headline for this section">Headline</th>
-            <th title="Graphics and clips that play during this section, in order (graphics in blue, video in red, music in purple, the show's permanent graphics in green)">Graphics</th>
-            <th className="notes-col">Notes</th>
-            <th className="person-col" title="Who makes this section's graphics">Assign Graphics</th>
-            <th className="time-col" title="Estimated length">Est.</th>
-            <th className="time-col" title={airTime ? 'Clock time this must start to end on time' : 'How far into the show this must start to end on time'}>
-              Back-time
-            </th>
-            <th>Last edit</th>
+            {columns.map((key) => (
+              <th key={key} className={HEADINGS[key].className} title={key === 'backTime' ? (airTime ? 'Clock time this must start to end on time' : 'How far into the show this must start to end on time') : HEADINGS[key].title}>
+                {HEADINGS[key].label}
+              </th>
+            ))}
           </tr>
         </thead>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -126,7 +173,7 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, me
                 c.row.kind === 'block' ? (
                   <Fragment key={c.row.id}>
                     {breakLine(c)}
-                    <BlockLine computed={c} doc={doc} me={me} readOnly={readOnly} blockSeconds={timing.blockSeconds[c.blockLetter] ?? 0} backTime={backTime(c.backTimeOffset)} sectionsAfter={sectionsUntilNextBlock(timing.rows, index)} extraItems={breakItems(c, index)} />
+                    <BlockLine computed={c} doc={doc} me={me} readOnly={readOnly} blockSeconds={timing.blockSeconds[c.blockLetter] ?? 0} backTime={backTime(c.backTimeOffset)} sectionsAfter={sectionsUntilNextBlock(timing.rows, index)} extraItems={breakItems(c, index)} columns={columns} />
                   </Fragment>
                 ) : (
                   <Fragment key={c.row.id}>
@@ -147,6 +194,7 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, me
                       focusedBy={focusedBy}
                       setFocus={setFocus}
                       extraItems={breakItems(c, index)}
+                      columns={columns}
                     />
                   </Fragment>
                 ),
@@ -192,7 +240,7 @@ function SortableRow({ id, className, disabled, children }: { id: string; classN
  * wherever the row below it goes. Admins remove it with the × beside its name, and change its length
  * right in its line (RG, Oct 29, 2026).
  */
-function BreakLine({ computed, commercialBreak, graphic, showSeconds, backTime, editable, doc, me }: { computed: ComputedRow; commercialBreak: CommercialBreak; graphic: string | undefined; showSeconds: number; backTime: string; editable: boolean; doc: Y.Doc; me: Person }) {
+function BreakLine({ computed, commercialBreak, graphic, showSeconds, backTime, editable, doc, me, columns }: { computed: ComputedRow; commercialBreak: CommercialBreak; graphic: string | undefined; showSeconds: number; backTime: string; editable: boolean; doc: Y.Doc; me: Person; columns: ColumnKey[] }) {
   const where = computed.row.kind === 'block' ? `Block ${computed.label}` : computed.label;
   const setLength = (seconds: number | null) =>
     setCommercialBreak(doc, computed.row.id, seconds === null && commercialBreak.automatic ? null : { seconds }, me);
@@ -201,7 +249,9 @@ function BreakLine({ computed, commercialBreak, graphic, showSeconds, backTime, 
     <tr className="break-row">
       <td className="handle-col" />
       <td className="num-col" />
-      <td colSpan={9}>
+      {lineCells(
+        columns,
+        { est: commercialBreak.seconds > 0 ? formatDuration(commercialBreak.seconds) : '', backTime: commercialBreak.seconds > 0 ? backTime : '' },
         <div className="break-title">
           {editable && (
             <button className="break-remove" aria-label={`Remove the commercial break before ${where}`} title="Remove this commercial break" onClick={remove}>
@@ -226,16 +276,13 @@ function BreakLine({ computed, commercialBreak, graphic, showSeconds, backTime, 
               <strong>{formatDuration(commercialBreak.seconds)}</strong>
             )}
           </span>
-        </div>
-      </td>
-      <td className="time-col">{commercialBreak.seconds > 0 ? formatDuration(commercialBreak.seconds) : ''}</td>
-      <td className="time-col">{commercialBreak.seconds > 0 ? backTime : ''}</td>
-      <td />
+        </div>,
+      )}
     </tr>
   );
 }
 
-function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectionsAfter, extraItems }: { computed: ComputedRow; doc: Y.Doc; me: Person; readOnly: boolean; blockSeconds: number; backTime: string; sectionsAfter: number; extraItems: MenuItem[] }) {
+function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectionsAfter, extraItems, columns }: { computed: ComputedRow; doc: Y.Doc; me: Person; readOnly: boolean; blockSeconds: number; backTime: string; sectionsAfter: number; extraItems: MenuItem[]; columns: ColumnKey[] }) {
   const row = computed.row;
   if (row.kind !== 'block') return null;
   const ids = () => {
@@ -266,15 +313,14 @@ function BlockLine({ computed, doc, me, readOnly, blockSeconds, backTime, sectio
               )}
             </div>
           </td>
-          <td colSpan={9}>
+          {lineCells(
+            columns,
+            { est: formatDuration(blockSeconds), backTime },
             <div className="block-title">
               <strong>Block {computed.label}</strong>
               <TextCell value={row.title} placeholder="Block title (optional)" readOnly={readOnly} onCommit={(title) => updateRow(doc, row.id, { title }, me)} ariaLabel={`Block ${computed.label} title`} />
-            </div>
-          </td>
-          <td className="time-col">{formatDuration(blockSeconds)}</td>
-          <td className="time-col">{backTime}</td>
-          <td />
+            </div>,
+          )}
         </>
       )}
     </SortableRow>
@@ -298,9 +344,10 @@ interface SectionLineProps {
   setFocus: (focus: string | null) => void;
   /** More menu choices, like adding a commercial break above. */
   extraItems: MenuItem[];
+  columns: ColumnKey[];
 }
 
-function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, cued, media, readOnly, backTime, focusedBy, setFocus, extraItems }: SectionLineProps) {
+function SectionLine({ episodeId, computed, index, count, doc, me, settings, talent, cued, media, readOnly, backTime, focusedBy, setFocus, extraItems, columns }: SectionLineProps) {
   const row = computed.row;
   const set = (patch: Partial<SectionRow>) => updateRow(doc, row.id, patch, me);
   const cell = (field: string, children: ReactNode, className = '') => {
@@ -315,6 +362,46 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
         {children}
       </td>
     );
+  };
+
+  // Each column's cell, drawn in the rundown's column order.
+  const sectionCell = (key: ColumnKey): ReactNode => {
+    switch (key) {
+      case 'slug':
+        return cell('slug', <SlugCell row={row} label={computed.label} episodeId={episodeId} readOnly={readOnly} onCommit={(slug) => set({ slug })} />, 'slug-col');
+      case 'type':
+        return cell('type', <SelectCell value={row.type} options={settings.segmentTypes} readOnly={readOnly} onChange={(type) => set({ type })} ariaLabel={`${computed.label} story type`} />, 'type-col');
+      case 'writer':
+        return cell('writer', <TextCell value={row.writer} placeholder="Writer" readOnly={readOnly} onCommit={(writer) => set({ writer })} ariaLabel={`${computed.label} writer`} />, 'person-col');
+      case 'talent':
+        return cell('talent', <TalentPicker value={row.talent} talent={talent} colors={settings.talent} label={computed.label} readOnly={readOnly} onChange={(names) => set({ talent: names })} />, 'person-col');
+      case 'camera':
+        return cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col');
+      case 'headline':
+        return cell('headline', <TextCell value={row.headline} placeholder="Headline" readOnly={readOnly} onCommit={(headline) => set({ headline })} ariaLabel={`${computed.label} headline`} />, 'headline-col');
+      case 'graphics':
+        return cell('elements', <ElementsCell section={row} label={computed.label} permanent={settings.permanentGraphics} cued={cued} media={media} doc={doc} me={me} readOnly={readOnly} />, 'elements-col');
+      case 'notes':
+        return cell('notes', <TextCell value={row.notes} placeholder="Notes" readOnly={readOnly} onCommit={(notes) => set({ notes })} ariaLabel={`${computed.label} notes`} />, 'notes-col');
+      case 'assignGraphics':
+        return cell('assignGraphics', <TextCell value={row.assignGraphics} placeholder="Who makes them" readOnly={readOnly} onCommit={(assignGraphics) => set({ assignGraphics })} ariaLabel={`${computed.label} assign graphics`} />, 'person-col');
+      case 'est':
+        return cell('est', <DurationCell value={row.estSeconds} autoSeconds={computed.seconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col');
+      case 'backTime':
+        return <td className="time-col">{backTime}</td>;
+      case 'lastEdit':
+        return (
+          <td className="edited-col" title={row.createdBy ? `Added by ${row.createdBy.name}` : undefined}>
+            {row.updatedBy && (
+              <>
+                {row.updatedBy.name}
+                <br />
+                <span className="muted small">{timeAgo(row.updatedAt)}</span>
+              </>
+            )}
+          </td>
+        );
+    }
   };
 
   return (
@@ -341,26 +428,7 @@ function SectionLine({ episodeId, computed, index, count, doc, me, settings, tal
             </div>
             {row.floated && <span className="badge">Floated</span>}
           </td>
-          {cell('slug', <SlugCell row={row} label={computed.label} episodeId={episodeId} readOnly={readOnly} onCommit={(slug) => set({ slug })} />, 'slug-col')}
-          {cell('type', <SelectCell value={row.type} options={settings.segmentTypes} readOnly={readOnly} onChange={(type) => set({ type })} ariaLabel={`${computed.label} story type`} />, 'type-col')}
-          {cell('writer', <TextCell value={row.writer} placeholder="Writer" readOnly={readOnly} onCommit={(writer) => set({ writer })} ariaLabel={`${computed.label} writer`} />, 'person-col')}
-          {cell('talent', <TalentPicker value={row.talent} talent={talent} colors={settings.talent} label={computed.label} readOnly={readOnly} onChange={(names) => set({ talent: names })} />, 'person-col')}
-          {cell('camera', <SelectCell value={row.camera} options={settings.cameras} emptyLabel={`Default (${settings.defaultCamera})`} readOnly={readOnly} onChange={(camera) => set({ camera })} ariaLabel={`${computed.label} camera`} />, 'camera-col')}
-          {cell('headline', <TextCell value={row.headline} placeholder="Headline" readOnly={readOnly} onCommit={(headline) => set({ headline })} ariaLabel={`${computed.label} headline`} />, 'headline-col')}
-          {cell('elements', <ElementsCell section={row} label={computed.label} permanent={settings.permanentGraphics} cued={cued} media={media} doc={doc} me={me} readOnly={readOnly} />, 'elements-col')}
-          {cell('notes', <TextCell value={row.notes} placeholder="Notes" readOnly={readOnly} onCommit={(notes) => set({ notes })} ariaLabel={`${computed.label} notes`} />, 'notes-col')}
-          {cell('assignGraphics', <TextCell value={row.assignGraphics} placeholder="Who makes them" readOnly={readOnly} onCommit={(assignGraphics) => set({ assignGraphics })} ariaLabel={`${computed.label} assign graphics`} />, 'person-col')}
-          {cell('est', <DurationCell value={row.estSeconds} autoSeconds={computed.seconds} readOnly={readOnly} onCommit={(estSeconds) => set({ estSeconds })} ariaLabel={`${computed.label} estimated length`} />, 'time-col')}
-          <td className="time-col">{backTime}</td>
-          <td className="edited-col" title={row.createdBy ? `Added by ${row.createdBy.name}` : undefined}>
-            {row.updatedBy && (
-              <>
-                {row.updatedBy.name}
-                <br />
-                <span className="muted small">{timeAgo(row.updatedAt)}</span>
-              </>
-            )}
-          </td>
+          {columns.map((key) => <Fragment key={key}>{sectionCell(key)}</Fragment>)}
         </>
       )}
     </SortableRow>

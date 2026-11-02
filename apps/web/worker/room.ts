@@ -4,7 +4,8 @@
 import { YServer } from 'y-partyserver';
 import * as Y from 'yjs';
 import type { Connection, ConnectionContext } from 'partyserver';
-import { allScriptText, clipSecondsBySection, computeRundown, ensureScripts, readMedia, scriptWordCounts, sectionSecondsFrom, initEpisode, readBroadcast, readRows, rowsOf, setBroadcast, setMedia, tagReaders, upgradeScripts, type Person } from '@tstv/shared';
+import { allScriptText, clipSecondsBySection, computeRundown, ensureScripts, readMedia, scriptBodiesOf, scriptWordCounts, sectionSecondsFrom, initEpisode, readBroadcast, readRows, rowsOf, setBroadcast, setMedia, startFromTemplate, tagReaders, upgradeScripts, type Person } from '@tstv/shared';
+import { getServerByName } from 'partyserver';
 import type { Env } from './env.ts';
 
 interface ConnectionInfo {
@@ -171,6 +172,29 @@ export class EpisodeRoom extends YServer<Env> {
       const { live, by } = await request.json<{ live: boolean; by: Person }>();
       if (setBroadcast(this.document, live, by)) await this.saveNow();
       return Response.json({ ok: true, broadcast: readBroadcast(this.document) });
+    }
+    if (request.method === 'GET' && url.pathname.endsWith('/state')) {
+      // A copy of this episode's document, for a new rundown that starts from this one as its template.
+      return new Response(Y.encodeStateAsUpdate(this.document), { headers: { 'Content-Type': 'application/octet-stream' } });
+    }
+    if (request.method === 'POST' && url.pathname.endsWith('/from-template')) {
+      // A brand-new rundown: it becomes a copy of the show's template (RG, Nov 2, 2026), in place of the
+      // empty block and section it started with. Only before anyone has written in it.
+      const { templateId } = await request.json<{ templateId: string }>();
+      const words = scriptBodiesOf(this.document).size > 0 && readRows(this.document).some((r) => r.kind === 'section' && (r.slug || r.elements.length));
+      if (words || !templateId || templateId === this.episodeId) return Response.json({ ok: false });
+      const template = await getServerByName(this.env.EpisodeRoom, templateId);
+      const state = new Uint8Array(await (await template.fetch(new Request(`https://room/parties/episode-room/${templateId}/state`))).arrayBuffer());
+      this.document.transact(() => {
+        const rows = rowsOf(this.document);
+        rows.delete(0, rows.length);
+        const bodies = scriptBodiesOf(this.document);
+        for (const key of [...bodies.keys()]) bodies.delete(key);
+      });
+      Y.applyUpdate(this.document, state);
+      startFromTemplate(this.document);
+      await this.saveNow();
+      return Response.json({ ok: true });
     }
     if (request.method === 'POST' && url.pathname.endsWith('/delete')) {
       // The episode was deleted: erase everything this room saved, and send everyone back.

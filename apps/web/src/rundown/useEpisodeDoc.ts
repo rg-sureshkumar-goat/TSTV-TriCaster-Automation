@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import YProvider from 'y-partyserver/provider';
-import { cuedElementIds, mediaOf, observeBroadcast, readBroadcast, readEpisodeTalent, readMedia, readRows, rowsOf, scriptBodiesOf, scriptWordCounts, type Broadcast, type EpisodeTalent, type MediaStatus, type Row } from '@tstv/shared';
+import { cuedElementIds, DEFAULT_COLUMNS, mediaOf, observeBroadcast, readBroadcast, readColumns, readEpisodeTalent, readMedia, readRows, rowsOf, scriptBodiesOf, scriptWordCounts, type Broadcast, type ColumnKey, type EpisodeTalent, type MediaStatus, type Row } from '@tstv/shared';
 import type { User } from '../lib/api.ts';
 
 export interface Presence {
@@ -63,6 +63,8 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
   const [media, setMedia] = useState<Record<string, MediaStatus>>({});
   const [broadcast, setBroadcast] = useState<Broadcast>({ live: false, startedAt: null, endedAt: null, by: null });
   const [talent, setTalent] = useState<EpisodeTalent[]>([]);
+  /** The rundown's columns, in order (from its template; Nov 2, 2026). */
+  const [columns, setColumnList] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
   const [synced, setSynced] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [others, setOthers] = useState<Presence[]>([]);
@@ -91,6 +93,8 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
     scriptBodiesOf(doc).observeDeep(updateWords);
     const updateTalent = () => setTalent(readEpisodeTalent(doc));
     doc.getArray('talent').observe(updateTalent);
+    const updateColumns = () => setColumnList(readColumns(doc));
+    doc.getMap('layout').observe(updateColumns);
     const updateMedia = () => setMedia(readMedia(doc));
     mediaOf(doc).observe(updateMedia);
     const updateBroadcast = () => setBroadcast(readBroadcast(doc));
@@ -101,6 +105,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
         updateRows();
         updateWords();
         updateTalent();
+        updateColumns();
         updateMedia();
         updateBroadcast();
       }
@@ -140,6 +145,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
       rowsOf(doc).unobserveDeep(updateRows);
       scriptBodiesOf(doc).unobserveDeep(updateWords);
       doc.getArray('talent').unobserve(updateTalent);
+      doc.getMap('layout').unobserve(updateColumns);
       mediaOf(doc).unobserve(updateMedia);
       stopBroadcast();
       provider.off('sync', onSync);
@@ -153,7 +159,7 @@ export function useEpisodeDoc(episodeId: string, user: User, onArchivedChange?: 
 
   const setFocus = (focus: string | null) => room?.provider.awareness.setLocalStateField('focus', focus);
 
-  return { doc: room?.doc ?? null, provider: room?.provider ?? null, rows, scriptWords, cued, media, broadcast, talent, synced: synced && room !== null, status, others, setFocus, lastCue };
+  return { doc: room?.doc ?? null, provider: room?.provider ?? null, rows, scriptWords, cued, media, broadcast, talent, columns, synced: synced && room !== null, status, others, setFocus, lastCue };
 }
 
 /** An episode's live room, as the rundown page and its script window see it. */

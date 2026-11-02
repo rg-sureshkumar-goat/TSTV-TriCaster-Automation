@@ -17,6 +17,8 @@ export interface EpisodeListItem {
   createdByName: string | null;
   createdById: string | null;
   publishedAt: number | null;
+  /** The show's rundown template (Nov 2, 2026), rather than an episode. */
+  isTemplate?: boolean;
 }
 
 interface ShowData {
@@ -73,7 +75,10 @@ export function ShowPage({ showId, user }: { showId: string; user: User }) {
           )}
         </>
       ) : (
-        <ShowSettingsForm showId={showId} name={data.show.name} logo={data.show.logo} settings={data.show.settings} onSaved={reload} />
+        <>
+          <TemplateBox showId={showId} />
+          <ShowSettingsForm showId={showId} name={data.show.name} logo={data.show.logo} settings={data.show.settings} onSaved={reload} />
+        </>
       )}
     </div>
   );
@@ -143,6 +148,35 @@ function NewEpisodeForm({ showId }: { showId: string }) {
       </button>
       {error && <span className="error">{error}</span>}
     </form>
+  );
+}
+
+/**
+ * The show's rundown template (RG, Nov 2, 2026): every new rundown for the show starts as a copy of it,
+ * with its blocks, sections, graphics, scripts and columns.
+ */
+function TemplateBox({ showId }: { showId: string }) {
+  const [error, setError] = useState<string | null>(null);
+  const open = async () => {
+    try {
+      const { id } = await api<{ id: string }>(`/shows/${showId}/template`, { method: 'POST' });
+      navigate(`/episodes/${id}`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return (
+    <section className="template-box">
+      <h2>Rundown template</h2>
+      <p className="muted">
+        Every new rundown for this show starts as a copy of its template: its blocks and sections, their graphics and scripts, and which columns the rundown
+        shows, in what order. The producer edits each rundown from there.
+      </p>
+      <button className="primary" onClick={open}>
+        Edit rundown template
+      </button>
+      {error && <p className="error">{error}</p>}
+    </section>
   );
 }
 

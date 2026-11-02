@@ -118,8 +118,8 @@ function readLogo(value: unknown): string | null | undefined | { error: string }
 app.get('/shows', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT s.id, s.name, s.settings, s.logo,
-            (SELECT COUNT(*) FROM episodes e WHERE e.show_id = s.id AND e.status = 'active' AND ${VISIBLE}) AS active_episodes,
-            (SELECT MAX(e.air_date) FROM episodes e WHERE e.show_id = s.id) AS latest_air_date
+            (SELECT COUNT(*) FROM episodes e WHERE e.show_id = s.id AND e.status = 'active' AND e.is_template = 0 AND ${VISIBLE}) AS active_episodes,
+            (SELECT MAX(e.air_date) FROM episodes e WHERE e.show_id = s.id AND e.is_template = 0) AS latest_air_date
      FROM shows s ORDER BY s.name COLLATE NOCASE`,
   )
     .bind(...visibleTo(c.get('user')))
@@ -155,7 +155,7 @@ app.get('/shows/:id', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT e.id, e.title, e.air_date, e.air_time, e.status, e.summary, e.updated_at, e.published_at, e.created_by, u.name AS created_by_name
      FROM episodes e LEFT JOIN users u ON u.id = e.created_by
-     WHERE e.show_id = ? AND ${VISIBLE} ORDER BY e.air_date DESC, e.created_at DESC`,
+     WHERE e.show_id = ? AND e.is_template = 0 AND ${VISIBLE} ORDER BY e.air_date DESC, e.created_at DESC`,
   )
     .bind(show.id, ...visibleTo(c.get('user')))
     .all<Record<string, unknown>>();
@@ -195,8 +195,32 @@ function episodeJson(r: Record<string, unknown>) {
     createdByName: r.created_by_name ?? null,
     createdById: r.created_by ?? null,
     publishedAt: r.published_at ?? null,
+    // A show's rundown template (Nov 2, 2026), edited like a rundown but never aired.
+    isTemplate: r.is_template === 1,
   };
 }
+
+/** A show's rundown template, if it has one. */
+const templateOf = (env: Env, showId: string) =>
+  env.DB.prepare('SELECT id FROM episodes WHERE show_id = ? AND is_template = 1').bind(showId).first<{ id: string }>();
+
+/**
+ * Opens a show's rundown template, making it the first time (RG, Nov 2, 2026). It's a special episode,
+ * visible to everyone who signs in, hidden from the episode lists and search.
+ */
+app.post('/shows/:id/template', async (c) => {
+  const showId = c.req.param('id');
+  if (!(await c.env.DB.prepare('SELECT 1 FROM shows WHERE id = ?').bind(showId).first())) return c.json({ error: 'Show not found.' }, 404);
+  const existing = await templateOf(c.env, showId);
+  if (existing) return c.json({ id: existing.id });
+  const id = crypto.randomUUID();
+  await c.env.DB.prepare(
+    'INSERT INTO episodes (id, show_id, title, status, created_by, created_at, updated_at, published_at, is_template) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
+  )
+    .bind(id, showId, 'Rundown template', 'active', c.get('user').id, now(), now(), now())
+    .run();
+  return c.json({ id }, 201);
+});
 
 app.post('/shows/:id/episodes', async (c) => {
   const body = await c.req.json<{ title?: string; airDate?: string; airTime?: string }>();
@@ -213,6 +237,13 @@ app.post('/shows/:id/episodes', async (c) => {
   )
     .bind(id, showId, title, airDate || null, airTime || null, 'active', c.get('user').id, now(), now())
     .run();
+  // A new rundown starts as a copy of the show's template, made now, so later changes to the template
+  // never reach it (RG, Nov 2, 2026).
+  const template = await templateOf(c.env, showId);
+  if (template) {
+    const room = await getServerByName(c.env.EpisodeRoom, id);
+    await room.fetch(new Request(`https://room/parties/episode-room/${id}/from-template`, { method: 'POST', body: JSON.stringify({ templateId: template.id }) }));
+  }
   return c.json({ id }, 201);
 });
 
@@ -344,7 +375,7 @@ app.get('/search', async (c) => {
   const like = `%${q.replace(/[%_\\]/g, (ch) => `\\${ch}`)}%`;
   const { results } = await c.env.DB.prepare(
     `SELECT e.*, s.name AS show_name FROM episodes e JOIN shows s ON s.id = e.show_id
-     WHERE (e.title LIKE ? ESCAPE '\\' OR e.search_text LIKE ? ESCAPE '\\' OR s.name LIKE ? ESCAPE '\\') AND ${VISIBLE}
+     WHERE (e.title LIKE ? ESCAPE '\\' OR e.search_text LIKE ? ESCAPE '\\' OR s.name LIKE ? ESCAPE '\\') AND e.is_template = 0 AND ${VISIBLE}
      ORDER BY e.air_date DESC LIMIT 50`,
   )
     .bind(like, like, like, ...visibleTo(c.get('user')))

@@ -62,6 +62,8 @@ Cues reach the laptop through the website because the prompter computer and the 
 
 **Main color (decided Oct 30, 2026): blue, #14679b** (it was orange), for buttons, highlights and the browser-tab icon, in light and dark mode.
 
+**Rundown templates (decided Nov 2, 2026):** each show has a rundown template, opened from **Show settings → Edit rundown template** and edited like a rundown (live, with the same grid and script editor). Every new rundown for the show starts as a copy of it: its blocks and sections (with everything typed in them), their graphics and scripts, and its columns, but not its anchors and talent. The template page has a **Columns** box: columns can be hidden and shown again, and moved into any order, except that the section number, Slug, Camera and Graphics can't be hidden. A rundown's copy is made when it's created, so changing the template never changes rundowns already made; the page says **"Any Changes Made to this Template Will Not Affect Already Published Rundowns"**. The template is kept as a special episode, hidden from the episode lists and search. (Rundowns made before templates show every column. CSV and PDF exports still have every column.)
+
 The website replaces the Rundown Creator features TSTV actually uses, and only those. Anyone signed in can use it from any browser on Mac or Windows.
 
 **Shows and episodes**
