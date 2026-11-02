@@ -700,20 +700,25 @@ table.rundown {
   min-width: 165px;
 }
 
+/* Column titles: bigger, bold white on TSTV blue (RG, Nov 2, 2026), in light and dark mode alike. */
 table.rundown th {
   position: sticky;
   top: 0;
-  box-shadow: inset 0 -1px 0 var(--border);
-  background: var(--surface-2);
+  background: var(--accent);
   text-align: left;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--accent-text);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 8px 6px;
-  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.04em;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--accent);
   z-index: 3;
+}
+
+/* The template's ⋯ and + menus on the blue titles. */
+table.rundown th .row-menu > button {
+  color: var(--accent-text);
 }
 
 table.rundown td {
