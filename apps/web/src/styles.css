@@ -2083,54 +2083,29 @@ button.live-on {
   font-weight: 600;
 }
 
-.columns-editor {
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-}
 
-.columns-editor summary {
-  cursor: pointer;
-}
 
-.columns-list {
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 4px;
-  max-width: 520px;
-}
-
-.columns-list li {
+/* The template's column headings: each with a ⋯ menu (Move Right, Move Left, Remove This Column), and a + to bring removed ones back. */
+.th-with-menu {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: var(--surface-2);
+  gap: 2px;
+  white-space: nowrap;
 }
 
-.columns-list .column-name {
-  font-weight: 600;
+.th-with-menu .row-menu > button,
+.add-col .row-menu > button {
+  padding: 0 4px;
+  font-size: 16px;
 }
 
-.columns-list .column-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 4px;
+.menu .menu-icon {
+  display: inline-flex;
+  width: 18px;
+  margin-right: 6px;
+  justify-content: center;
 }
 
-.columns-list .column-actions button {
-  padding: 2px 8px;
-}
-
-.columns-hidden {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
+.menu .trash-icon {
+  color: var(--danger);
 }

@@ -26,6 +26,8 @@ import {
   toggleTalent,
   updateElement,
   updateRow,
+  RUNDOWN_COLUMNS,
+  setColumns,
   type ColumnKey,
   type CommercialBreak,
   type ComputedRow,
@@ -68,6 +70,11 @@ interface GridProps {
    * template when it was made (RG, Nov 2, 2026; see readColumns).
    */
   columns: ColumnKey[];
+  /**
+   * The show's template (RG, Nov 2, 2026): each column heading has a ⋯ menu to move it right or left, or
+   * remove it (all but the locked ones), and a + at the end of the headings brings removed ones back.
+   */
+  editColumns?: boolean;
 }
 
 /** Each column's heading. */
@@ -119,7 +126,7 @@ function lineCells(columns: ColumnKey[], own: Partial<Record<ColumnKey, ReactNod
   return cells;
 }
 
-export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, media, airTime, me, readOnly, isAdmin, others, setFocus, columns }: GridProps) {
+export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, media, airTime, me, readOnly, isAdmin, others, setFocus, columns, editColumns = false }: GridProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const ids = timing.rows.map((c) => c.row.id);
 
@@ -129,6 +136,15 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, me
   };
 
   const focusedBy = (rowId: string, field: string) => others.filter((o) => o.focus === `${rowId}:${field}`);
+  // The template's column menus: moving a column, and the removed ones to bring back.
+  const moveColumn = (from: number, to: number) => {
+    const next = [...columns];
+    const [key] = next.splice(from, 1);
+    next.splice(to, 0, key);
+    setColumns(doc, next);
+  };
+  const isLocked = (key: ColumnKey) => RUNDOWN_COLUMNS.some((c) => c.key === key && c.locked);
+  const removed = RUNDOWN_COLUMNS.filter((c) => !columns.includes(c.key));
   const backTime = (offset: number | null) => (offset === null ? '' : airTime ? formatClock(airTime, offset) : `+${formatDuration(offset)}`);
   const canEditBreaks = isAdmin && !readOnly;
   // Admins can add a commercial break above any row but the first. Above a block, that brings back the
@@ -159,11 +175,35 @@ export function RundownGrid({ episodeId, doc, timing, settings, talent, cued, me
           <tr>
             <th className="handle-col" aria-label="Drag to reorder" />
             <th className="num-col">#</th>
-            {columns.map((key) => (
+            {columns.map((key, i) => (
               <th key={key} className={HEADINGS[key].className} title={key === 'backTime' ? (airTime ? 'Clock time this must start to end on time' : 'How far into the show this must start to end on time') : HEADINGS[key].title}>
-                {HEADINGS[key].label}
+                {editColumns ? (
+                  <div className="th-with-menu">
+                    {HEADINGS[key].label}
+                    <RowMenu
+                      label={`${HEADINGS[key].label} column`}
+                      items={[
+                        { label: 'Move Right', icon: '→', disabled: i === columns.length - 1, run: () => moveColumn(i, i + 1) },
+                        { label: 'Move Left', icon: '←', disabled: i === 0, run: () => moveColumn(i, i - 1) },
+                        ...(isLocked(key) ? [] : [{ label: 'Remove This Column', icon: TRASH, danger: true, run: () => setColumns(doc, columns.filter((k) => k !== key)) }]),
+                      ]}
+                    />
+                  </div>
+                ) : (
+                  HEADINGS[key].label
+                )}
               </th>
             ))}
+            {editColumns && removed.length > 0 && (
+              <th className="add-col">
+                <RowMenu
+                  label="Add a column"
+                  ariaLabel="Add a column back"
+                  trigger="+"
+                  items={removed.map((c) => ({ label: c.label, run: () => setColumns(doc, [...columns, c.key]) }))}
+                />
+              </th>
+            )}
           </tr>
         </thead>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -660,14 +700,23 @@ interface MenuItem {
   run: () => unknown;
   danger?: boolean;
   disabled?: boolean;
+  /** A picture before the label, like an arrow or a trash can. */
+  icon?: ReactNode;
 }
 
-function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
+/** A trash can, for "Remove This Column". */
+const TRASH = (
+  <svg className="trash-icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" />
+  </svg>
+);
+
+function RowMenu({ label, items, trigger = '⋯', ariaLabel }: { label: string; items: MenuItem[]; trigger?: ReactNode; ariaLabel?: string }) {
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   return (
     <div className="row-menu">
-      <button aria-label={`Actions for ${label}`} aria-expanded={Boolean(anchor)} onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}>
-        ⋯
+      <button aria-label={ariaLabel ?? `Actions for ${label}`} aria-expanded={Boolean(anchor)} onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}>
+        {trigger}
       </button>
       {anchor && (
         <Popover anchor={anchor} align="right" onClose={() => setAnchor(null)}>
@@ -683,6 +732,7 @@ function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
                   item.run();
                 }}
               >
+                {item.icon && <span className="menu-icon">{item.icon}</span>}
                 {item.label}
               </button>
             ))}

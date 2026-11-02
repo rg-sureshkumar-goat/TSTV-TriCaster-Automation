@@ -1,6 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import * as Y from 'yjs';
-import { breakGraphic, clipSecondsBySection, computeRundown, cueLabel, formatDuration, isCameraCueId, formatOverUnder, RUNDOWN_COLUMNS, sectionSecondsFrom, setColumns, talentColors, type Broadcast, type ColumnKey, type RundownTiming, type ShowSettings } from '@tstv/shared';
+import { breakGraphic, clipSecondsBySection, computeRundown, cueLabel, formatDuration, isCameraCueId, formatOverUnder, sectionSecondsFrom, talentColors, type Broadcast, type RundownTiming, type ShowSettings } from '@tstv/shared';
 import { TalentPanel } from '../rundown/TalentPanel.tsx';
 import { api, useLoad, type User } from '../lib/api.ts';
 import { Link, navigate } from '../lib/router.tsx';
@@ -103,7 +102,10 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
         <div className="episode-head">
           <div>
             <h1>Rundown template</h1>
-            <p className="muted">Every new rundown for {show.name} starts as a copy of this: its blocks and sections, their graphics and scripts, and these columns.</p>
+            <p className="muted">
+              Every new rundown for {show.name} starts as a copy of this: its blocks and sections, their graphics and scripts, and these columns. Each column’s ⋯ moves
+              it or removes it; + at the end of the headings brings a removed one back.
+            </p>
           </div>
           <div className="episode-actions">
             <ConnectionBadge status={room.status} synced={room.synced} />
@@ -113,7 +115,6 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
         <p className="notice template-notice" role="note">
           Any Changes Made to this Template Will Not Affect Already Published Rundowns
         </p>
-        {room.synced && room.doc && <ColumnsEditor doc={room.doc} columns={room.columns} />}
         <div className="timing-bar" aria-live="polite">
           <span>
             Total <strong>{formatDuration(timing.totalSeconds)}</strong>
@@ -125,7 +126,7 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
         {!room.synced || !room.doc ? (
           <p className="muted">Loading the template…</p>
         ) : (
-          <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} talent={room.talent} cued={room.cued} media={room.media} airTime="" me={me} readOnly={false} isAdmin={user.isAdmin} others={room.others} setFocus={room.setFocus} columns={room.columns} />
+          <RundownGrid episodeId={episode.id} doc={room.doc} timing={timing} settings={settings} talent={room.talent} cued={room.cued} media={room.media} airTime="" me={me} readOnly={false} isAdmin={user.isAdmin} others={room.others} setFocus={room.setFocus} columns={room.columns} editColumns />
         )}
         {sectionId && (
           <Suspense fallback={null}>
@@ -403,57 +404,3 @@ function EpisodeDetailsForm({ episode, onDone }: { episode: EpisodeListItem; onD
     </div>
   );
 }
-
-/**
- * The template's columns (RG, Nov 2, 2026): shown ones in order, which can be moved and hidden, then the
- * hidden ones, which can be shown again. Section number, Slug, Camera and Graphics always stay.
- */
-function ColumnsEditor({ doc, columns }: { doc: Y.Doc; columns: ColumnKey[] }) {
-  const hidden = RUNDOWN_COLUMNS.filter((c) => !columns.includes(c.key));
-  const label = (key: ColumnKey) => RUNDOWN_COLUMNS.find((c) => c.key === key)!.label;
-  const locked = (key: ColumnKey) => RUNDOWN_COLUMNS.find((c) => c.key === key)!.locked;
-  const move = (from: number, to: number) => {
-    const next = [...columns];
-    const [key] = next.splice(from, 1);
-    next.splice(to, 0, key);
-    setColumns(doc, next);
-  };
-  return (
-    <details className="columns-editor" open>
-      <summary>
-        <strong>Columns</strong> <span className="muted small">Move them into any order, or hide the ones this show doesn’t use.</span>
-      </summary>
-      <ol className="columns-list">
-        <li className="locked">
-          <span>#</span> <span className="muted small">Section number · always shown, always first</span>
-        </li>
-        {columns.map((key, i) => (
-          <li key={key}>
-            <span className="column-name">{label(key)}</span>
-            {locked(key) && <span className="muted small">Always shown</span>}
-            <span className="column-actions">
-              <button aria-label={`Move ${label(key)} up`} disabled={i === 0} onClick={() => move(i, i - 1)}>
-                ↑
-              </button>
-              <button aria-label={`Move ${label(key)} down`} disabled={i === columns.length - 1} onClick={() => move(i, i + 1)}>
-                ↓
-              </button>
-              {!locked(key) && <button onClick={() => setColumns(doc, columns.filter((k) => k !== key))}>Hide</button>}
-            </span>
-          </li>
-        ))}
-      </ol>
-      {hidden.length > 0 && (
-        <div className="columns-hidden">
-          <span className="muted small">Hidden:</span>
-          {hidden.map((c) => (
-            <button key={c.key} onClick={() => setColumns(doc, [...columns, c.key])} title="Show it again, at the end">
-              + {c.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </details>
-  );
-}
-

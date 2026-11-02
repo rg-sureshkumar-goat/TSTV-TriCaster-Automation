@@ -11,9 +11,21 @@ async function signIn(browser: Browser, name: string): Promise<Page> {
   return page;
 }
 
-const headings = (page: Page) => page.locator('table.rundown thead th').allTextContents();
-/** A column's line in the template's Columns box, by its exact name. */
-const columnLine = (page: Page, name: string) => page.locator('.columns-list li', { has: page.getByText(name, { exact: true }) });
+/** The rundown's column headings, without the template's ⋯ menu buttons. */
+const headings = async (page: Page) => (await page.locator('table.rundown thead th').allTextContents()).map((t) => t.replace('⋯', '').trim());
+/** Picks an item from a column heading's ⋯ menu in the template. */
+async function columnMenu(page: Page, column: string, item: string) {
+  await page.getByRole('button', { name: `Actions for ${column} column` }).click();
+  await page.getByRole('menuitem', { name: item }).click();
+}
+
+/** Moves a column left with its menu until it's at this place among the headings, one move at a time. */
+async function moveLeftTo(page: Page, column: string, place: number) {
+  for (let at = (await headings(page)).indexOf(column); at > place; at--) {
+    await columnMenu(page, column, 'Move Left');
+    await expect.poll(async () => (await headings(page)).indexOf(column)).toBe(at - 1);
+  }
+}
 
 test('new rundowns start from the show’s template, and later changes to it leave them alone', async ({ browser }) => {
   const rg = await signIn(browser, 'RG (TD)');
@@ -41,14 +53,22 @@ test('new rundowns start from the show’s template, and later changes to it lea
   await rg.keyboard.press('Escape');
   await rg.goto(templateUrl);
 
-  // Columns: Writer is hidden, Notes moves up above Story Type. Slug, Camera and Graphics can't be hidden.
-  await columnLine(rg, 'Writer').getByRole('button', { name: 'Hide' }).click();
-  for (let i = 0; i < 5; i++) {
-    if ((await headings(rg)).indexOf('Notes') === 2) break;
-    await rg.getByRole('button', { name: 'Move Notes up' }).click();
+  // Columns, from each heading's ⋯ menu: Writer is removed, and Notes moves left to just after Slug.
+  // Slug, Camera and Graphics can't be removed. A removed column comes back from the + at the end.
+  await columnMenu(rg, 'Writer', 'Remove This Column');
+  await moveLeftTo(rg, 'Notes', 3);
+  for (const locked of ['Slug', 'Camera', 'Graphics']) {
+    await rg.getByRole('button', { name: `Actions for ${locked} column` }).click();
+    await expect(rg.getByRole('menuitem', { name: 'Move Right' })).toBeVisible();
+    await expect(rg.getByRole('menuitem', { name: 'Remove This Column' })).toHaveCount(0);
+    await rg.keyboard.press('Escape');
   }
-  for (const locked of ['Slug', 'Camera', 'Graphics']) await expect(columnLine(rg, locked).getByRole('button', { name: 'Hide' })).toHaveCount(0);
-  await expect.poll(() => headings(rg)).toEqual(['', '#', 'Slug', 'Notes', 'Story Type', 'Talent', 'Camera', 'Headline', 'Graphics', 'Assign Graphics', 'Est.', 'Back-time', 'Last edit']);
+  await columnMenu(rg, 'Headline', 'Remove This Column');
+  await rg.getByRole('button', { name: 'Add a column back' }).click();
+  await rg.getByRole('menuitem', { name: 'Headline' }).click();
+  await expect.poll(async () => (await headings(rg)).at(-2)).toBe('Headline');
+  await moveLeftTo(rg, 'Headline', 7);
+  await expect.poll(() => headings(rg)).toEqual(['', '#', 'Slug', 'Notes', 'Story Type', 'Talent', 'Camera', 'Headline', 'Graphics', 'Assign Graphics', 'Est.', 'Back-time', 'Last edit', '+']);
 
   // The template isn't an episode: it's not in the show's list.
   await rg.goto(showUrl);
@@ -66,7 +86,7 @@ test('new rundowns start from the show’s template, and later changes to it lea
 
   // Changing the template afterward doesn't change that rundown.
   await rg.goto(templateUrl);
-  await columnLine(rg, 'Headline').getByRole('button', { name: 'Hide' }).click();
+  await columnMenu(rg, 'Headline', 'Remove This Column');
   await rg.getByRole('button', { name: '+ Section' }).click();
   await rg.getByLabel('A2 slug').fill('Added Later');
   await rg.getByLabel('A2 slug').press('Enter');
