@@ -72,9 +72,10 @@ const now = () => Date.now();
 
 /**
  * Who can see an episode: everyone once it's published; before that, only whoever created it and admins.
+ * A show's rundown template is part of its Show settings, so only admins (RG, Nov 2, 2026).
  * Use with .bind(..., ...visibleTo(user)).
  */
-const VISIBLE = '(e.published_at IS NOT NULL OR e.created_by = ? OR ? = 1)';
+const VISIBLE = '((e.is_template = 0 AND (e.published_at IS NOT NULL OR e.created_by = ?)) OR ? = 1)';
 const visibleTo = (user: User) => [user.id, user.isAdmin ? 1 : 0] as const;
 
 async function visibleEpisode(env: Env, user: User, id: string): Promise<Record<string, unknown> | null> {
@@ -165,7 +166,8 @@ app.get('/shows/:id', async (c) => {
   });
 });
 
-app.patch('/shows/:id', async (c) => {
+// A show's settings: admins only (RG, Nov 2, 2026).
+app.patch('/shows/:id', adminOnly, async (c) => {
   const body = await c.req.json<{ name?: string; settings?: unknown; logo?: string | null }>();
   const show = await c.env.DB.prepare('SELECT id, name, settings, logo FROM shows WHERE id = ?').bind(c.req.param('id')).first<Record<string, unknown>>();
   if (!show) return c.json({ error: 'Show not found.' }, 404);
@@ -206,9 +208,9 @@ const templateOf = (env: Env, showId: string) =>
 
 /**
  * Opens a show's rundown template, making it the first time (RG, Nov 2, 2026). It's a special episode,
- * visible to everyone who signs in, hidden from the episode lists and search.
+ * seen only by admins (it's in Show settings), hidden from the episode lists and search.
  */
-app.post('/shows/:id/template', async (c) => {
+app.post('/shows/:id/template', adminOnly, async (c) => {
   const showId = c.req.param('id');
   if (!(await c.env.DB.prepare('SELECT 1 FROM shows WHERE id = ?').bind(showId).first())) return c.json({ error: 'Show not found.' }, 404);
   const existing = await templateOf(c.env, showId);

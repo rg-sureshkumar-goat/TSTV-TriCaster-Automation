@@ -59,11 +59,14 @@ export function ShowPage({ showId, user }: { showId: string; user: User }) {
         <button className={tab === 'episodes' ? 'active' : ''} onClick={() => setTab('episodes')}>
           Episodes
         </button>
-        <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>
-          Show settings
-        </button>
+        {/* Only admins see a show's settings and its rundown template (RG, Nov 2, 2026). */}
+        {user.isAdmin && (
+          <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>
+            Show settings
+          </button>
+        )}
       </div>
-      {tab === 'episodes' ? (
+      {tab === 'episodes' || !user.isAdmin ? (
         <>
           <NewEpisodeForm showId={showId} />
           <EpisodeList episodes={active} settings={data.show.settings} empty="No episodes yet. Add one above." onDelete={onDelete} />

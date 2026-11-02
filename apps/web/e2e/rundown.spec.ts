@@ -294,6 +294,14 @@ test('only signed-in people get in, and only the admin manages people', async ({
   const sam = await signIn(browser, 'Sam Writer');
   await expect(sam.getByRole('link', { name: 'People' })).toHaveCount(0);
   expect((await sam.request.get('/api/admin/people')).status()).toBe(403);
+  // Nor a show's settings or its rundown template (RG, Nov 2, 2026): no Show settings tab, and the server says no.
+  await sam.getByPlaceholder('Show name').fill('Sam’s Show');
+  await sam.getByRole('button', { name: 'Add show' }).click();
+  await expect(sam.getByRole('heading', { name: 'Sam’s Show' })).toBeVisible();
+  await expect(sam.getByRole('button', { name: 'Show settings' })).toHaveCount(0);
+  const samShow = sam.url().split('/').pop();
+  expect((await sam.request.patch(`/api/shows/${samShow}`, { data: { name: 'Renamed' } })).status()).toBe(403);
+  expect((await sam.request.post(`/api/shows/${samShow}/template`)).status()).toBe(403);
 
   // RG is the admin and can invite someone.
   const rg = await signIn(browser, 'RG (TD)');
