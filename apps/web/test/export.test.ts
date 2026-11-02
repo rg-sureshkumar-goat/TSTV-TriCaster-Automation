@@ -14,20 +14,20 @@ describe('CSV export', () => {
   const lines = csv.trim().split('\r\n');
 
   it('has a header and one line per row', () => {
-    expect(lines[0]).toBe('#,Slug,Story Type,Writer,Talent,Camera,Headline,Graphics,Notes,Assign Graphics,Floated,Est.,Back-time,Added by,Last edited by');
+    expect(lines[0]).toBe('#,Slug,Story Type,Writer,Talent,Camera,Headline,Graphics,Notes,Assign Graphics,Est.,Back-time,Last edit');
     expect(lines).toHaveLength(4);
   });
 
   it('quotes commas and quotes, lists elements in order, fills in the default camera, and names the writer', () => {
-    expect(lines[2]).toBe('A1,"Basketball, ""big"" win",Reader,Sam,"Jordan, Riley",Camera 1,Horns win big,"L3 Score, VO, Station ID",Check score,Pat,,1:30,7:28:30 PM,Sam Writer,Sam Writer');
+    expect(lines[2]).toBe('A1,"Basketball, ""big"" win",Reader,Sam,"Jordan, Riley",Camera 1,Horns win big,"L3 Score, VO, Station ID",Check score,Pat,1:30,7:28:30 PM,Sam Writer');
   });
 
   it('marks floated sections and gives them no back-time', () => {
-    expect(lines[3]).toBe('A2,Weather,Cross Talk,,Riley,Camera 3,,,,,Floated,1:00,,,');
+    expect(lines[3]).toBe('A2 (floated),Weather,Cross Talk,,Riley,Camera 3,,,,,1:00,,');
   });
 
   it('shows block lines with their total', () => {
-    expect(lines[1]).toBe('A,BLOCK A: Top stories,,,,,,,,,,1:30,7:28:30 PM,,');
+    expect(lines[1]).toBe('A,BLOCK A: Top stories,,,,,,,,,1:30,7:28:30 PM,');
   });
 
   it('adds a commercial break line before every block after the first', () => {
@@ -35,7 +35,16 @@ describe('CSV export', () => {
     const out = toCsv(computeRundown(withBreak, 1800, undefined, 120), { showName: 'News', episodeTitle: 'Ep', airDate: '', airTime: '19:00', defaultCamera: 'Camera 1', breakGraphic: 'Commercial Break' })
       .trim()
       .split('\r\n');
-    expect(out[4]).toBe(',COMMERCIAL BREAK,,,,,,Commercial Break,,,,2:00,7:28:00 PM,,');
-    expect(out[5]).toBe('B,BLOCK B,,,,,,,,,,0:00,7:30:00 PM,,');
+    expect(out[4]).toBe(',COMMERCIAL BREAK,,,,,,Commercial Break,,,2:00,7:28:00 PM,');
+    expect(out[5]).toBe('B,BLOCK B,,,,,,,,,0:00,7:30:00 PM,');
+  });
+
+  it('has only the rundown’s columns, in its order (RG, Nov 2, 2026)', () => {
+    const out = toCsv(computeRundown(rows, 1800), { showName: 'News', episodeTitle: 'Ep', airDate: '', airTime: '19:00', defaultCamera: 'Camera 1' }, ['notes', 'slug', 'camera', 'graphics'])
+      .trim()
+      .split('\r\n');
+    expect(out[0]).toBe('#,Notes,Slug,Camera,Graphics');
+    expect(out[1]).toBe('A,,BLOCK A: Top stories,,');
+    expect(out[2]).toBe('A1,Check score,"Basketball, ""big"" win",Camera 1,"L3 Score, VO, Station ID"');
   });
 });

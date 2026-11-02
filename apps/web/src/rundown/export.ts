@@ -1,6 +1,7 @@
 // Exporting a rundown as CSV (for spreadsheets) or PDF (for printing and sharing). Both are made in
-// the browser, so they cost nothing on the server.
-import { elementLabel, formatClock, talentLabel, formatDuration, formatOverUnder, type RundownTiming, type SectionRow } from '@tstv/shared';
+// the browser, so they cost nothing on the server. They have the rundown's own columns, in its order
+// (RG, Nov 2, 2026: the ones its template chose), after the block or section number.
+import { DEFAULT_COLUMNS, elementLabel, formatClock, talentLabel, formatDuration, formatOverUnder, RUNDOWN_COLUMNS, type ColumnKey, type RundownTiming, type SectionRow } from '@tstv/shared';
 
 export interface ExportInfo {
   showName: string;
@@ -14,39 +15,44 @@ export interface ExportInfo {
   correspondents?: string[];
 }
 
-const HEADERS = ['#', 'Slug', 'Story Type', 'Writer', 'Talent', 'Camera', 'Headline', 'Graphics', 'Notes', 'Assign Graphics', 'Floated', 'Est.', 'Back-time', 'Added by', 'Last edited by'];
+/** The headings: the number, then the rundown's columns, named as in the rundown. */
+function headers(columns: ColumnKey[]): string[] {
+  return ['#', ...columns.map((key) => RUNDOWN_COLUMNS.find((c) => c.key === key)!.label)];
+}
 
-function tableRows(timing: RundownTiming, info: ExportInfo): string[][] {
+type Line = { kind: 'block' | 'break' | 'section'; cells: string[] };
+
+/** One line per block, commercial break and section, with a cell for each of the rundown's columns. */
+function tableRows(timing: RundownTiming, info: ExportInfo, columns: ColumnKey[]): Line[] {
   const backTime = (offset: number | null) => (offset === null ? '' : info.airTime ? formatClock(info.airTime, offset) : `+${formatDuration(offset)}`);
+  const line = (kind: Line['kind'], number: string, values: Partial<Record<ColumnKey, string>>): Line => ({ kind, cells: [number, ...columns.map((key) => values[key] ?? '')] });
   return timing.rows.flatMap((c) => {
-    const lines: string[][] = [];
+    const lines: Line[] = [];
     if (c.breakBefore) {
       const b = c.breakBefore;
-      const seconds = b.seconds > 0 ? formatDuration(b.seconds) : '';
-      lines.push(['', 'COMMERCIAL BREAK', '', '', '', '', '', info.breakGraphic ?? '', '', '', '', seconds, b.seconds > 0 ? backTime(b.backTimeOffset) : '', '', '']);
+      lines.push(line('break', '', { slug: 'COMMERCIAL BREAK', graphics: info.breakGraphic ?? '', est: b.seconds > 0 ? formatDuration(b.seconds) : '', backTime: b.seconds > 0 ? backTime(b.backTimeOffset) : '' }));
     }
     if (c.row.kind === 'block') {
-      lines.push([c.label, `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, '', '', '', '', '', '', '', '', '', formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime(c.backTimeOffset), '', '']);
+      lines.push(line('block', c.label, { slug: `BLOCK ${c.label}${c.row.title ? `: ${c.row.title}` : ''}`, est: formatDuration(timing.blockSeconds[c.blockLetter] ?? 0), backTime: backTime(c.backTimeOffset) }));
       return lines;
     }
     const s = c.row as SectionRow;
-    lines.push([
-      c.label,
-      s.slug,
-      s.type,
-      s.writer,
-      talentLabel(s.talent),
-      s.camera || info.defaultCamera,
-      s.headline,
-      s.elements.map(elementLabel).join(', '),
-      s.notes,
-      s.assignGraphics,
-      s.floated ? 'Floated' : '',
-      c.seconds > 0 || s.estSeconds !== null ? formatDuration(c.seconds) : '',
-      backTime(c.backTimeOffset),
-      s.createdBy?.name ?? '',
-      s.updatedBy?.name ?? '',
-    ]);
+    lines.push(
+      line('section', s.floated ? `${c.label} (floated)` : c.label, {
+        slug: s.slug,
+        type: s.type,
+        writer: s.writer,
+        talent: talentLabel(s.talent),
+        camera: s.camera || info.defaultCamera,
+        headline: s.headline,
+        graphics: s.elements.map(elementLabel).join(', '),
+        notes: s.notes,
+        assignGraphics: s.assignGraphics,
+        est: c.seconds > 0 || s.estSeconds !== null ? formatDuration(c.seconds) : '',
+        backTime: backTime(c.backTimeOffset),
+        lastEdit: s.updatedBy?.name ?? '',
+      }),
+    );
     return lines;
   });
 }
@@ -64,18 +70,18 @@ function download(blob: Blob, name: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function toCsv(timing: RundownTiming, info: ExportInfo): string {
+export function toCsv(timing: RundownTiming, info: ExportInfo, columns: ColumnKey[] = DEFAULT_COLUMNS): string {
   const quote = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  const lines = [HEADERS, ...tableRows(timing, info)].map((r) => r.map(quote).join(','));
+  const lines = [headers(columns), ...tableRows(timing, info, columns).map((l) => l.cells)].map((r) => r.map(quote).join(','));
   return `${lines.join('\r\n')}\r\n`;
 }
 
-export function exportCsv(timing: RundownTiming, info: ExportInfo): void {
+export function exportCsv(timing: RundownTiming, info: ExportInfo, columns: ColumnKey[] = DEFAULT_COLUMNS): void {
   // The byte-order mark makes Excel read accented names correctly.
-  download(new Blob(['﻿', toCsv(timing, info)], { type: 'text/csv;charset=utf-8' }), fileName(info, 'csv'));
+  download(new Blob(['﻿', toCsv(timing, info, columns)], { type: 'text/csv;charset=utf-8' }), fileName(info, 'csv'));
 }
 
-export async function exportPdf(timing: RundownTiming, info: ExportInfo): Promise<void> {
+export async function exportPdf(timing: RundownTiming, info: ExportInfo, columns: ColumnKey[] = DEFAULT_COLUMNS): Promise<void> {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
   pdf.setFontSize(16);
@@ -94,19 +100,21 @@ export async function exportPdf(timing: RundownTiming, info: ExportInfo): Promis
     .filter(Boolean)
     .join('   ·   ');
   if (talentLine) pdf.text(talentLine, 40, 72);
+  const lines = tableRows(timing, info, columns);
   autoTable(pdf, {
     startY: talentLine ? 86 : 72,
-    head: [HEADERS],
-    body: tableRows(timing, info),
+    head: [headers(columns)],
+    body: lines.map((l) => l.cells),
     styles: { fontSize: 8, cellPadding: 3 },
-    headStyles: { fillColor: [191, 87, 0] },
+    // The website's blue (#14679b).
+    headStyles: { fillColor: [20, 103, 155] },
     didParseCell: (data) => {
-      const label = String((data.row.raw as string[])[1] ?? '');
-      if (data.section === 'body' && label.startsWith('BLOCK ')) {
+      const kind = data.section === 'body' ? lines[data.row.index]?.kind : undefined;
+      if (kind === 'block') {
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fillColor = [238, 238, 238];
       }
-      if (data.section === 'body' && label === 'COMMERCIAL BREAK') {
+      if (kind === 'break') {
         data.cell.styles.fontStyle = 'italic';
         data.cell.styles.fillColor = [246, 246, 246];
       }

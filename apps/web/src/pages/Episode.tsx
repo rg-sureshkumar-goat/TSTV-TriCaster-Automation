@@ -184,8 +184,8 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
           {(canPublish || user.isAdmin) && <AppKeyButton episodeId={episode.id} />}
           {canPublish && !readOnly && <LiveButton episodeId={episode.id} live={room.broadcast.live} onError={setMessage} />}
           {!canPublish && room.broadcast.live && <span className="badge live">● Live</span>}
-          <button onClick={() => exportCsv(timing, exportInfo)}>Export CSV</button>
-          <button onClick={() => exportPdf(timing, exportInfo)}>Export PDF</button>
+          <button onClick={() => exportCsv(timing, exportInfo, room.columns)}>Export CSV</button>
+          <button onClick={() => exportPdf(timing, exportInfo, room.columns)}>Export PDF</button>
           {!readOnly && <button onClick={archive}>Archive</button>}
           {readOnly && user.isAdmin && <button onClick={unarchive}>Un-archive</button>}
           {user.isAdmin && (
