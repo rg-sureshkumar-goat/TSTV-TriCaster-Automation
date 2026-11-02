@@ -140,7 +140,7 @@ The website replaces the Rundown Creator features TSTV actually uses, and only t
 
 The prompter is a full-screen page of the website, opened in a browser on the existing prompter computer. Its screen already feeds the camera monitors and mirror, so nothing else changes in the studio.
 
-- **Controls:** the up arrow speeds up, the down arrow slows down, exactly like today. The spacebar pauses and resumes. Other keys jump to the next or previous section and back to the top.
+- **Controls:** the up arrow speeds up, the down arrow slows down, exactly like today. The top speed is **40** arrow presses either way (raised from 20, RG, Nov 2, 2026). The spacebar pauses and resumes. Other keys jump to the next or previous section and back to the top.
   - **Decided Oct 29, 2026 (Phase 3):** a **prompter operator** runs it from the keyboard. Pressing the down arrow past a stop runs the text **backwards**, faster with each press, as today's prompter does. **Page Down** or **→** jumps to the next section, **Page Up** or **←** goes back to the start of the section (then the one before), **H** (or Home) goes back to the top, stopped. A **Go to section** list at the top, listing each section's number and slug, jumps to any section. **F** is full screen, **S** opens the settings and **?** the list of keys. The mouse wheel nudges the text.
   - **Signing in (decided Oct 29, 2026):** the prompter computer signs in to the website once with Google, ideally with a TSTV station Gmail that an admin invites, and stays signed in. (The show app connects with the episode's key instead of a sign-in; see Part 3.)
   - Opened from an episode's **Open prompter** button, at `/prompter/<episode>`.

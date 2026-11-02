@@ -64,8 +64,8 @@ export const DEFAULT_PROMPTER_SETTINGS: PrompterSettings = {
 
 const SETTINGS_KEY = 'tstv-prompter-settings';
 const copyKey = (episodeId: string) => `tstv-prompter-copy-${episodeId}`;
-/** Arrow presses from stopped to the top speed, either way. */
-const MAX_SPEED = 20;
+/** Arrow presses from stopped to the top speed, either way (20 until RG raised it, Nov 2, 2026). */
+const MAX_SPEED = 40;
 
 function loadSettings(): PrompterSettings {
   try {
