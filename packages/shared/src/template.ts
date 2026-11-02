@@ -1,9 +1,9 @@
 // Rundown templates (RG, Nov 2, 2026): each show can have a template rundown, edited on its own page,
 // and every new rundown for the show starts as a copy of it: its blocks, sections, graphics and scripts,
-// and which columns the rundown shows, in what order. Its anchors and talent aren't copied. A copy is
-// made once, when the rundown is created, so changing the template never changes rundowns already made.
+// which columns the rundown shows, in what order, and its starter talent (like Anchor 1), who the producer
+// renames to the real people (renameEpisodeTalent). A copy is made once, when the rundown is created, so
+// changing the template never changes rundowns already made.
 import * as Y from 'yjs';
-import { rowsOf } from './rundown.ts';
 
 /**
  * The rundown's columns after the drag handle and the block or section number (which always come first).
@@ -54,16 +54,12 @@ export function setColumns(doc: Y.Doc, columns: string[]): void {
 }
 
 /**
- * Turns a copy of a template into a new rundown: the template's anchors and talent, who reads each
- * section, and anything about its own files or broadcast are cleared. Its blocks, sections, graphics,
- * scripts and columns stay.
+ * Turns a copy of a template into a new rundown: anything about the template's own files, broadcast and
+ * edit history is cleared. Its blocks, sections, graphics, scripts, columns and starter talent stay.
  */
 export function startFromTemplate(doc: Y.Doc): void {
   doc.transact(() => {
-    const talent = doc.getArray('talent');
-    talent.delete(0, talent.length);
-    for (const row of rowsOf(doc).toArray()) if (row.get('kind') === 'section') row.set('talent', []);
-    for (const name of ['media', 'broadcast', 'scriptReaders', 'scriptInfo']) {
+    for (const name of ['media', 'broadcast', 'scriptInfo']) {
       const map = doc.getMap(name);
       for (const key of [...map.keys()]) map.delete(key);
     }

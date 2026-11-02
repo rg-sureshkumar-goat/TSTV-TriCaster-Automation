@@ -41,13 +41,19 @@ test('new rundowns start from the show’s template, and later changes to it lea
   await expect(rg.getByText('Any Changes Made to this Template Will Not Affect Already Published Rundowns')).toBeVisible();
   const templateUrl = rg.url();
 
-  // The template: a Show Open section with the Show Intro, and its script.
+  // The template: starter talent (Anchor 1), and a Show Open section Anchor 1 reads, with the Show Intro and its script.
+  await rg.getByLabel('Add an anchor').fill('Anchor 1');
+  await rg.getByLabel('Add an anchor').press('Enter');
+  await rg.getByRole('button', { name: 'A1 talent' }).click();
+  await rg.getByRole('checkbox', { name: 'Anchor 1' }).check();
+  await rg.getByRole('button', { name: 'Done' }).click();
   await rg.getByLabel('A1 slug').fill('Show Open');
   await rg.getByLabel('A1 slug').press('Enter');
   await rg.getByRole('button', { name: 'Add a graphic to A1' }).click();
   await rg.getByRole('menuitem', { name: /Show Intro/ }).click();
   await rg.getByRole('link', { name: 'Open the script for A1 Show Open' }).click();
   const script = rg.getByRole('textbox', { name: 'Script for A1' });
+  await expect(script.locator('p').first()).toHaveText('{ANCHOR 1}');
   await script.locator('p').last().click();
   await rg.keyboard.type('Good evening and welcome.');
   await rg.keyboard.press('Escape');
@@ -82,6 +88,18 @@ test('new rundowns start from the show’s template, and later changes to it lea
   await expect.poll(() => headings(rg)).toEqual(['', '#', 'Slug', 'Notes', 'Story Type', 'Talent', 'Camera', 'Headline', 'Graphics', 'Assign Graphics', 'Est.', 'Back-time', 'Last edit']);
   const episodeUrl = rg.url();
   await rg.getByRole('link', { name: 'Open the script for A1 Show Open' }).click();
+  await expect(rg.getByRole('textbox', { name: 'Script for A1' })).toContainText('GOOD EVENING AND WELCOME.');
+  await rg.keyboard.press('Escape');
+  await rg.goto(episodeUrl);
+
+  // Its starter talent came too: renaming Anchor 1 to the real anchor changes the section and the script.
+  await rg.getByRole('button', { name: 'Rename Anchor 1' }).click();
+  await rg.getByLabel('New name for Anchor 1').fill('Jordan');
+  await rg.getByLabel('New name for Anchor 1').press('Enter');
+  await expect(rg.getByRole('button', { name: 'Rename Jordan' })).toBeVisible();
+  await expect(rg.getByRole('button', { name: 'A1 talent' })).toContainText('Jordan');
+  await rg.getByRole('link', { name: 'Open the script for A1 Show Open' }).click();
+  await expect(rg.getByRole('textbox', { name: 'Script for A1' }).locator('p').first()).toHaveText('{JORDAN}');
   await expect(rg.getByRole('textbox', { name: 'Script for A1' })).toContainText('GOOD EVENING AND WELCOME.');
 
   // Changing the template afterward doesn't change that rundown.

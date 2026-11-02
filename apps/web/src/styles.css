@@ -2109,3 +2109,27 @@ button.live-on {
 .menu .trash-icon {
   color: var(--danger);
 }
+
+/* Talent names rename on click (RG, Nov 2, 2026). */
+.talent-name {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: text;
+}
+
+.talent-name:hover {
+  text-decoration: underline dotted;
+}
+
+.talent-rename {
+  width: 12em;
+  padding: 0 4px;
+  font: inherit;
+}
+
+.talent-rename.invalid {
+  border-color: var(--danger);
+}

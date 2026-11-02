@@ -103,8 +103,9 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
           <div>
             <h1>Rundown template</h1>
             <p className="muted">
-              Every new rundown for {show.name} starts as a copy of this: its blocks and sections, their graphics and scripts, and these columns. Each column’s ⋯ moves
-              it or removes it; + at the end of the headings brings a removed one back.
+              Every new rundown for {show.name} starts as a copy of this: its blocks and sections, their graphics and scripts, these columns, and its starter talent
+              (like Anchor 1 or Correspondent 1), whose names the producer clicks to change to the real people. Each column’s ⋯ moves it or removes it; + at the
+              end of the headings brings a removed one back.
             </p>
           </div>
           <div className="episode-actions">
@@ -115,6 +116,8 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
         <p className="notice template-notice" role="note">
           Any Changes Made to this Template Will Not Affect Already Published Rundowns
         </p>
+        {/* Starter talent, like Anchor 1, for the starter scripts; renamed to the real people in each rundown (RG, Nov 2, 2026). */}
+        {room.synced && room.doc && <TalentPanel doc={room.doc} talent={room.talent} colors={settings.talent} readOnly={false} />}
         <div className="timing-bar" aria-live="polite">
           <span>
             Total <strong>{formatDuration(timing.totalSeconds)}</strong>
