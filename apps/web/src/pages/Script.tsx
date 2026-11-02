@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import {
   colorForTalent,
+  CROSS_TALK,
   countWords,
   elementLabel,
   formatDuration,
@@ -19,6 +20,8 @@ import {
   scriptPlainText,
   speakerTag,
   talentColors,
+  toggleTalent,
+  updateRow,
   type Element,
   type RundownTiming,
   type SectionRow,
@@ -115,18 +118,49 @@ export function ScriptWindow({ episode, show, room, timing, sectionId, user, onC
               <div className="read-cue" role="note" aria-label="Who reads and which camera">
                 <div>
                   <span className="muted small">Read by</span>
-                  <strong className="read-by">
-                    {section.talent.length === 0
-                      ? 'Not picked yet'
-                      : section.talent.map((name) => {
-                          const color = colorForTalent(name, colors);
-                          return (
-                            <span key={name}>
-                              {color && <span className="dot inline" style={{ background: color }} />} {name}
-                            </span>
-                          );
-                        })}
-                  </strong>
+                  {readOnly || !room.doc ? (
+                    <strong className="read-by">
+                      {section.talent.length === 0
+                        ? 'Not picked yet'
+                        : section.talent.map((name) => {
+                            const color = colorForTalent(name, colors);
+                            return (
+                              <span key={name}>
+                                {color && <span className="dot inline" style={{ background: color }} />} {name}
+                              </span>
+                            );
+                          })}
+                    </strong>
+                  ) : (
+                    // Who reads is picked right here too (RG, Nov 2, 2026), from the rundown's anchors and
+                    // correspondents; it's the same as the section's Talent box in the rundown.
+                    <span className="read-by-picker" role="group" aria-label={`Who reads ${current.label}`}>
+                      {[...room.talent.filter((t) => t.role === 'anchor'), ...room.talent.filter((t) => t.role === 'correspondent')].map((t) => {
+                        const on = section.talent.includes(t.name);
+                        const color = colorForTalent(t.name, colors);
+                        return (
+                          <button
+                            key={t.id}
+                            className={`reader${on ? ' on' : ''}`}
+                            aria-pressed={on}
+                            title={on ? `${t.name} reads this section. Click to take them off.` : `Click so ${t.name} reads this section`}
+                            onClick={() => updateRow(room.doc!, section.id, { talent: toggleTalent(section.talent, t.name) }, me)}
+                          >
+                            {color && <span className="dot inline" style={{ background: color }} />} {t.name}
+                          </button>
+                        );
+                      })}
+                      <button
+                        className={`reader${isCrossTalk(section.talent) ? ' on' : ''}`}
+                        aria-pressed={isCrossTalk(section.talent)}
+                        title="Everyone talks, with no formal script"
+                        onClick={() => updateRow(room.doc!, section.id, { talent: toggleTalent(section.talent, CROSS_TALK) }, me)}
+                      >
+                        Cross talk
+                      </button>
+                      {room.talent.length === 0 && <span className="muted small">Add anchors and correspondents at the top of the rundown first.</span>}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span className="muted small">Look at</span>

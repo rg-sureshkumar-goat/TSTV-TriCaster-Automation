@@ -2133,3 +2133,23 @@ button.live-on {
 .talent-rename.invalid {
   border-color: var(--danger);
 }
+
+/* Who reads the section, picked in the script window (RG, Nov 2, 2026). */
+.read-by-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.read-by-picker .reader {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.read-by-picker .reader.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}

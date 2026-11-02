@@ -101,6 +101,22 @@ test('new rundowns start from the show’s template, and later changes to it lea
   await rg.getByRole('link', { name: 'Open the script for A1 Show Open' }).click();
   await expect(rg.getByRole('textbox', { name: 'Script for A1' }).locator('p').first()).toHaveText('{JORDAN}');
   await expect(rg.getByRole('textbox', { name: 'Script for A1' })).toContainText('GOOD EVENING AND WELCOME.');
+  await rg.keyboard.press('Escape');
+  await rg.goto(episodeUrl);
+
+  // Who reads can be picked in the script window too, from the rundown's talent.
+  await rg.getByRole('button', { name: '+ Section' }).click();
+  await rg.getByLabel('A2 slug').fill('Weather');
+  await rg.getByLabel('A2 slug').press('Enter');
+  await rg.getByRole('link', { name: 'Open the script for A2 Weather' }).click();
+  const readers = rg.getByRole('group', { name: 'Who reads A2' });
+  await readers.getByRole('button', { name: 'Jordan' }).click();
+  await expect(readers.getByRole('button', { name: 'Jordan' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(rg.getByRole('textbox', { name: 'Script for A2' }).locator('p').first()).toHaveText('{JORDAN}');
+  await expect(rg.getByRole('button', { name: 'Start Jordan’s part' })).toBeVisible();
+  await rg.keyboard.press('Escape');
+  await rg.goto(episodeUrl);
+  await expect(rg.getByRole('button', { name: 'A2 talent' })).toContainText('Jordan');
 
   // Changing the template afterward doesn't change that rundown.
   await rg.goto(templateUrl);
@@ -111,6 +127,6 @@ test('new rundowns start from the show’s template, and later changes to it lea
   await expect.poll(() => headings(rg)).not.toContain('Headline');
   await rg.goto(episodeUrl);
   await expect(rg.getByRole('link', { name: 'Open the script for A1 Show Open' })).toBeVisible();
-  await expect(rg.locator('tr.section-row')).toHaveCount(1);
+  await expect(rg.getByRole('link', { name: /Added Later/ })).toHaveCount(0);
   await expect.poll(() => headings(rg)).toContain('Headline');
 });
