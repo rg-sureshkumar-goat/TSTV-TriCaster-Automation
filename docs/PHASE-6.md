@@ -48,9 +48,10 @@ Phase 6 turns RiGster into a normal Mac and Windows app that anyone can install,
 
 Each show has its own permanent graphics, green screen and tease music. RiGster keeps each show's set as a **show profile**, in a Google Drive, so every laptop with RiGster has them.
 
-- **The Show profile menu** is at the top left of RiGster, next to its name. Pick a show, and its permanent graphics, green screen and music load. A new laptop starts on the RiGster key's show.
-- **The wrong key:** if the RiGster key pasted is for another show's episode, a red banner says **This Show Profile Does Not Match the RiGster Key**, and RiGster doesn't follow that episode. Pick that show's profile, or paste this show's key.
-- **A profile without an episode:** with no episode key yet, RiGster shows the profile's Permanent graphics, Green screen and Music boxes, so a show can be set up ahead of time.
+- **RiGster opens on the Select A Show Profile page** every time (RG's drawing, Nov 2, 2026): a tile for each show on the website, with its logo (or its initials) and its name under it, and the one used last outlined. Click one to work on that show. Without a RiGster key yet, the page asks for one first, since the list of shows comes from the website.
+- **The Show profile menu** at the top left, next to RiGster's name, switches shows after that. Picking a show loads its permanent graphics, green screen and music.
+- **The wrong key:** RiGster always shows the whole layout. If the RiGster key is for another show's episode, a red banner across the top says **This Show Profile Does Not Match the RiGster Key**, and RiGster doesn't follow that episode (so it can't run with the wrong show's graphics). Pick that show, or paste a key for this show.
+- **A profile without an episode:** the layout shows with no episode too, so a show's permanent graphics, green screen and music can be set up ahead of time.
 - **Adding or changing files:** drop them on the boxes as before. RiGster sends them to Google Drive (the Permanent graphics box shows "Uploading …" with how far it's got), and the other laptops download them the next time they check (every two minutes, and when the profile is picked). **Remove** takes a file out of the profile on every laptop.
 - **In Google Drive:** a **RiGster** folder, with a folder for each show. You can look at them there, but don't rename, move or delete them there: change files in RiGster. Files added to the Drive by hand don't show up in RiGster, which can only see the files it put there.
 - **Offline:** each laptop keeps a copy of each profile it has used, so the show runs if the internet drops.

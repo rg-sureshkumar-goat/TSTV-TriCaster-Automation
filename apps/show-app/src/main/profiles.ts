@@ -24,6 +24,8 @@ export interface ProfileFile {
 export interface Profile {
   id: string;
   name: string;
+  /** The show's logo from the website, as a data: URL, or null. */
+  logo?: string | null;
   settings: ShowSettings;
   /** By slot: "greenScreen", "music" or "permanent:<name>". */
   files: Record<string, ProfileFile>;

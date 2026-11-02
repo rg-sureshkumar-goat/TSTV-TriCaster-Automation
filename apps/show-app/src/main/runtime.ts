@@ -82,6 +82,8 @@ export class Runtime extends EventEmitter {
   private profileList: ProfileList | null = null;
   /** The RiGster key's episode belongs to a different show than the profile picked: it isn't followed. */
   private profileMismatch = false;
+  /** A profile has been picked on the Select A Show Profile page since RiGster opened. */
+  private profilePicked = false;
   /** What the profile is doing with Google Drive (uploading, downloading), and the last problem. */
   private profileStatus: { working: string | null; error: string | null } = { working: null, error: null };
   private syncingProfile = false;
@@ -564,7 +566,12 @@ export class Runtime extends EventEmitter {
 
   /** The producer picks a show profile. With a RiGster key for another show's episode, it isn't followed. */
   private async setProfile(showId: string): Promise<void> {
-    if (showId === this.settings.profileShowId) return;
+    const first = !this.profilePicked;
+    this.profilePicked = true;
+    if (showId === this.settings.profileShowId) {
+      if (first) void this.syncProfile();
+      return this.changed();
+    }
     this.settings = { ...this.settings, profileShowId: showId };
     await this.deps.store.saveSettings(this.settings);
     this.note(`Show profile: ${this.profileShow()?.name ?? 'none'}`);
@@ -762,8 +769,9 @@ export class Runtime extends EventEmitter {
           const file = this.permanent[name.toLowerCase()];
           return { name, withSound: profileShow.settings.permanentWithSound.includes(name), file: file ? path.basename(file.path) : null, seconds: file?.seconds ?? null, thumbnail: file?.thumbnail ?? null };
         }) ?? [],
-      profiles: (this.profileList?.profiles ?? []).map((p) => ({ id: p.id, name: p.name })),
+      profiles: (this.profileList?.profiles ?? []).map((p) => ({ id: p.id, name: p.name, logo: p.logo ?? null })),
       profile: profileShow ? { id: profileShow.id, name: profileShow.name } : null,
+      profilePicked: this.profilePicked,
       profileMismatch: this.profileMismatch,
       profileSync: { ...this.profileStatus, drive: this.profileList ? this.profileList.drive.email : null, checked: this.profileList !== null },
       greenScreen: this.greenScreen
@@ -783,9 +791,10 @@ export class Runtime extends EventEmitter {
           }
         : null,
       episode: this.website.episode ? { id: this.website.episode.id, title: this.website.episode.title, showName: show?.name ?? '', airDate: this.website.episode.airDate, airTime: this.website.episode.airTime } : null,
-      cameras: show
-        ? show.settings.cameras.map((name) => {
-            const input = show.settings.cameraInputs[name] ?? 1;
+      // The episode's show, or the profile's when no episode is followed.
+      cameras: (show ?? profileShow)
+        ? (show ?? profileShow)!.settings.cameras.map((name) => {
+            const input = (show ?? profileShow)!.settings.cameraInputs[name] ?? 1;
             return { name, input, video: this.switcher.mode === 'live' ? (this.feeds?.url(String(input)) ?? null) : this.switcher.cameraVideo(input) };
           })
         : [],

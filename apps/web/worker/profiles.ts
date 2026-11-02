@@ -143,13 +143,15 @@ export function registerProfileRoutes(app: App): void {
   /** Every show, with its profile's files. current is false for a file still in a Drive that's no longer connected. */
   app.get('/app/profiles', async (c) => {
     const drive = await link(c.env);
-    const { results: shows } = await c.env.DB.prepare('SELECT id, name, settings FROM shows ORDER BY name COLLATE NOCASE').all<{ id: string; name: string; settings: string }>();
+    const { results: shows } = await c.env.DB.prepare('SELECT id, name, settings, logo FROM shows ORDER BY name COLLATE NOCASE').all<{ id: string; name: string; settings: string; logo: string | null }>();
     const { results: files } = await c.env.DB.prepare('SELECT * FROM show_profile_files').all<Record<string, unknown>>();
     return c.json({
       drive: { connected: drive !== null, email: drive?.email ?? null },
       profiles: shows.map((s) => ({
         id: s.id,
         name: s.name,
+        // For RiGster's Select A Show Profile page.
+        logo: s.logo ?? null,
         settings: normalizeShowSettings(JSON.parse(s.settings)),
         files: Object.fromEntries(
           files

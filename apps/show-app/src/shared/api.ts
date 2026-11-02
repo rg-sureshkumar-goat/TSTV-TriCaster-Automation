@@ -52,9 +52,14 @@ export interface PermanentView {
 }
 
 export interface AppState {
-  /** Show profiles (RG, Nov 2, 2026): every show, from the website, and the one picked by hand. */
-  profiles: { id: string; name: string }[];
+  /** Show profiles (RG, Nov 2, 2026): every show, from the website, with its logo, and the one picked by hand. */
+  profiles: { id: string; name: string; logo: string | null }[];
   profile: { id: string; name: string } | null;
+  /**
+   * Whether a profile has been picked since RiGster opened: it opens on the Select A Show Profile page every
+   * time (RG, Nov 2, 2026).
+   */
+  profilePicked: boolean;
   /** The RiGster key's episode belongs to another show than the profile picked, so it isn't followed. */
   profileMismatch: boolean;
   /**

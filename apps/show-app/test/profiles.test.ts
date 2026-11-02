@@ -114,6 +114,11 @@ describe('show profiles shared through Google Drive', () => {
     expect(a.state().profile).toEqual({ id: 'show1', name: 'PrimeTime' });
     expect(a.state().profiles.map((p) => p.name)).toEqual(['PrimeTime', 'Sports']);
     expect(a.state().profileMismatch).toBe(false);
+    // RiGster opens on the Select A Show Profile page every time, until a show is picked there.
+    expect(a.state().profilePicked).toBe(false);
+    await a.act({ kind: 'setProfile', showId: 'show1' });
+    expect(a.state().profilePicked).toBe(true);
+    expect(a.state().profile?.id).toBe('show1');
   });
 
   it('sends a green screen dropped on one laptop to Google Drive, and the other laptop gets it', async () => {

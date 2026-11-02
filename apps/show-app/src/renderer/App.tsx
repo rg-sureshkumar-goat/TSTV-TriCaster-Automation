@@ -88,47 +88,24 @@ export function App() {
     await act({ kind: 'importFiles' });
     setGraphicsOpen(from);
   };
+  // Every time RiGster opens, it starts on the Select A Show Profile page (RG, Nov 2, 2026).
+  if (!state.profilePicked) return <ProfilePicker state={state} />;
   return (
     <div className={`app${state.automation.manual ? ' manual' : ''}`}>
       <LiveBar state={state} />
       <Header state={state} />
+      {/* The whole layout shows either way; a key for another show's episode just isn't followed (RG, Nov 2, 2026). */}
       {state.profileMismatch && (
         <div className="banner mismatch-banner" role="alert">
           <strong>This Show Profile Does Not Match the RiGster Key</strong>
           <span className="small">
             {' '}
-            The key is for another show’s episode. Pick that show’s profile at the top left, or paste this show’s RiGster key.
+            You’re in the {state.profile?.name ?? 'show'} profile, but the RiGster key is for another show’s episode, so RiGster isn’t following it. Pick that show at the
+            top left, or paste a RiGster key for {state.profile?.name ?? 'this show'}.
           </span>
         </div>
       )}
-      {!state.episode ? (
-        state.profile ? (
-          // A profile with no episode yet: its permanent graphics, green screen and music can be set up.
-          <main className="profile-only">
-            <p className="muted">
-              {state.profileMismatch ? '' : 'To run an episode, click '}
-              {!state.profileMismatch && <strong>Episode key</strong>}
-              {!state.profileMismatch && ' at the top right, and paste the key from the episode’s '}
-              {!state.profileMismatch && <strong>RiGster key</strong>}
-              {!state.profileMismatch && ' button on the website. '}
-              The <strong>{state.profile.name}</strong> profile’s files can be set up here, for every laptop.
-            </p>
-            <div className="profile-grid">
-              <PermanentBox state={state} />
-              <GreenScreenBox state={state} />
-              <Music state={state} />
-            </div>
-          </main>
-        ) : (
-          <main className="empty">
-            <p>
-              Click <strong>Episode key</strong> at the top right, and paste the key from the episode’s <strong>RiGster key</strong> button on the website.
-            </p>
-          </main>
-        )
-      ) : (
-        <Show state={state} onImport={() => importGraphics()} onEdit={() => setGraphicsOpen('edit')} onMissing={() => setGraphicsOpen('missing')} />
-      )}
+      <Show state={state} onImport={() => importGraphics()} onEdit={() => setGraphicsOpen('edit')} onMissing={() => setGraphicsOpen('missing')} />
       {graphicsOpen === 'edit' && state.episode && <GraphicsWindow state={state} onClose={() => setGraphicsOpen(false)} onImport={() => importGraphics('edit')} />}
       {graphicsOpen === 'missing' && state.episode && <MissingWindow state={state} onClose={() => setGraphicsOpen(false)} onImport={() => importGraphics('missing')} />}
     </div>
@@ -202,9 +179,53 @@ function ProfileStatus({ state }: { state: AppState }) {
   );
 }
 
+/**
+ * The Select A Show Profile page, which RiGster opens on every time (RG's drawing, Nov 2, 2026): a tile for
+ * each show, with its logo from the website and its name under it.
+ */
+function ProfilePicker({ state }: { state: AppState }) {
+  const shows = state.profiles.length ? state.profiles : state.profile ? [{ ...state.profile, logo: null }] : [];
+  const initials = (name: string) =>
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((w) => w[0]!.toUpperCase())
+      .join('');
+  return (
+    <main className="picker">
+      <div className="picker-top">
+        <ThemeSwitch />
+        <strong className="app-name">RiGster</strong>
+      </div>
+      <h1>Select A Show Profile</h1>
+      {shows.length > 0 && (
+        <div className="picker-tiles">
+          {shows.map((p) => (
+            <button key={p.id} className={`picker-tile${p.id === state.profile?.id ? ' last' : ''}`} onClick={() => act({ kind: 'setProfile', showId: p.id })}>
+              <span className="picker-art">{p.logo ? <img src={p.logo} alt="" /> : <span>{initials(p.name)}</span>}</span>
+              <span className="picker-name">{p.name}</span>
+              {p.id === state.profile?.id && <span className="picker-note">Last used</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {!state.profiles.length && state.website.key && (
+        <p className="muted">{state.profileSync.error ? `${state.profileSync.error}${shows.length ? ' Showing the show used last.' : ''}` : 'Getting the shows from the website…'}</p>
+      )}
+      {!state.website.key && (
+        <div className="picker-key">
+          <p>The shows come from the website. To see them, paste a RiGster key from any episode.</p>
+          <KeyPanel state={state} onDone={() => undefined} />
+        </div>
+      )}
+    </main>
+  );
+}
+
 function Header({ state }: { state: AppState }) {
   const { website, switcher, prompter, episode } = state;
-  const [open, setOpen] = useState<'key' | 'simulator' | null>(episode ? null : 'key');
+  const [open, setOpen] = useState<'key' | 'simulator' | null>(episode || website.key ? null : 'key');
   useEffect(() => {
     if (episode) setOpen(null);
   }, [episode?.id]);
