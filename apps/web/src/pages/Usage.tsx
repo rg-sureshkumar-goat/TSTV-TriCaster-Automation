@@ -1,6 +1,6 @@
 // The admin's Usage page: today's Cloudflare usage against the free plan's limits, so the TD can see
 // long before a limit is near. Daily limits reset at 00:00 UTC (7 pm Central in summer, 6 pm in winter).
-import { useLoad } from '../lib/api.ts';
+import { api, useLoad } from '../lib/api.ts';
 import { timeAgo } from '../lib/format.ts';
 
 interface UsageItem {
@@ -92,6 +92,79 @@ export function UsagePage() {
           </p>
         </>
       )}
+      <DriveBox />
     </div>
+  );
+}
+
+interface DriveStatus {
+  connected: boolean;
+  email: string | null;
+  connectedAt: number | null;
+  files: number;
+  bytes: number;
+  googleSetUp: boolean;
+}
+
+/** What came back from connecting the Drive (Google sends the admin back here). */
+const DRIVE_RESULTS: Record<string, { text: string; ok?: boolean }> = {
+  connected: { text: 'Google Drive connected. RiGster now keeps the shows’ profiles there.', ok: true },
+  cancelled: { text: 'Connecting Google Drive was cancelled.' },
+  expired: { text: 'That took too long. Click Connect Google Drive again.' },
+  google: { text: 'Google didn’t finish connecting the Drive. Try again; if it keeps happening, check the Drive setup in docs/PHASE-6.md.' },
+  'no-drive-permission': { text: 'Google’s page had the Drive permission unticked. Click Connect Google Drive again and leave it ticked.' },
+  'admins-only': { text: 'Only an admin can connect the Drive.' },
+  'not-set-up': { text: 'Google sign-in isn’t set up on the website yet.' },
+};
+
+/**
+ * RiGster's show profiles (Nov 2, 2026): each show's permanent graphics, green screen and tease music
+ * are kept in a Google Drive, which an admin connects here, so every laptop with RiGster has them.
+ */
+function DriveBox() {
+  const { data, error, reload } = useLoad<DriveStatus>('/drive');
+  const result = DRIVE_RESULTS[new URLSearchParams(window.location.search).get('drive') ?? ''];
+  const disconnect = async () => {
+    if (!confirm('Disconnect the Google Drive? RiGster stops getting the shows’ profiles until a Drive is connected again. The files stay in the Drive.')) return;
+    await api('/drive', { method: 'DELETE' });
+    reload();
+  };
+  return (
+    <section className="drive-box">
+      <h2>RiGster’s Google Drive</h2>
+      <p className="muted">
+        Each show’s permanent graphics, green screen and tease music are kept here, in a <strong>RiGster</strong> folder with a folder for each
+        show, so every laptop with RiGster has them. RiGster can see only the files it puts there, not the rest of the Drive.
+      </p>
+      {result && <p className={result.ok ? 'notice ok' : 'notice'}>{result.text}</p>}
+      {error && <p className="error">{error}</p>}
+      {data && (
+        <>
+          {data.connected ? (
+            <p>
+              Connected to <strong>{data.email}</strong>
+              {data.connectedAt ? <span className="muted"> since {new Date(data.connectedAt).toLocaleDateString()}</span> : null}.{' '}
+              {data.files} {data.files === 1 ? 'file' : 'files'} in the shows’ profiles ({formatAmount(data.bytes, 'bytes')}).
+            </p>
+          ) : (
+            <p className="muted">No Google Drive is connected yet.</p>
+          )}
+          <div className="row">
+            {data.googleSetUp && (
+              <a className={`button${data.connected ? '' : ' primary'}`} href="/api/drive/connect">
+                {data.connected ? 'Connect a different Google Drive' : 'Connect Google Drive'}
+              </a>
+            )}
+            {data.connected && <button onClick={disconnect}>Disconnect</button>}
+          </div>
+          {data.connected && (
+            <p className="muted small">
+              Connecting a different Google account’s Drive (like TSTV’s) moves the profiles there: each laptop with RiGster sends that account the files it
+              has, the next time it opens a profile.
+            </p>
+          )}
+        </>
+      )}
+    </section>
   );
 }

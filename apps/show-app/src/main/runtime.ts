@@ -31,9 +31,11 @@ import {
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
 import { collectFiles, makePlayable, readable, readFile, thumbnail, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
+import type { ShowSettings } from '@tstv/shared';
 import { cableAddresses, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
 import { Feeds } from './feeds.ts';
 import { Playout } from './playout.ts';
+import { ProfileSync, type Profile, type ProfileList } from './profiles.ts';
 import { DEFAULT_SETTINGS, type Settings, type Store } from './store.ts';
 import { askSwitcher, Switcher, type PlaylistClip, type SwitcherMode } from './switcher.ts';
 import type { UpdateState } from './updates.ts';
@@ -59,6 +61,8 @@ export interface RuntimeDeps {
   applyUpdate?: () => void;
   /** The laptop's cable addresses (tests pretend; the app reads them from the network settings). */
   cable?: () => string[];
+  /** Google Drive's address, for show profiles (tests use a pretend one). */
+  driveApi?: string;
 }
 
 export class Runtime extends EventEmitter {
@@ -70,6 +74,19 @@ export class Runtime extends EventEmitter {
   private timing: RundownTiming | null = null;
   private files: Record<string, FileInfo> = {};
   private permanent: Record<string, FileInfo> = {};
+  /**
+   * Show profiles (RG, Nov 2, 2026): the permanent graphics, green screen and music above are the profile
+   * picked by hand (settings.profileShowId), shared through Google Drive. The list comes from the website.
+   */
+  private profiles: ProfileSync;
+  private profileList: ProfileList | null = null;
+  /** The RiGster key's episode belongs to a different show than the profile picked: it isn't followed. */
+  private profileMismatch = false;
+  /** What the profile is doing with Google Drive (uploading, downloading), and the last problem. */
+  private profileStatus: { working: string | null; error: string | null } = { working: null, error: null };
+  private syncingProfile = false;
+  private syncProfileAgain = false;
+  private profileTimer: ReturnType<typeof setInterval> | null = null;
   private problems: FileProblem[] = [];
   private lastCue: AppState['lastCue'] = null;
   private log: AppState['log'] = [];
@@ -106,6 +123,7 @@ export class Runtime extends EventEmitter {
 
   constructor(private deps: RuntimeDeps) {
     super();
+    this.profiles = new ProfileSync(() => ({ siteUrl: this.settings.siteUrl, key: this.settings.key }), deps.store.profileFolder(), deps.driveApi);
     this.switcher = this.newSwitcher(DEFAULT_SETTINGS.simulatorAddress);
     this.website.on('change', () => this.changed());
     this.website.on('rundown', () => {
@@ -144,7 +162,11 @@ export class Runtime extends EventEmitter {
     this.settings = await this.deps.store.settings();
     // Tests can run a second simulator, with its state stream on another port (TSTV_SIM_STATE_PORT).
     await this.connectSwitcher(this.settings.simulatorAddress, Number(process.env.TSTV_SIM_STATE_PORT) || undefined);
+    await this.loadProfile();
     if (this.settings.key) await this.connect(this.settings.siteUrl, this.settings.key);
+    else void this.refreshProfiles();
+    // Other laptops' changes to the profile arrive every two minutes.
+    this.profileTimer = setInterval(() => void this.refreshProfiles(), 120_000);
     // A drive plugged in later is noticed by itself: its files get their playable copies.
     this.retryTimer = setInterval(() => this.unreachable.size > 0 && void this.makePlayables(), 10_000);
     this.changed();
@@ -296,11 +318,11 @@ export class Runtime extends EventEmitter {
 
   private async writeFiles(): Promise<void> {
     const episode = this.website.episode;
-    const show = this.website.show;
+    const profile = this.profileShow()?.id;
     if (episode) await this.deps.store.saveEpisodeFiles(episode.id, this.files);
-    if (show) await this.deps.store.savePermanentFiles(show.id, this.permanent);
-    if (show && this.musicTrack) await this.deps.store.saveMusicTrack(show.id, this.musicTrack);
-    if (show && this.greenScreen) await this.deps.store.saveGreenScreen(show.id, this.greenScreen);
+    if (profile) await this.deps.store.savePermanentFiles(profile, this.permanent);
+    if (profile) await this.deps.store.saveMusicTrack(profile, this.musicTrack);
+    if (profile) await this.deps.store.saveGreenScreen(profile, this.greenScreen);
   }
 
   /**
@@ -410,7 +432,7 @@ export class Runtime extends EventEmitter {
 
   /** The show's permanent graphic called this, as written in the show's settings. */
   private permanentName(name: string): string | undefined {
-    return this.website.show?.settings.permanentGraphics.find((g) => g.toLowerCase() === name.trim().toLowerCase());
+    return this.profileShow()?.settings.permanentGraphics.find((g) => g.toLowerCase() === name.trim().toLowerCase());
   }
 
   /**
@@ -418,7 +440,7 @@ export class Runtime extends EventEmitter {
    * ("PrimeTime Show Intro.mov" → Show Intro). The rest are asked about.
    */
   private async addPermanent(paths: string[]): Promise<void> {
-    const show = this.website.show;
+    const show = this.profileShow();
     if (!show) return;
     const simple = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
     const asked: FileProblem[] = [];
@@ -442,13 +464,18 @@ export class Runtime extends EventEmitter {
     this.problems = [...this.problems.filter((p) => !known.has(p.path)), ...asked];
     this.note(`Added ${placed} permanent graphic file(s)`);
     await this.saveFiles();
+    void this.syncProfile();
   }
 
-  private async setGreenScreen(file: string | null): Promise<void> {
-    const show = this.website.show;
+  private async setGreenScreen(file: string | null, fromProfile = false): Promise<void> {
+    const show = this.profileShow();
     if (!show) return;
-    this.greenScreen = file ? await readFile(file) : null;
+    if (!fromProfile) {
+      if (!file && this.greenScreen?.driveFileId) await this.removeFromProfile('greenScreen');
+      this.greenScreen = file ? await readFile(file) : null;
+    }
     await this.deps.store.saveGreenScreen(show.id, this.greenScreen);
+    if (!fromProfile) void this.syncProfile();
     // On the simulator, a still goes in GFX 1 and a clip in DDR 1. In live mode the playout sends it to the
     // TC1 as the RIGSTER (Green Screen) source (RG, Oct 30 and Nov 1, 2026).
     this.playout?.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
@@ -466,11 +493,15 @@ export class Runtime extends EventEmitter {
    * The show's music track, dropped on the Music box (RG, Oct 29, 2026), so the right track plays. On the
    * simulator it's put in the Sound player; in live mode the playout plays it from the laptop (Oct 30, 2026).
    */
-  private async setMusicTrack(file: string | null): Promise<void> {
-    const show = this.website.show;
+  private async setMusicTrack(file: string | null, fromProfile = false): Promise<void> {
+    const show = this.profileShow();
     if (!show) return;
-    this.musicTrack = file ? await readFile(file) : null;
+    if (!fromProfile) {
+      if (!file && this.musicTrack?.driveFileId) await this.removeFromProfile('music');
+      this.musicTrack = file ? await readFile(file) : null;
+    }
     await this.deps.store.saveMusicTrack(show.id, this.musicTrack);
+    if (!fromProfile) void this.syncProfile();
     if (this.musicTrack && this.switcher.snapshot.status === 'connected') await this.loadSound();
     this.note(this.musicTrack ? `Music: ${path.basename(this.musicTrack.path)}` : 'Music track removed');
     void this.makePlayables();
@@ -490,7 +521,8 @@ export class Runtime extends EventEmitter {
       if (!name) return;
       this.permanent[name.toLowerCase()] = await readFile(file);
       this.problems = this.problems.filter((p) => p.path !== file);
-      return this.saveFiles();
+      await this.saveFiles();
+      return void this.syncProfile();
     }
     const element = this.element(elementId);
     if (!element) return;
@@ -500,6 +532,180 @@ export class Runtime extends EventEmitter {
     else this.files[elementId] = info;
     this.problems = this.problems.filter((p) => p.path !== file);
     await this.saveFiles();
+    if (element.type === 'PERM') void this.syncProfile();
+  }
+
+  // ---- Show profiles (RG, Nov 2, 2026) ----
+
+  /**
+   * The show profile picked: from the website's list, or the key's show while the list hasn't come yet
+   * (and while none is picked).
+   */
+  private profileShow(): { id: string; name: string; settings: ShowSettings } | null {
+    const id = this.settings.profileShowId || this.website.show?.id;
+    if (!id) return null;
+    const listed = this.profileList?.profiles.find((p) => p.id === id);
+    if (listed) return listed;
+    return this.website.show?.id === id ? this.website.show : null;
+  }
+
+  /** Loads the picked profile's files as this laptop has them, then checks Google Drive for changes. */
+  private async loadProfile(): Promise<void> {
+    const id = this.settings.profileShowId;
+    this.permanent = id ? await this.deps.store.permanentFiles(id) : {};
+    this.greenScreen = id ? await this.deps.store.greenScreen(id) : null;
+    this.musicTrack = id ? await this.deps.store.musicTrack(id) : null;
+    this.playout?.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
+    if (this.musicTrack && this.switcher.snapshot.status === 'connected') await this.loadSound().catch(() => undefined);
+    this.rebuild();
+    this.changed();
+    void this.makePlayables();
+  }
+
+  /** The producer picks a show profile. With a RiGster key for another show's episode, it isn't followed. */
+  private async setProfile(showId: string): Promise<void> {
+    if (showId === this.settings.profileShowId) return;
+    this.settings = { ...this.settings, profileShowId: showId };
+    await this.deps.store.saveSettings(this.settings);
+    this.note(`Show profile: ${this.profileShow()?.name ?? 'none'}`);
+    this.profileStatus = { working: null, error: null };
+    await this.loadProfile();
+    // Connect (or reconnect) with the saved key, which checks the key's show against the profile.
+    if (this.settings.key) await this.connect(this.settings.siteUrl, this.settings.key);
+    else void this.syncProfile();
+  }
+
+  /** Gets the profiles from the website again, and brings this laptop's copy of the picked one up to date. */
+  private async refreshProfiles(): Promise<void> {
+    if (!this.settings.key) return;
+    try {
+      this.profileList = await this.profiles.list();
+    } catch (e) {
+      // Offline: the laptop's copy of the profile still works.
+      this.profileStatus = { ...this.profileStatus, error: e instanceof Error ? e.message : String(e) };
+      return this.changed();
+    }
+    this.changed();
+    await this.syncProfile();
+  }
+
+  /** This laptop's file for a profile slot ("greenScreen", "music" or "permanent:<name>"). */
+  private slotFile(slot: string): FileInfo | null {
+    if (slot === 'greenScreen') return this.greenScreen;
+    if (slot === 'music') return this.musicTrack;
+    return this.permanent[slot.slice('permanent:'.length).toLowerCase()] ?? null;
+  }
+
+  private async setSlotFile(slot: string, file: FileInfo | null): Promise<void> {
+    if (slot === 'greenScreen') {
+      this.greenScreen = file;
+      return this.setGreenScreen(null, true);
+    }
+    if (slot === 'music') {
+      this.musicTrack = file;
+      return this.setMusicTrack(null, true);
+    }
+    const key = slot.slice('permanent:'.length).toLowerCase();
+    if (file) this.permanent[key] = file;
+    else delete this.permanent[key];
+    await this.saveFiles();
+  }
+
+  /**
+   * Brings this laptop's copy of the picked profile and the one in Google Drive together, slot by slot:
+   * a file added or changed here goes up; one added or changed on another laptop comes down; one removed
+   * elsewhere goes here too. After the Drive moves to another account, laptops send it the files they have.
+   */
+  private async syncProfile(): Promise<void> {
+    if (this.syncingProfile) {
+      this.syncProfileAgain = true;
+      return;
+    }
+    this.syncingProfile = true;
+    try {
+      do {
+        this.syncProfileAgain = false;
+        await this.syncProfileOnce();
+      } while (this.syncProfileAgain);
+    } finally {
+      this.syncingProfile = false;
+      this.profileStatus = { ...this.profileStatus, working: null };
+      this.changed();
+    }
+  }
+
+  private async syncProfileOnce(): Promise<void> {
+    const showId = this.settings.profileShowId;
+    const profile: Profile | undefined = this.profileList?.profiles.find((p) => p.id === showId);
+    if (!profile || !this.profileList) return;
+    const online = this.profileList.drive.connected;
+    const working = (text: string) => {
+      this.profileStatus = { ...this.profileStatus, working: text };
+      this.changed();
+    };
+    const percent = (done: number, total: number) => (total ? ` ${Math.floor((done / total) * 100)}%` : '');
+    const slots = ['greenScreen', 'music', ...profile.settings.permanentGraphics.map((g) => `permanent:${g}`)];
+    let problem: string | null = null;
+    let changedHere = false;
+    for (const slot of slots) {
+      if (this.settings.profileShowId !== showId) return;
+      const here = this.slotFile(slot);
+      const there = profile.files[slot];
+      const label = slot === 'greenScreen' ? 'the green screen' : slot === 'music' ? 'the music' : slot.slice('permanent:'.length);
+      try {
+        // Added or changed on this laptop, or the Drive moved to another account: send it up.
+        const sendUp = here && (!here.driveFileId || (there && !there.current && there.driveFileId === here.driveFileId) || (!there && !here.driveFileId));
+        if (sendUp && here) {
+          if (!online) {
+            problem = 'No Google Drive is connected yet, so the profile’s changes stay on this laptop. An admin connects one on the website’s Usage page.';
+            continue;
+          }
+          if ((await readable(here.path)) !== 'yes') continue;
+          working(`Uploading ${label}…`);
+          const sent = await this.profiles.upload(showId, slot, here.path, (done, total) => working(`Uploading ${label}…${percent(done, total)}`));
+          profile.files[slot] = sent;
+          if (this.settings.profileShowId === showId && this.slotFile(slot) === here) await this.setSlotFile(slot, { ...here, driveFileId: sent.driveFileId });
+          continue;
+        }
+        if (there?.current && here?.driveFileId === there.driveFileId && (await readable(here.path)) === 'yes') continue;
+        if (there?.current) {
+          // Added or changed on another laptop: download it.
+          working(`Downloading ${label}…`);
+          const file = await this.profiles.download(showId, there, (done, total) => working(`Downloading ${label}…${percent(done, total)}`));
+          const info = { ...(await readFile(file)), driveFileId: there.driveFileId };
+          if (this.settings.profileShowId === showId) await this.setSlotFile(slot, info);
+          changedHere = true;
+          continue;
+        }
+        // Removed on another laptop.
+        if (!there && here?.driveFileId) {
+          await this.setSlotFile(slot, null);
+          changedHere = true;
+        }
+      } catch (e) {
+        problem = e instanceof Error ? e.message : String(e);
+      }
+    }
+    this.profileStatus = { working: null, error: problem };
+    if (changedHere) {
+      this.note(`Show profile updated from Google Drive`);
+      this.rebuild();
+      void this.makePlayables();
+      if (this.musicTrack && this.switcher.snapshot.status === 'connected') await this.loadSound().catch(() => undefined);
+    }
+  }
+
+  /** Takes a file out of the picked profile in Google Drive too. */
+  private async removeFromProfile(slot: string): Promise<void> {
+    const showId = this.settings.profileShowId;
+    if (!showId) return;
+    try {
+      await this.profiles.remove(showId, slot);
+      const profile = this.profileList?.profiles.find((p) => p.id === showId);
+      if (profile) delete profile.files[slot];
+    } catch (e) {
+      this.profileStatus = { ...this.profileStatus, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   // ---- What the window shows ----
@@ -536,6 +742,7 @@ export class Runtime extends EventEmitter {
     const plan = this.plan;
     const engine = this.engine;
     const show = this.website.show;
+    const profileShow = this.profileShow();
     const sections: SectionView[] = plan?.sections.map((s) => ({ id: s.id, label: s.label, slug: s.slug, camera: s.camera, elements: s.elements.map((e) => this.toView(e, s.label)) })) ?? [];
     const chosen = this.settings.music[show?.id ?? ''] ?? { in: 'default', out: 'default' };
     const defaults = plan ? defaultMusicPoints(plan.sections) : { in: null, out: null };
@@ -551,10 +758,14 @@ export class Runtime extends EventEmitter {
       website: { status: this.website.status, error: this.website.error, siteUrl: this.settings.siteUrl, key: this.settings.key },
       live: { on: broadcast.live, startedAt: broadcast.live ? broadcast.startedAt : null },
       permanent:
-        show?.settings.permanentGraphics.map((name) => {
+        profileShow?.settings.permanentGraphics.map((name) => {
           const file = this.permanent[name.toLowerCase()];
-          return { name, withSound: show.settings.permanentWithSound.includes(name), file: file ? path.basename(file.path) : null, seconds: file?.seconds ?? null, thumbnail: file?.thumbnail ?? null };
+          return { name, withSound: profileShow.settings.permanentWithSound.includes(name), file: file ? path.basename(file.path) : null, seconds: file?.seconds ?? null, thumbnail: file?.thumbnail ?? null };
         }) ?? [],
+      profiles: (this.profileList?.profiles ?? []).map((p) => ({ id: p.id, name: p.name })),
+      profile: profileShow ? { id: profileShow.id, name: profileShow.name } : null,
+      profileMismatch: this.profileMismatch,
+      profileSync: { ...this.profileStatus, drive: this.profileList ? this.profileList.drive.email : null, checked: this.profileList !== null },
       greenScreen: this.greenScreen
         ? {
             file: path.basename(this.greenScreen.path),
@@ -626,12 +837,27 @@ export class Runtime extends EventEmitter {
     this.problems = [];
     this.clock = { startedAt: null, sectionLabel: null, overUnderSeconds: null };
     await this.website.connect(this.settings.siteUrl, this.settings.key);
-    if (this.website.episode) this.files = await this.deps.store.episodeFiles(this.website.episode.id);
-    if (this.website.show) {
-      this.permanent = await this.deps.store.permanentFiles(this.website.show.id);
-      this.greenScreen = await this.deps.store.greenScreen(this.website.show.id);
-      this.musicTrack = await this.deps.store.musicTrack(this.website.show.id);
+    const show = this.website.show;
+    if (show && !this.settings.profileShowId) {
+      // No profile picked yet on this laptop: the key's show's.
+      this.settings = { ...this.settings, profileShowId: show.id };
+      await this.deps.store.saveSettings(this.settings);
+      await this.loadProfile();
     }
+    this.profileMismatch = Boolean(show && show.id !== this.settings.profileShowId);
+    void this.refreshProfiles();
+    if (this.profileMismatch) {
+      // The key's episode belongs to another show: RiGster doesn't follow it, so it can't run with the
+      // wrong show's graphics (RG, Nov 2, 2026).
+      this.website.close();
+      this.website.episode = null;
+      this.website.show = null;
+      this.engine = null;
+      this.plan = null;
+      this.note('This show profile doesn’t match the RiGster key');
+      return this.changed();
+    }
+    if (this.website.episode) this.files = await this.deps.store.episodeFiles(this.website.episode.id);
     const broadcast = this.website.broadcast();
     if (broadcast.live) this.clock = { startedAt: broadcast.startedAt, sectionLabel: null, overUnderSeconds: null };
     this.reportStatus();
@@ -876,6 +1102,7 @@ export class Runtime extends EventEmitter {
       case 'connect':
         return this.connect(action.siteUrl, action.key);
       case 'disconnect':
+        this.profileMismatch = false;
         this.website.close();
         this.engine = null;
         this.plan = null;
@@ -953,9 +1180,14 @@ export class Runtime extends EventEmitter {
         if (file) await this.assign(file, `perm:${action.name}`);
         return;
       }
-      case 'clearPermanent':
-        delete this.permanent[action.name.toLowerCase()];
+      case 'clearPermanent': {
+        const name = this.permanentName(action.name) ?? action.name;
+        if (this.permanent[name.toLowerCase()]?.driveFileId) await this.removeFromProfile(`permanent:${name}`);
+        delete this.permanent[name.toLowerCase()];
         return this.saveFiles();
+      }
+      case 'setProfile':
+        return this.setProfile(action.showId);
       case 'setGreenScreen':
         return this.setGreenScreen(action.path);
       case 'chooseGreenScreen': {
@@ -1043,6 +1275,7 @@ export class Runtime extends EventEmitter {
 
   close(): void {
     if (this.retryTimer) clearInterval(this.retryTimer);
+    if (this.profileTimer) clearInterval(this.profileTimer);
     this.website.close();
     this.switcher.close();
     void this.playout?.close();

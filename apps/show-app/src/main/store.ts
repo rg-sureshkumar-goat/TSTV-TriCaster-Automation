@@ -1,5 +1,7 @@
 // What the show app remembers on this laptop, in its own folder: the website address and last key, the
 // simulator's address, each show's music cue points and permanent graphics, and each episode's files.
+// Since Nov 2, 2026, a show's permanent graphics, green screen and music are its show profile, shared
+// through Google Drive (profiles.ts); what's here is this laptop's copy of it.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { FileInfo } from './media.ts';
@@ -14,6 +16,8 @@ export interface Settings {
   recordFolder: string;
   /** Each show's music in and out points ("default", "none", "section:<id>" or "cue:<id>"), by show id. */
   music: Record<string, { in: string; out: string }>;
+  /** The show profile picked by hand (RG, Nov 2, 2026), by show id: its graphics, green screen and music load. */
+  profileShowId: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -24,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tc1Address: '169.254.193.52',
   recordFolder: '',
   music: {},
+  profileShowId: '',
 };
 
 export class Store {
@@ -46,6 +51,11 @@ export class Store {
   /** Where NDI's settings for the cable are kept (see keepNdiOnCable). */
   ndiFolder(): string {
     return path.join(this.folder, 'ndi');
+  }
+
+  /** Where show profiles' files downloaded from Google Drive are kept, a folder per show (see profiles.ts). */
+  profileFolder(): string {
+    return path.join(this.folder, 'profiles');
   }
 
   /** Where the copies the Program box plays are kept (see makePlayable). */

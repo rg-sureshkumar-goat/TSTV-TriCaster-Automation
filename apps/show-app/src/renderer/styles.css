@@ -440,7 +440,9 @@ h3 {
   font-size: 17px;
 }
 
-.title .app-name {
+.topbar > .app-name {
+  flex: none;
+  font-size: 17px;
   font-weight: 800;
 }
 
@@ -1227,4 +1229,49 @@ button.danger {
 
 .waiting-banner {
   border-left: 4px solid var(--amber);
+}
+
+/* Show profiles (Nov 2, 2026): the menu at the top left, the mismatch banner, and the profile on its own. */
+.profile-menu select {
+  max-width: 260px;
+  font-weight: 700;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.mismatch-banner {
+  margin: 12px 16px 0;
+  background: #7f1d1d;
+  color: #fff;
+}
+
+.profile-only {
+  padding: 12px 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 0.8fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.profile-status {
+  margin: 0 0 6px;
+}
+
+.profile-status.working {
+  color: var(--link);
+}
+
+.profile-status.warn {
+  color: var(--amber);
 }

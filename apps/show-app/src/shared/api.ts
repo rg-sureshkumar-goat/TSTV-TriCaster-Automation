@@ -52,6 +52,16 @@ export interface PermanentView {
 }
 
 export interface AppState {
+  /** Show profiles (RG, Nov 2, 2026): every show, from the website, and the one picked by hand. */
+  profiles: { id: string; name: string }[];
+  profile: { id: string; name: string } | null;
+  /** The RiGster key's episode belongs to another show than the profile picked, so it isn't followed. */
+  profileMismatch: boolean;
+  /**
+   * The profile and Google Drive: what's being uploaded or downloaded, the last problem, and the Drive's
+   * account (null when none is connected). checked: the website's list has come.
+   */
+  profileSync: { working: string | null; error: string | null; drive: string | null; checked: boolean };
   /**
    * A new version of RiGster (Phase 6): available (Mac: to download), downloading or ready (Windows:
    * installs when RiGster restarts). Null when this is the newest, or when run from the source.
@@ -130,6 +140,8 @@ export interface AppState {
 export type Action =
   /** Mac: opens the download page for the new version. Windows: restarts RiGster into it. */
   | { kind: 'getUpdate' }
+  /** Picks the show profile by hand: its permanent graphics, green screen and music load. */
+  | { kind: 'setProfile'; showId: string }
   | { kind: 'connect'; siteUrl: string; key: string }
   | { kind: 'disconnect' }
   | { kind: 'connectSwitcher'; address: string }

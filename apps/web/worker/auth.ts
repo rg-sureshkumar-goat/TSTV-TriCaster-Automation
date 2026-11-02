@@ -36,14 +36,14 @@ export function devLoginEnabled(env: Env, url: URL): boolean {
   return env.DEV_LOGIN === 'true' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 }
 
-function base64url(bytes: ArrayBuffer | Uint8Array): string {
+export function base64url(bytes: ArrayBuffer | Uint8Array): string {
   const array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   let text = '';
   for (const b of array) text += String.fromCharCode(b);
   return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function randomToken(): string {
+export function randomToken(): string {
   return base64url(crypto.getRandomValues(new Uint8Array(32)));
 }
 
@@ -52,7 +52,7 @@ async function sha256Hex(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function cookieOptions(url: URL, maxAgeSeconds: number) {
+export function cookieOptions(url: URL, maxAgeSeconds: number) {
   return { httpOnly: true, secure: url.protocol === 'https:', sameSite: 'Lax' as const, path: '/', maxAge: maxAgeSeconds };
 }
 
@@ -321,7 +321,7 @@ export async function microsoftEmail(env: Env, claims: Record<string, unknown>):
   return candidates[0];
 }
 
-function decodeJwtPayload(token: string | undefined): Record<string, unknown> | null {
+export function decodeJwtPayload(token: string | undefined): Record<string, unknown> | null {
   const part = token?.split('.')[1];
   if (!part) return null;
   try {

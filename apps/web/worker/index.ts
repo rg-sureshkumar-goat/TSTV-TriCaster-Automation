@@ -1,12 +1,14 @@
 // The TSTV website's server. It serves the pages, handles sign-in, and offers a small API for shows,
 // episodes, search and the admin page. Live editing goes through /parties/episode-room/<episode id>,
-// which checks sign-in and then hands the connection to that episode's room.
+// which checks sign-in and then hands the connection to that episode's room. RiGster's show profiles are
+// in profiles.ts.
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { getServerByName, routePartykitRequest } from 'partyserver';
 import { DEFAULT_SHOW_SETTINGS, normalizeShowSettings } from '@tstv/shared';
 import { authRoutes, getSessionUser } from './auth.ts';
 import type { Env, User } from './env.ts';
 import { sendInviteEmail } from './invite-email.ts';
+import { registerProfileRoutes } from './profiles.ts';
 import { fetchUsage } from './usage.ts';
 
 export { EpisodeRoom } from './room.ts';
@@ -59,6 +61,10 @@ app.get('/app/episode', async (c) => {
     show: { id: row.show_id, name: row.show_name, settings: normalizeShowSettings(JSON.parse(String(row.show_settings))) },
   });
 });
+
+// RiGster's show profiles in Google Drive (Nov 2, 2026): RiGster's routes check its key, and the Drive's
+// connection routes check for an admin themselves.
+registerProfileRoutes(app);
 
 app.use('*', signedIn);
 

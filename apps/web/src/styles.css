@@ -2040,3 +2040,21 @@ button.live-on {
   background: #dc2626;
   color: #fff;
 }
+
+/* The Usage page's Google Drive box, for RiGster's show profiles (Nov 2, 2026). */
+.drive-box {
+  margin-top: 32px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.drive-box .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notice.ok {
+  color: var(--text);
+  border-left-color: var(--ok);
+}

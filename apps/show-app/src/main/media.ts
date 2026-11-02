@@ -25,6 +25,8 @@ export interface FileInfo {
    */
   thumbnail: string | null;
   thumbnailVersion?: number;
+  /** In a show profile: the file's id in Google Drive once it's there (Nov 2, 2026); unset until it's uploaded. */
+  driveFileId?: string;
   /** The copy the Program box plays, kept on this laptop (see makePlayable), once it's made. */
   playable?: string;
 }

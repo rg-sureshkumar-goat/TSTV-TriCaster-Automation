@@ -44,6 +44,38 @@ Phase 6 turns RiGster into a normal Mac and Windows app that anyone can install,
 3. **At the studio:** in the installed RiGster, turn on live mode and check the graphics reach input 4, the camera boxes show the cameras, and Record saves a file.
 4. **Publishing 1.0.0:** when you're happy, tell me, and I'll publish version 1.0.0 as the first GitHub Release. The next version will then show up in RiGster as an update.
 
+## Part 2: show profiles, shared through Google Drive (built Nov 2, 2026)
+
+Each show has its own permanent graphics, green screen and tease music. RiGster keeps each show's set as a **show profile**, in a Google Drive, so every laptop with RiGster has them.
+
+- **The Show profile menu** is at the top left of RiGster, next to its name. Pick a show, and its permanent graphics, green screen and music load. A new laptop starts on the RiGster key's show.
+- **The wrong key:** if the RiGster key pasted is for another show's episode, a red banner says **This Show Profile Does Not Match the RiGster Key**, and RiGster doesn't follow that episode. Pick that show's profile, or paste this show's key.
+- **A profile without an episode:** with no episode key yet, RiGster shows the profile's Permanent graphics, Green screen and Music boxes, so a show can be set up ahead of time.
+- **Adding or changing files:** drop them on the boxes as before. RiGster sends them to Google Drive (the Permanent graphics box shows "Uploading …" with how far it's got), and the other laptops download them the next time they check (every two minutes, and when the profile is picked). **Remove** takes a file out of the profile on every laptop.
+- **In Google Drive:** a **RiGster** folder, with a folder for each show. You can look at them there, but don't rename, move or delete them there: change files in RiGster. Files added to the Drive by hand don't show up in RiGster, which can only see the files it put there.
+- **Offline:** each laptop keeps a copy of each profile it has used, so the show runs if the internet drops.
+- **The files RiGster already had** (like PrimeTime's on your laptop) go up to the Drive by themselves the first time the profile is opened with the Drive connected.
+- **Moving to a TSTV Google account later:** on the website's Usage page, click **Connect a different Google Drive** and sign in with the TSTV account. Each laptop then sends the new Drive the files it has, the next time it opens each profile.
+
+### Setting up Google Drive (once, by RG)
+
+The website's "Sign in with Google" setup in Google Cloud is reused. In [Google Cloud console](https://console.cloud.google.com), with the TSTV Rundowns project picked at the top:
+
+1. **Turn on the Drive API:** APIs & Services → Library → search **Google Drive API** → **Enable**.
+2. **Add the return address:** APIs & Services → Credentials → click the website's OAuth client (the one used for sign-in) → under **Authorized redirect URIs**, click **Add URI** and paste `https://tstv-show.tstv-rundown.workers.dev/api/drive/callback` → **Save**.
+3. **Add the Drive permission:** Google Auth Platform (or OAuth consent screen) → **Data access** → **Add or remove scopes** → tick **`.../auth/drive.file`** ("See, edit, create, and delete only the specific Google Drive files you use with this app") → **Update** → **Save**.
+4. **Publish it, so the connection lasts:** Google Auth Platform → **Audience** → under Publishing status, click **Publish app** → **Confirm**. (While it's "Testing", Google ends the connection every 7 days. The permissions it uses don't need Google's review.)
+5. **Deploy the website** (in Terminal 7): `cd "/Users/rg_sureshkumar/AI Apps/TSTV Automated Technical Director/apps/web" && npm run deploy`
+6. **Connect the Drive:** on the website, open **Usage** (the gauge at the top), scroll to **RiGster's Google Drive**, click **Connect Google Drive**, pick your Gmail, and leave the Drive permission ticked. The page then says it's connected.
+
+### Test for Part 2
+
+1. Open RiGster. The menu at the top left shows your show (like TSTV News GMLH), and the Permanent graphics box says **Uploading …**, then **✓ Shared with every laptop through Google Drive**. In Google Drive, a **RiGster** folder has the show's folder with its files.
+2. Pick another show in the menu. Its boxes show (empty if it has nothing yet). Drop a permanent graphic on its box: it uploads.
+3. Paste a RiGster key from an episode of a different show than the one picked: the red **This Show Profile Does Not Match the RiGster Key** banner shows. Pick that show's profile: the episode opens.
+4. On a second computer with RiGster (or the installed RiGster with another laptop), paste a key: the show's files download, and the boxes fill in.
+5. On one laptop, click **Remove** on the green screen. Within two minutes (or after picking the profile again), it's gone on the other.
+
 ## Still to come in Phase 6
 
 - A one-page producer guide

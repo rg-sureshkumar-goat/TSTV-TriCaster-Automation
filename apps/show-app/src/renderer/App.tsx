@@ -92,12 +92,40 @@ export function App() {
     <div className={`app${state.automation.manual ? ' manual' : ''}`}>
       <LiveBar state={state} />
       <Header state={state} />
+      {state.profileMismatch && (
+        <div className="banner mismatch-banner" role="alert">
+          <strong>This Show Profile Does Not Match the RiGster Key</strong>
+          <span className="small">
+            {' '}
+            The key is for another show’s episode. Pick that show’s profile at the top left, or paste this show’s RiGster key.
+          </span>
+        </div>
+      )}
       {!state.episode ? (
-        <main className="empty">
-          <p>
-            Click <strong>Episode key</strong> at the top right, and paste the key from the episode’s <strong>RiGster key</strong> button on the website.
-          </p>
-        </main>
+        state.profile ? (
+          // A profile with no episode yet: its permanent graphics, green screen and music can be set up.
+          <main className="profile-only">
+            <p className="muted">
+              {state.profileMismatch ? '' : 'To run an episode, click '}
+              {!state.profileMismatch && <strong>Episode key</strong>}
+              {!state.profileMismatch && ' at the top right, and paste the key from the episode’s '}
+              {!state.profileMismatch && <strong>RiGster key</strong>}
+              {!state.profileMismatch && ' button on the website. '}
+              The <strong>{state.profile.name}</strong> profile’s files can be set up here, for every laptop.
+            </p>
+            <div className="profile-grid">
+              <PermanentBox state={state} />
+              <GreenScreenBox state={state} />
+              <Music state={state} />
+            </div>
+          </main>
+        ) : (
+          <main className="empty">
+            <p>
+              Click <strong>Episode key</strong> at the top right, and paste the key from the episode’s <strong>RiGster key</strong> button on the website.
+            </p>
+          </main>
+        )
       ) : (
         <Show state={state} onImport={() => importGraphics()} onEdit={() => setGraphicsOpen('edit')} onMissing={() => setGraphicsOpen('missing')} />
       )}
@@ -132,6 +160,48 @@ function UpdateNote({ state }: { state: AppState }) {
   );
 }
 
+/**
+ * The show profile, picked by hand (RG, Nov 2, 2026): its permanent graphics, green screen and tease music
+ * load, from Google Drive on any laptop.
+ */
+function ProfileMenu({ state }: { state: AppState }) {
+  const options = state.profiles.length ? state.profiles : state.profile ? [state.profile] : [];
+  if (!options.length) {
+    return (
+      <span className="profile-menu muted small" title="Show profiles come from the website: paste a RiGster key first">
+        No show profile yet
+      </span>
+    );
+  }
+  return (
+    <label className="profile-menu" title="The show profile: its permanent graphics, green screen and tease music">
+      <span className="visually-hidden">Show profile</span>
+      <select value={state.profile?.id ?? ''} onChange={(e) => e.target.value && act({ kind: 'setProfile', showId: e.target.value })}>
+        {!state.profile && <option value="">Pick a show profile…</option>}
+        {options.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Whether the profile's files are in Google Drive, and what's going up or coming down. */
+function ProfileStatus({ state }: { state: AppState }) {
+  const { working, error, drive, checked } = state.profileSync;
+  if (working) return <p className="profile-status small working">⟳ {working}</p>;
+  if (error) return <p className="profile-status small error">{error}</p>;
+  if (!checked) return null;
+  if (!drive) return <p className="profile-status small warn">Not shared yet: no Google Drive is connected (an admin connects one on the website’s Usage page).</p>;
+  return (
+    <p className="profile-status small muted" title={`In ${drive}’s Google Drive, in RiGster → ${state.profile?.name ?? ''}`}>
+      ✓ Shared with every laptop through Google Drive
+    </p>
+  );
+}
+
 function Header({ state }: { state: AppState }) {
   const { website, switcher, prompter, episode } = state;
   const [open, setOpen] = useState<'key' | 'simulator' | null>(episode ? null : 'key');
@@ -141,9 +211,10 @@ function Header({ state }: { state: AppState }) {
   return (
     <header className="topbar">
       <ThemeSwitch />
-      <span className="title" title={episode ? `${episode.showName} · ${episode.title}` : undefined}>
-        <strong className="app-name">RiGster</strong>
-        {episode ? ` · ${episode.showName} · ${episode.title}` : ''}
+      <strong className="app-name">RiGster</strong>
+      <ProfileMenu state={state} />
+      <span className="title" title={episode ? episode.title : undefined}>
+        {episode ? episode.title : ''}
       </span>
       <LiveSwitch state={state} />
       <span className="lights">
@@ -868,7 +939,8 @@ function DropPanel({ title, className, onFiles, children }: { title: string; cla
 function PermanentBox({ state }: { state: AppState }) {
   return (
     <DropPanel title="Permanent graphics" className="permanent" onFiles={(paths) => act({ kind: 'addPermanent', paths })}>
-      <p className="muted small">Drop the show’s permanent graphics here once; every episode uses them.</p>
+      <ProfileStatus state={state} />
+      <p className="muted small">Drop the show’s permanent graphics here once; every episode, and every laptop, uses them.</p>
       <ul className="perm-list">
         {state.permanent.map((g) => (
           <li key={g.name}>
