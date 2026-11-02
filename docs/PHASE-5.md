@@ -33,10 +33,13 @@ Phase 5 connects the show app to TSTV's real TriCaster TC1. Decisions (RG, Oct 3
 3. **AUDIO MIXER → input 4:** not muted, and not following video (so the music plays under the cameras).
 4. **Input 5 → RIGSTER (Green Screen).**
 5. **M/E 1's background → input 5** (instead of media player A).
-6. Cameras 1–3 stay on inputs 1–3.
-7. **Save the session.**
+6. **Input 6 → RIGSTER (Transition)** (RG, Nov 2, 2026: the show's tease and LITES transitions).
+7. **DSK 4's source → input 6** (DSK 4 sits above everything, so the transition covers the switch under it).
+8. **M/E 4 keeps its LITES layout** from PrimeTime (the camera's box at the left, the clip's at the right, the background behind). RiGster fills in its three layers itself.
+9. Cameras 1–3 stay on inputs 1–3.
+10. **Save the session.**
 
-**It works with any laptop with RiGster:** since Nov 1, 2026, RiGster's sources are named **RIGSTER (Graphics)** and **RIGSTER (Green Screen)** on every laptop (NDI's machine name, set by RiGster), instead of the laptop's own name, which on a Mac changes with its Wi-Fi address. Only one laptop is on the TC1's cable at a time. (Until Nov 1 they were "TSTV Show App" and "TSTV Show App Background", under the laptop's name.)
+**It works with any laptop with RiGster:** since Nov 1, 2026, RiGster's sources are named **RIGSTER (Graphics)**, **RIGSTER (Green Screen)** and (since Nov 2) **RIGSTER (Transition)** on every laptop (NDI's machine name, set by RiGster), instead of the laptop's own name, which on a Mac changes with its Wi-Fi address. Only one laptop is on the TC1's cable at a time. (Until Nov 1 they were "TSTV Show App" and "TSTV Show App Background", under the laptop's name.)
 
 ## The Phase 5 test: a rehearsal on the TC1, outside a show
 

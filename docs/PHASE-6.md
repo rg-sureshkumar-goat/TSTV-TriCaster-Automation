@@ -101,11 +101,7 @@ Each show has two transitions, kept in its show profile like the permanent graph
 - **Adding them:** drop a file on the Transitions box (a name with "tease" or "lites" in it goes to that one; otherwise it fills an empty one), or use **Choose**. Like the permanent graphics, they upload to the show's folder in Google Drive and reach every laptop.
 - **On the simulator,** RiGster's Program box plays the transition over the picture.
 
-**What the TC1 needs (live mode, RiGster session):** RiGster sends the transition as a third source, **RIGSTER (Transition)**:
-
-1. **Input 6 → RIGSTER (Transition).**
-2. **DSK 4's source → input 6.** (DSK 4 sits above DSK 2 and the M/Es, so it covers the switch. The probe found DSK 4 on media player A; if DSK 4 is used for something else in shows, tell me and RiGster can use another.)
-3. Save the session.
+**What the TC1 needs (live mode, RiGster session):** RiGster sends the transition as a third source, **RIGSTER (Transition)**. Input 6 and DSK 4 are now steps 6 and 7 of the RiGster session's setup (docs/PHASE-5.md, "What the TC1 needs"). DSK 4 sits above DSK 2 and the M/Es, so it covers the switch. The probe found DSK 4 on media player A; if DSK 4 is used for something else in shows, tell me and RiGster can use another.
 
 **Note:** the website must be deployed for the transitions to save to Google Drive (it now accepts them in a show's profile).
 
