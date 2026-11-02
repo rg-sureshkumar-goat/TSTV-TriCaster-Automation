@@ -880,7 +880,8 @@ export class Runtime extends EventEmitter {
         sectionId: engine?.state.sectionId ?? null,
         sectionLabel: plan?.sections.find((s) => s.id === engine?.state.sectionId)?.label ?? null,
         onAir: this.view(engine?.state.onAir ?? null) ?? null,
-        upNext: engine ? engine.upNext().slice(0, 8).map((e) => this.toView(e, plan?.sections.find((s) => s.id === e.sectionId)?.label ?? '')) : [],
+        // Every graphic still to come, so the Playlist scrolls through the whole show (RG, Nov 2, 2026).
+        upNext: engine ? engine.upNext().map((e) => this.toView(e, plan?.sections.find((s) => s.id === e.sectionId)?.label ?? '')) : [],
         nextChoice: engine?.state.nextChoice ?? null,
         previous: this.view(engine?.previous()?.id ?? null) ?? null,
       },
