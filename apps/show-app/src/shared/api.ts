@@ -63,10 +63,11 @@ export interface AppState {
   /** The RiGster key's episode belongs to another show than the profile picked, so it isn't followed. */
   profileMismatch: boolean;
   /**
-   * The profile and Google Drive: what's being uploaded or downloaded, the last problem, and the Drive's
-   * account (null when none is connected). checked: the website's list has come.
+   * The profile and Google Drive: what's being uploaded or downloaded, the last problem, how many files are
+   * waiting to go up (and on which drives: they go once it's plugged in), and the Drive's account (null when
+   * none is connected). checked: the website's list has come.
    */
-  profileSync: { working: string | null; error: string | null; drive: string | null; checked: boolean };
+  profileSync: { working: string | null; error: string | null; waiting: number; waitingOn: string[]; drive: string | null; checked: boolean };
   /**
    * A new version of RiGster (Phase 6): available (Mac: to download), downloading or ready (Windows:
    * installs when RiGster restarts). Null when this is the newest, or when run from the source.

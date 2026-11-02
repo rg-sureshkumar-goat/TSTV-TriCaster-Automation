@@ -84,8 +84,11 @@ export class Runtime extends EventEmitter {
   private profileMismatch = false;
   /** A profile has been picked on the Select A Show Profile page since RiGster opened. */
   private profilePicked = false;
-  /** What the profile is doing with Google Drive (uploading, downloading), and the last problem. */
-  private profileStatus: { working: string | null; error: string | null } = { working: null, error: null };
+  /**
+   * What the profile is doing with Google Drive (uploading, downloading), the last problem, and the files
+   * waiting to go up because this laptop can't read them right now (their drive isn't plugged in).
+   */
+  private profileStatus: { working: string | null; error: string | null; waiting: string[] } = { working: null, error: null, waiting: [] };
   private syncingProfile = false;
   private syncProfileAgain = false;
   private profileTimer: ReturnType<typeof setInterval> | null = null;
@@ -170,7 +173,11 @@ export class Runtime extends EventEmitter {
     // Other laptops' changes to the profile arrive every two minutes.
     this.profileTimer = setInterval(() => void this.refreshProfiles(), 120_000);
     // A drive plugged in later is noticed by itself: its files get their playable copies.
-    this.retryTimer = setInterval(() => this.unreachable.size > 0 && void this.makePlayables(), 10_000);
+    // So do the profile's files waiting to go to Google Drive.
+    this.retryTimer = setInterval(() => {
+      if (this.unreachable.size > 0) void this.makePlayables();
+      if (this.profileStatus.waiting.length > 0) void this.syncProfile();
+    }, 10_000);
     this.changed();
   }
 
@@ -371,7 +378,12 @@ export class Runtime extends EventEmitter {
 
   /** Where the files that aren't on this laptop are: the drives' names (like “RG'S DRIVE”), or their folders. */
   private unreachablePlaces(): string[] {
-    const places = [...this.unreachable.keys()].map((file) => {
+    return this.placesOf([...this.unreachable.keys()]);
+  }
+
+  /** Where files are, as the producer knows it: “RG'S DRIVE”, drive E:, or a folder. */
+  private placesOf(files: string[]): string[] {
+    const places = files.map((file) => {
       const mac = /^\/Volumes\/([^/]+)\//.exec(file);
       const windows = /^([A-Za-z]):[\\/]/.exec(file);
       return mac ? `“${mac[1]}”` : windows ? `drive ${windows[1].toUpperCase()}:` : path.dirname(file);
@@ -575,7 +587,7 @@ export class Runtime extends EventEmitter {
     this.settings = { ...this.settings, profileShowId: showId };
     await this.deps.store.saveSettings(this.settings);
     this.note(`Show profile: ${this.profileShow()?.name ?? 'none'}`);
-    this.profileStatus = { working: null, error: null };
+    this.profileStatus = { working: null, error: null, waiting: [] };
     await this.loadProfile();
     // Connect (or reconnect) with the saved key, which checks the key's show against the profile.
     if (this.settings.key) await this.connect(this.settings.siteUrl, this.settings.key);
@@ -654,6 +666,8 @@ export class Runtime extends EventEmitter {
     const slots = ['greenScreen', 'music', ...profile.settings.permanentGraphics.map((g) => `permanent:${g}`)];
     let problem: string | null = null;
     let changedHere = false;
+    // Files to send up that this laptop can't read now: they go as soon as their drive is plugged in.
+    const waiting: string[] = [];
     for (const slot of slots) {
       if (this.settings.profileShowId !== showId) return;
       const here = this.slotFile(slot);
@@ -667,7 +681,10 @@ export class Runtime extends EventEmitter {
             problem = 'No Google Drive is connected yet, so the profile’s changes stay on this laptop. An admin connects one on the website’s Usage page.';
             continue;
           }
-          if ((await readable(here.path)) !== 'yes') continue;
+          if ((await readable(here.path)) !== 'yes') {
+            waiting.push(here.path);
+            continue;
+          }
           working(`Uploading ${label}…`);
           const sent = await this.profiles.upload(showId, slot, here.path, (done, total) => working(`Uploading ${label}…${percent(done, total)}`));
           profile.files[slot] = sent;
@@ -693,7 +710,7 @@ export class Runtime extends EventEmitter {
         problem = e instanceof Error ? e.message : String(e);
       }
     }
-    this.profileStatus = { working: null, error: problem };
+    this.profileStatus = { working: null, error: problem, waiting };
     if (changedHere) {
       this.note(`Show profile updated from Google Drive`);
       this.rebuild();
@@ -773,7 +790,14 @@ export class Runtime extends EventEmitter {
       profile: profileShow ? { id: profileShow.id, name: profileShow.name } : null,
       profilePicked: this.profilePicked,
       profileMismatch: this.profileMismatch,
-      profileSync: { ...this.profileStatus, drive: this.profileList ? this.profileList.drive.email : null, checked: this.profileList !== null },
+      profileSync: {
+        working: this.profileStatus.working,
+        error: this.profileStatus.error,
+        waiting: this.profileStatus.waiting.length,
+        waitingOn: this.placesOf(this.profileStatus.waiting),
+        drive: this.profileList ? this.profileList.drive.email : null,
+        checked: this.profileList !== null,
+      },
       greenScreen: this.greenScreen
         ? {
             file: path.basename(this.greenScreen.path),

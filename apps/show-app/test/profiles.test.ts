@@ -142,6 +142,23 @@ describe('show profiles shared through Google Drive', () => {
     expect(b.state().greenScreen).toBeNull();
   });
 
+  it('says when a file can’t go up because its drive isn’t plugged in, and sends it once it is', async () => {
+    // Sports' music is on a USB drive that isn't plugged in.
+    const unplugged = path.join(folder, 'USB DRIVE', 'Sports Music.mp3');
+    await new Store(path.join(folder, 'laptop-b')).saveMusicTrack('show2', { path: unplugged, seconds: 30, thumbnail: null });
+    await b.act({ kind: 'setProfile', showId: 'show2' });
+    await waitFor(() => b.state().profileSync.waiting === 1 && idle(b));
+    expect(b.state().profileSync.waitingOn).toEqual([path.join(folder, 'USB DRIVE')]);
+    expect(profiles.show2.music).toBeUndefined();
+    // Plugged in: it goes up.
+    await (await import('node:fs/promises')).mkdir(path.dirname(unplugged), { recursive: true });
+    await writeFile(unplugged, 'pretend music');
+    await (b as unknown as { syncProfile(): Promise<void> }).syncProfile();
+    expect(profiles.show2.music?.fileName).toBe('Sports Music.mp3');
+    expect(b.state().profileSync.waiting).toBe(0);
+    await b.act({ kind: 'setProfile', showId: 'show1' });
+  });
+
   it('won’t follow a RiGster key for another show’s episode, and says so', async () => {
     keyShow = 'show2';
     await a.act({ kind: 'connect', siteUrl: site, key: KEY });

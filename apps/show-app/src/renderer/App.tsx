@@ -167,11 +167,19 @@ function ProfileMenu({ state }: { state: AppState }) {
 
 /** Whether the profile's files are in Google Drive, and what's going up or coming down. */
 function ProfileStatus({ state }: { state: AppState }) {
-  const { working, error, drive, checked } = state.profileSync;
+  const { working, error, drive, checked, waiting, waitingOn } = state.profileSync;
   if (working) return <p className="profile-status small working">⟳ {working}</p>;
   if (error) return <p className="profile-status small error">{error}</p>;
   if (!checked) return null;
   if (!drive) return <p className="profile-status small warn">Not shared yet: no Google Drive is connected (an admin connects one on the website’s Usage page).</p>;
+  if (waiting > 0) {
+    return (
+      <p className="profile-status small warn">
+        {waiting} {waiting === 1 ? 'file isn’t' : 'files aren’t'} in Google Drive yet: {waiting === 1 ? 'it’s' : 'they’re'} on {waitingOn.join(' and ') || 'a drive that isn’t plugged in'}.
+        Plug it in, and RiGster sends {waiting === 1 ? 'it' : 'them'} by itself.
+      </p>
+    );
+  }
   return (
     <p className="profile-status small muted" title={`In ${drive}’s Google Drive, in RiGster → ${state.profile?.name ?? ''}`}>
       ✓ Shared with every laptop through Google Drive
