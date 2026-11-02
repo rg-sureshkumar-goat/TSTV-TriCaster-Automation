@@ -94,6 +94,7 @@ export function App() {
     <div className={`app${state.automation.manual ? ' manual' : ''}`}>
       <LiveBar state={state} />
       <Header state={state} />
+      <Tc1Banner state={state} />
       {/* The whole layout shows either way; a key for another show's episode just isn't followed (RG, Nov 2, 2026). */}
       {state.profileMismatch && (
         <div className="banner mismatch-banner" role="alert">
@@ -248,7 +249,7 @@ function Header({ state }: { state: AppState }) {
       <span className="lights">
         <Light on={website.status === 'connected'} warn={website.status === 'connecting'} label="Website" detail={website.error ?? website.status} />
         <Light on={prompter.connected} label="Prompter" detail={prompter.connected ? `On ${prompter.label || 'the top'}` : 'The prompter isn’t open on this episode'} />
-        {state.mode === 'live' ? (
+        {state.mode === 'live' || state.alwaysLive ? (
           <Light on={switcher.status === 'connected'} warn={switcher.status === 'connecting'} label="TC1" detail={switcher.error ?? `${switcher.address}: ${switcher.status}`} />
         ) : (
           <button className="light-button" onClick={() => setOpen(open === 'simulator' ? null : 'simulator')} title="Click to change the simulator’s address">
@@ -279,6 +280,7 @@ function LiveSwitch({ state }: { state: AppState }) {
     setBusy(false);
     setAsking(false);
   };
+  if (state.alwaysLive) return state.switcher.status === 'connected' ? <span className="mode live">LIVE: TC1</span> : null;
   if (state.mode === 'live') return <span className="mode live">LIVE: TC1</span>;
   // Turning on: RiGster waits for the cable, the TC1 and its session, and connects by itself (RG, Nov 1, 2026).
   if (state.liveWaiting) {
@@ -337,9 +339,23 @@ function LiveSwitch({ state }: { state: AppState }) {
   );
 }
 
+/**
+ * Until RiGster is connected to the TC1 (RG, Nov 2, 2026): it looks for the TC1 from the moment it opens,
+ * and again if the connection drops, and says what it's waiting for.
+ */
+function Tc1Banner({ state }: { state: AppState }) {
+  if (!state.alwaysLive || state.switcher.status === 'connected') return null;
+  return (
+    <div className="banner tc1-banner" role="alert">
+      <strong>RiGster Is Not Connected to TC1</strong>
+      <span>{state.liveWaiting ?? state.liveError ?? 'Plug in the TC1 Cable to Connect to TC1'}</span>
+    </div>
+  );
+}
+
 /** Across the top in live mode, so nobody forgets the app is running the real TC1. */
 function LiveBar({ state }: { state: AppState }) {
-  if (state.mode !== 'live') return null;
+  if (state.mode !== 'live' || state.switcher.status !== 'connected') return null;
   const connections = state.playout?.connections ?? 0;
   const dskSource = state.switcher.dskSource;
   return (
@@ -354,7 +370,7 @@ function LiveBar({ state }: { state: AppState }) {
       <span className="small">
         {state.playout?.error ?? (connections > 0 ? `Input 4 is taking the laptop’s graphics (${connections} connection${connections === 1 ? '' : 's'}).` : 'Waiting for the TC1’s input 4 to take the laptop’s graphics…')}
       </span>
-      <button onClick={() => act({ kind: 'setLiveMode', on: false })}>Back to the simulator</button>
+      {!state.alwaysLive && <button onClick={() => act({ kind: 'setLiveMode', on: false })}>Back to the simulator</button>}
     </div>
   );
 }

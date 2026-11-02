@@ -1248,6 +1248,20 @@ button.danger {
   clip: rect(0 0 0 0);
 }
 
+/* RiGster isn't connected to the TC1 yet (RG, Nov 2, 2026). */
+.tc1-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 12px 16px 0;
+  background: #7f1d1d;
+  color: #fff;
+}
+.tc1-banner strong {
+  font-size: 17px;
+}
+
 .mismatch-banner {
   margin: 12px 16px 0;
   background: #7f1d1d;

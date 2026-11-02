@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { keepNdiOnCable } from '../src/main/ndi.ts';
-import { answersPing, Runtime } from '../src/main/runtime.ts';
+import { answersPing, PLUG_IN, Runtime } from '../src/main/runtime.ts';
 import { Store } from '../src/main/store.ts';
 
 let folder: string;
@@ -28,7 +28,7 @@ describe('turning on live mode', () => {
   it('waits for the cable, saying so, and stops when cancelled', async () => {
     const runtime = new Runtime({ store: new Store(path.join(folder, 'app')), pickFiles: async () => [], pickFile: async () => null, cable: () => [] });
     await runtime.act({ kind: 'setLiveMode', on: true });
-    await waitFor(() => runtime.state().liveWaiting?.includes('cable') === true);
+    await waitFor(() => runtime.state().liveWaiting?.startsWith(PLUG_IN) === true);
     expect(runtime.state().mode).toBe('simulator');
     expect(runtime.state().liveError).toBeNull();
     // Clicking it again doesn't start a second search.
@@ -36,6 +36,18 @@ describe('turning on live mode', () => {
     await runtime.act({ kind: 'setLiveMode', on: false });
     expect(runtime.state().liveWaiting).toBeNull();
     expect(runtime.state().mode).toBe('simulator');
+    runtime.close();
+  });
+
+  it('in the app, runs the TC1 from the moment it opens: it looks for it at once, asks for the cable, and never goes to the simulator', async () => {
+    const runtime = new Runtime({ store: new Store(path.join(folder, 'always')), pickFiles: async () => [], pickFile: async () => null, cable: () => [], alwaysLive: true });
+    await runtime.start();
+    await waitFor(() => runtime.state().liveWaiting?.startsWith(PLUG_IN) === true);
+    expect(runtime.state()).toMatchObject({ mode: 'live', alwaysLive: true, switcher: { status: 'off' } });
+    // There's no going back to the simulator, and nothing was sent anywhere.
+    await runtime.act({ kind: 'setLiveMode', on: false });
+    expect(runtime.state().mode).toBe('live');
+    expect(runtime.state().liveWaiting).toContain(PLUG_IN);
     runtime.close();
   });
 

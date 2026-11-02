@@ -127,10 +127,12 @@ Electron is what apps like Slack and VS Code are built with. One codebase produc
 | Sender | Copies files to the TC1 and builds the DDR2 playlist (Phase 5). The method depends on the probe results |
 | Producer screen | Camera buttons, On air / Up next, preview, Pause, Record, show clock, status lights and cue latency |
 
-### 6.3 Live mode: three safety locks
+### 6.3 Live mode: safety locks
 
-1. **The app always opens in simulator mode.** It never remembers live mode between launches.
-2. **Turning on live mode takes a deliberate step**: a switch plus a confirmation. After that, a red "LIVE: TC1" bar stays across the top of the window.
+**Changed Nov 2, 2026 (RG):** the installed RiGster has no simulator mode. It opens running the TC1: it looks for it at once, shows a red "RiGster Is Not Connected to TC1" banner until it's connected, sends nothing until then, and looks again if the connection drops. The first two locks below now apply only to development (`npm run show-app:simulator`); the third still applies to the app.
+
+1. **The app always opens in simulator mode** (development only). It never remembers live mode between launches.
+2. **Turning on live mode takes a deliberate step** (development only): a switch plus a confirmation. After that, a red "LIVE: TC1" bar stays across the top of the window.
 3. **The driver checks what it's talking to.** In simulator mode it refuses to send anything to a device that doesn't identify itself as the TSTV simulator. Typing the TC1's address by mistake still sends nothing.
 
 **Pause** is one switch inside the driver. While it's on, the driver sends nothing to the switcher. Pause, Resume and every TC1 command travel only over the cable.

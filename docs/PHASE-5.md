@@ -52,7 +52,7 @@ You need: the laptop on the TC1's cable, NDI Tools on the laptop (already instal
    ```
 
 2. **Connect to the episode** with its key, as before. Check the graphics are imported and have files (no **missing**, no **can't read file**).
-3. **Turn on live mode:** click **Run the real TC1…**, read the confirmation, and click **Turn on live mode**. Check:
+3. **Connect to the TC1:** plug in the cable. RiGster connects by itself (since Nov 2, 2026 it has no simulator mode or **Run the real TC1…** button; a red **RiGster Is Not Connected to TC1** banner shows until it's connected). Check:
    - the red **LIVE: TC1** bar, and the **TC1** light green
    - the camera boxes show the real cameras, and the Program box the real program
 4. **Set up the TC1** (see "What the TC1 needs" above). Check the red bar then says input 4 is taking the laptop's graphics.

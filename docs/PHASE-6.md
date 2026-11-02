@@ -111,6 +111,22 @@ Each show has two transitions, kept in its show profile like the permanent graph
 2. **On the simulator:** run two teases back to back: the tease transition plays over the Program box, and the second tease appears under it halfway through. Fire a LITES: the LITES transition plays, and the layout appears under it halfway; when the LITES ends, the transition plays again and the camera comes back under it.
 3. **On the TC1:** set input 6 and DSK 4 as above, and do the same in live mode.
 
+## Part 5: RiGster runs the TC1 from the moment it opens (built Nov 2, 2026)
+
+RG: no simulator mode, and no **Run the real TC1…** button or warning page.
+
+- RiGster opens looking for the TC1. Until it's connected, a red banner across the top reads **RiGster Is Not Connected to TC1**, with what it's waiting for: **Plug in the TC1 Cable to Connect to TC1** until it sees the cable, then the TC1 (turned on?) or its session (open?).
+- Once connected, the banner goes, the **TC1** light turns green, the **LIVE: TC1** badge shows, and the cameras and program come on. The red LIVE bar no longer has **Back to the simulator**.
+- If the connection drops (cable pulled, TC1 turned off), RiGster stops sending, the banner comes back, and it connects again by itself when it can.
+- It still sends nothing until it's connected, and still talks only to a switcher that calls itself a TriCaster TC1.
+- The simulator is now only for development and testing: `npm run show-app:simulator`.
+
+### Test for Part 5
+
+1. **At home (no cable):** open RiGster and pick a show. The red banner reads **RiGster Is Not Connected to TC1** and **Plug in the TC1 Cable to Connect to TC1…**. There's no SIMULATOR badge and no **Run the real TC1…** button.
+2. **At the studio:** with the RiGster session open on the TC1, plug in the cable. Within about a minute the banner goes and the cameras come on, with no buttons pressed.
+3. Pull the cable: within a few seconds the banner comes back. Plug it in again: RiGster connects by itself.
+
 ## Still to come in Phase 6
 
 - A one-page producer guide

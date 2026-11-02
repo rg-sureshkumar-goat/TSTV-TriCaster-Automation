@@ -19,7 +19,8 @@
     "typecheck": "tsc -p tools/simulator && tsc -p tools/probe && tsc -p packages/shared && tsc -p apps/web && tsc -p apps/web/worker && tsc -p apps/show-app",
     "dev": "npm run dev -w apps/web",
     "test:e2e": "npm run test:e2e -w apps/web",
-    "show-app": "npm start -w apps/show-app"
+    "show-app": "npm start -w apps/show-app",
+    "show-app:simulator": "npm start -w apps/show-app -- --simulator"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

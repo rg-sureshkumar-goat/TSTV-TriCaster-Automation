@@ -92,6 +92,11 @@ export interface AppState {
    * confirmation, and the app never remembers it.
    */
   mode: 'simulator' | 'live';
+  /**
+   * RiGster runs the TC1 from the moment it opens, with no simulator (RG, Nov 2, 2026). Off only in
+   * development (npm run show-app:simulator).
+   */
+  alwaysLive: boolean;
   /** Live mode: where the page watches the TC1's program feed (MIX 1). */
   programVideo: string | null;
   /** Live mode: the recording of the program feed to the laptop (file is null when not recording). */

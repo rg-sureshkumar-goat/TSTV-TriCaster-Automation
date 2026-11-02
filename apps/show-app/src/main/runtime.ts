@@ -41,6 +41,9 @@ import { askSwitcher, Switcher, type PlaylistClip, type SwitcherMode } from './s
 import type { UpdateState } from './updates.ts';
 import { WebsiteLink, type CueEvent } from './website.ts';
 
+/** What RiGster asks for until it sees the TC1's cable (RG, Nov 2, 2026). */
+export const PLUG_IN = 'Plug in the TC1 Cable to Connect to TC1';
+
 /** The clip TSTV holds during each commercial break, at the start of every block in DDR 2 (probe, Oct 28, 2026). */
 export const BREAK_CLIP = { name: 'TSTV Ident 2022 News', durationMs: 4_963 };
 
@@ -63,6 +66,12 @@ export interface RuntimeDeps {
   cable?: () => string[];
   /** Google Drive's address, for show profiles (tests use a pretend one). */
   driveApi?: string;
+  /**
+   * RiGster runs the TC1 from the moment it opens (RG, Nov 2, 2026: no simulator, no Run the real TC1
+   * button): it looks for the TC1 at once, and again whenever the connection drops. Only the app sets
+   * this; tests (and npm run show-app:simulator, for development) leave it off and use the simulator.
+   */
+  alwaysLive?: boolean;
 }
 
 export class Runtime extends EventEmitter {
@@ -110,6 +119,7 @@ export class Runtime extends EventEmitter {
   private makingPlayable = false;
   private playableAgain = false;
   private retryTimer: ReturnType<typeof setInterval> | null = null;
+  private cableTimer: ReturnType<typeof setInterval> | null = null;
   private syncingSimulator = false;
   /** Live mode's playout (Phase 5), which sends the graphics and music to the TC1's input 4 over NDI. */
   private playout: Playout | null = null;
@@ -121,6 +131,8 @@ export class Runtime extends EventEmitter {
    * as the producer reads it. It keeps trying until it connects or the producer cancels (RG, Nov 1, 2026).
    */
   private liveWaiting: string | null = null;
+  /** The laptop's address on the TC1's cable, while connected; when it goes, so has the cable. */
+  private liveCable: string | null = null;
   /** Each search for the TC1 has its own number, so cancelling one stops it. */
   private liveSearch = 0;
   /** A new version of RiGster, from main.ts's update checks. */
@@ -164,11 +176,16 @@ export class Runtime extends EventEmitter {
     this.changed();
   }
 
-  /** Starts up with what was remembered: the simulator, and the last episode's key. */
+  /** Starts up with what was remembered: the TC1 (or, in tests, the simulator), and the last episode's key. */
   async start(): Promise<void> {
     this.settings = await this.deps.store.settings();
+    if (this.deps.alwaysLive) {
+      // Not connected until the TC1 is found: nothing is sent anywhere until then.
+      this.switcher = this.newSwitcher(this.settings.tc1Address, 5951, 'live');
+      void this.lookForTc1();
+    }
     // Tests can run a second simulator, with its state stream on another port (TSTV_SIM_STATE_PORT).
-    await this.connectSwitcher(this.settings.simulatorAddress, Number(process.env.TSTV_SIM_STATE_PORT) || undefined);
+    else await this.connectSwitcher(this.settings.simulatorAddress, Number(process.env.TSTV_SIM_STATE_PORT) || undefined);
     await this.loadProfile();
     if (this.settings.key) await this.connect(this.settings.siteUrl, this.settings.key);
     else void this.refreshProfiles();
@@ -176,6 +193,12 @@ export class Runtime extends EventEmitter {
     this.profileTimer = setInterval(() => void this.refreshProfiles(), 120_000);
     // A drive plugged in later is noticed by itself: its files get their playable copies.
     // So do the profile's files waiting to go to Google Drive.
+    // A pulled cable can leave the TC1's connection looking open for minutes, so the cable itself is watched.
+    if (this.deps.alwaysLive) {
+      this.cableTimer = setInterval(() => {
+        if (this.liveCable && !(this.deps.cable ?? cableAddresses)().includes(this.liveCable)) void this.lostTc1();
+      }, 2000);
+    }
     this.retryTimer = setInterval(() => {
       if (this.unreachable.size > 0) void this.makePlayables();
       if (this.profileStatus.waiting.length > 0) void this.syncProfile();
@@ -195,6 +218,8 @@ export class Runtime extends EventEmitter {
       }
       this.reportStatus();
       this.changed();
+      // The TC1's connection dropped (its cable pulled, or it was turned off): look for it again.
+      if (this.deps.alwaysLive && switcher === this.switcher && this.playout && switcher.snapshot.status === 'error') void this.lostTc1();
       // DDR 2 may have been waiting for the clip on air to finish.
       void this.syncSimulator();
     });
@@ -867,6 +892,7 @@ export class Runtime extends EventEmitter {
         : [],
       switcher: { ...this.switcher.snapshot },
       mode: this.switcher.mode,
+      alwaysLive: this.deps.alwaysLive ?? false,
       programVideo: this.switcher.mode === 'live' ? (this.feeds?.url('program') ?? null) : null,
       recording: this.feeds ? { ...this.feeds.recording, error: this.feeds.recording.error ?? this.feeds.error } : null,
       liveError: this.liveError,
@@ -989,6 +1015,8 @@ export class Runtime extends EventEmitter {
    * TC1's cable, where NDI is kept; the playout then sends the graphics and music to input 4.
    */
   private async setLiveMode(on: boolean, simulatorStatePort?: number): Promise<void> {
+    // RiGster always runs the TC1 (RG, Nov 2, 2026): there's no going back to the simulator.
+    if (this.deps.alwaysLive && !on) return;
     if (!on && this.liveWaiting !== null) {
       // Cancelled while still looking for the TC1.
       this.liveSearch++;
@@ -1015,6 +1043,23 @@ export class Runtime extends EventEmitter {
     void this.lookForTc1();
   }
 
+  /** The TC1's connection dropped: RiGster stops sending, says so, and connects again as soon as it can. */
+  private async lostTc1(): Promise<void> {
+    if (!this.playout) return;
+    const [lost, playout, feeds] = [this.switcher, this.playout, this.feeds];
+    this.switcher = this.newSwitcher(this.settings.tc1Address, 5951, 'live');
+    this.playout = null;
+    this.feeds = null;
+    this.liveCable = null;
+    lost.close();
+    feeds?.stopRecording();
+    await Promise.all([playout.close(), feeds?.close()]);
+    this.note('Lost the connection to the TC1: connecting again');
+    this.reportStatus();
+    this.rebuild();
+    void this.lookForTc1();
+  }
+
   /**
    * Turning on live mode: waits for the cable, then for the TC1 and its session, saying which it's waiting
    * for, and connects as soon as everything's there (RG, Nov 1, 2026: turn on the TC1, plug in the cable,
@@ -1037,7 +1082,7 @@ export class Runtime extends EventEmitter {
       if (!cable.length) {
         waitFor(
           Date.now() - started < 90_000
-            ? 'Waiting for the TC1’s cable. The laptop takes up to a minute to see it after it’s plugged in.'
+            ? `${PLUG_IN}. The laptop takes up to a minute to see it after it’s plugged in.`
             : 'Still no cable. Check the cable is plugged into the laptop’s adapter and into the TC1.',
         );
       } else {
@@ -1077,7 +1122,13 @@ export class Runtime extends EventEmitter {
     if (live.snapshot.status !== 'connected' || !this.liveWaiting) {
       live.close();
       await playout.close();
-      // Not a TC1 (the identity lock): that's not something waiting fixes.
+      // Not a TC1 (the identity lock): that's not something waiting fixes, unless RiGster always runs the
+      // TC1, when it says so and keeps looking.
+      if (live.snapshot.status === 'refused' && this.deps.alwaysLive) {
+        this.liveWaiting = live.snapshot.error;
+        this.changed();
+        return false;
+      }
       if (live.snapshot.status === 'refused') {
         this.liveSearch++;
         this.liveWaiting = null;
@@ -1091,6 +1142,7 @@ export class Runtime extends EventEmitter {
     this.switcher.close();
     this.switcher = live;
     this.playout = playout;
+    this.liveCable = localAddress;
     this.feeds = new Feeds();
     this.feeds.on('change', () => this.changed());
     this.settings = { ...this.settings, tc1Address: address };
@@ -1360,7 +1412,9 @@ export class Runtime extends EventEmitter {
   }
 
   close(): void {
+    this.liveSearch++;
     if (this.retryTimer) clearInterval(this.retryTimer);
+    if (this.cableTimer) clearInterval(this.cableTimer);
     if (this.profileTimer) clearInterval(this.profileTimer);
     this.website.close();
     this.switcher.close();

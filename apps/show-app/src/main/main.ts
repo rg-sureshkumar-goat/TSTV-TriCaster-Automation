@@ -36,6 +36,9 @@ const runtime = new Runtime({
     return result.canceled ? null : (result.filePaths[0] ?? null);
   },
   recordingsFolder: app.getPath('videos'),
+  // RiGster runs the TC1 from the moment it opens (RG, Nov 2, 2026). Only development starts it on the
+  // simulator instead: npm run show-app:simulator.
+  alwaysLive: !process.argv.includes('--simulator'),
   applyUpdate: () => updates?.apply(),
   pickRecording: async (suggested) => {
     const result = await dialog.showSaveDialog(win!, {
