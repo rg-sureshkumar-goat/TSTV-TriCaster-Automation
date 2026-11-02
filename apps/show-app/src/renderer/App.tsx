@@ -175,8 +175,7 @@ function ProfileStatus({ state }: { state: AppState }) {
   if (waiting > 0) {
     return (
       <p className="profile-status small warn">
-        {waiting} {waiting === 1 ? 'file isn’t' : 'files aren’t'} in Google Drive yet: {waiting === 1 ? 'it’s' : 'they’re'} on {waitingOn.join(' and ') || 'a drive that isn’t plugged in'}.
-        Plug it in, and RiGster sends {waiting === 1 ? 'it' : 'them'} by itself.
+        {waiting} {waiting === 1 ? 'file waits' : 'files wait'} for {waitingOn.join(' and ') || 'its drive'} to go to Google Drive: plug it in.
       </p>
     );
   }
@@ -1002,7 +1001,8 @@ function PermanentBox({ state }: { state: AppState }) {
   return (
     <DropPanel title="Permanent graphics" className="permanent" onFiles={(paths) => act({ kind: 'addPermanent', paths })}>
       <ProfileStatus state={state} />
-      <p className="muted small">Drop the show’s permanent graphics here once; every episode, and every laptop, uses them.</p>
+      {/* Only while it's empty, to keep the box short. */}
+      {state.permanent.every((g) => !g.file) && <p className="muted small">Drop the show’s permanent graphics here once; every episode, and every laptop, uses them.</p>}
       <ul className="perm-list">
         {state.permanent.map((g) => (
           <li key={g.name}>
@@ -1044,24 +1044,24 @@ function TransitionsBox({ state }: { state: AppState }) {
     <DropPanel title="Transitions" className="transitions" onFiles={drop}>
       <ul className="transition-list">
         {state.transitions.map((t) => (
-          <li key={t.which}>
-            <div className="thumb transition-thumb">{t.thumbnail ? <img src={t.thumbnail} alt="" /> : <span>{t.file ? '' : 'None'}</span>}</div>
-            <div className="transition-text">
-              <strong>{labels[t.which]}</strong>
-              <span className="small muted" title={t.file ?? undefined}>
-                {t.file ?? help[t.which]}
-              </span>
-              <span className="row">
-                <button className="small-button" onClick={() => act({ kind: 'chooseTransition', which: t.which })}>
-                  {t.file ? 'Change' : 'Choose'}
+          <li key={t.which} title={help[t.which]}>
+            <strong>{labels[t.which]}</strong>
+            <div className="transition-file">
+              <div className="thumb transition-thumb">{t.thumbnail ? <img src={t.thumbnail} alt="" /> : <span>{t.file ? '' : 'None'}</span>}</div>
+              <button className="small-button" onClick={() => act({ kind: 'chooseTransition', which: t.which })}>
+                {t.file ? 'Change' : 'Choose'}
+              </button>
+              {t.file && (
+                <button className="small-button" onClick={() => act({ kind: 'clearTransition', which: t.which })}>
+                  Remove
                 </button>
-                {t.file && (
-                  <button className="small-button" onClick={() => act({ kind: 'clearTransition', which: t.which })}>
-                    Remove
-                  </button>
-                )}
-              </span>
+              )}
             </div>
+            {t.file && (
+              <span className="small muted transition-name" title={t.file}>
+                {t.file}
+              </span>
+            )}
           </li>
         ))}
       </ul>

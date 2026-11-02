@@ -524,17 +524,18 @@ h3 {
 }
 
 /*
- * Top: Program (with the cameras) · Playlist · status. Bottom: preview · transitions · permanent · green
- * screen · music. The Program box reaches over the preview's and transitions' columns, the Playlist over the
- * green screen's, and the status panel sits over the music's alone (RG, Oct 30, 2026: it had room to spare,
- * and the Playlist needed it; the Transitions box, Nov 2, 2026).
+ * Top: Program (with the cameras) · Playlist · status. Bottom: preview · permanent · green screen ·
+ * transitions · music. The Playlist reaches over the green screen's and transitions' columns, and the status
+ * panel sits over the music's alone (RG, Oct 30, 2026: it had room to spare, and the Playlist needed it; the
+ * Transitions box between the green screen and the music, with the permanent graphics a little narrower,
+ * Nov 2, 2026).
  */
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.55fr) minmax(0, 1.15fr) minmax(0, 0.47fr) minmax(0, 0.7fr) 92px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.98fr) minmax(0, 0.42fr) minmax(0, 0.56fr) minmax(0, 0.63fr) 80px;
   grid-template-areas:
-    'program program playlist playlist status sound'
-    'preview transitions permanent green music sound';
+    'program playlist playlist playlist status sound'
+    'preview permanent green transitions music sound';
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 12px;
   flex: 1;
@@ -1442,32 +1443,31 @@ button.danger {
 
 .transition-list li {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 8px;
-  align-items: start;
-}
-
-.transition-thumb {
-  width: 64px;
-  height: 36px;
-  font-size: 11px;
-}
-
-.transition-text {
-  display: grid;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
-.transition-text > span {
-  overflow-wrap: anywhere;
+/* Each one stacked: its name, then its picture beside its buttons, then its file's name. */
+.transition-file {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 
-.transition-text .row {
-  display: flex;
-  gap: 6px;
-  margin-top: 2px;
+.transition-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.transition-thumb {
+  width: 48px;
+  height: 27px;
+  font-size: 10px;
+}
+
+
 
 /* A transition wipe, over everything in the Program box. */
 .program-transition {

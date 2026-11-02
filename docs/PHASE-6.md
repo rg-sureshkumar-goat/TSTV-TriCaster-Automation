@@ -93,7 +93,7 @@ A LITES clip no longer plays over the camera on DSK 2. It goes up in TSTV's LITE
 
 ## Part 4: transitions (built Nov 2, 2026)
 
-Each show has two transitions, kept in its show profile like the permanent graphics, in RiGster's new **Transitions** box (next to the Up next preview):
+Each show has two transitions, kept in its show profile like the permanent graphics, in RiGster's new **Transitions** box (between the Green screen and Music boxes):
 
 - **Tease Transition:** plays between back-to-back teases, when one tease goes straight to the next. Not before the first or after the last.
 - **LITES Transition:** plays going into a LITES layout, and again coming out of it.
