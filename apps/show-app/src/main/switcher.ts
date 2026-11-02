@@ -63,9 +63,16 @@ export interface SwitcherSnapshot {
   musicPlaying: boolean;
   /** DSK 2's source as the TC1 names it, like "input4" or "ddr2" (live mode checks it's input 4). */
   dskSource: string | null;
+  /** The LITES layout is on program (M/E 4), with this camera in its left box (RG, Nov 2, 2026). */
+  layoutOn: boolean;
+  layoutCamera: number | null;
   playlist: string[];
   soundTracks: string[];
 }
+
+/** Program runs through M/E 1; the LITES layout is M/E 4 (TSTV's session, and RG, Nov 2, 2026). */
+const PROGRAM_ME = 'v1';
+const LAYOUT_ME = 'v4';
 
 const attr = (text: string, name: string): string | undefined => new RegExp(`\\b${name}="([^"]*)"`).exec(text)?.[1];
 const unescape = (text: string) => text.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
@@ -90,6 +97,8 @@ export class Switcher extends EventEmitter {
 
   /** The music track's file, which the playout plays in live mode. */
   musicPath: string | null = null;
+  /** On the simulator, where the green screen is: GFX 1 for a still, DDR 1 for a clip. */
+  greenScreenSource = 'GFX1';
 
   /**
    * address is host:port of the web control; the state stream is on statePort (5951 on the TC1). In live
@@ -104,13 +113,13 @@ export class Switcher extends EventEmitter {
     private localAddress?: string,
   ) {
     super();
-    this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, dskSource: null, playlist: [], soundTracks: [] };
+    this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, dskSource: null, layoutOn: false, layoutCamera: null, playlist: [], soundTracks: [] };
     if (playout) {
       // The playout stands in for DDR 2 and the Sound player.
       const follow = () => this.set({ ddrItem: playout.state.item, ddrPlaying: playout.state.playing, ddrRemaining: playout.state.remaining, musicPlaying: playout.state.musicPlaying });
       playout.on('change', follow);
       playout.on('ended', (item: number) => {
-        if (this.snapshot.dskOn) this.emit('clipEnded', item);
+        if (this.snapshot.dskOn || this.snapshot.layoutOn) this.emit('clipEnded', item);
       });
     }
   }
@@ -198,13 +207,18 @@ export class Switcher extends EventEmitter {
     const was = this.snapshot.ddrPlaying;
     const input = /^INPUT(\d+)$/i.exec(this.states.get('v1_a_row_named_input') ?? '');
     const dskOn = this.states.get('main_dsk2_value') === '1' || this.states.get('main_dsk2_take') === 'true';
+    // The LITES layout: program shows M/E 4 ("V4"), with a camera on its A layer.
+    const layoutOn = (this.states.get('main_a_row_named_input') ?? '').toUpperCase() === LAYOUT_ME.toUpperCase();
+    const layoutInput = /^INPUT(\d+)$/i.exec(this.states.get(`${LAYOUT_ME}_a_row_named_input`) ?? '');
+    const layout = { layoutOn, layoutCamera: layoutInput ? Number(layoutInput[1]) : null };
     // Live mode: the TC1's DDR 2 and Sound player aren't used; the playout reports instead.
-    if (this.live) return this.set({ programInput: input ? Number(input[1]) : null, dskOn, dskSource: this.states.get('main_dsk2_select_named_input')?.toLowerCase() ?? null });
+    if (this.live) return this.set({ programInput: input ? Number(input[1]) : null, dskOn, ...layout, dskSource: this.states.get('main_dsk2_select_named_input')?.toLowerCase() ?? null });
     const ddrPlaying = this.states.get('ddr2_play') === 'true';
     const item = Number.parseInt(this.states.get('ddr2_select_clips') ?? '', 10);
     this.set({
       programInput: input ? Number(input[1]) : null,
       dskOn,
+      ...layout,
       ddrPlaying,
       ddrItem: Number.isInteger(item) ? item : null,
       musicPlaying: this.states.get('sound_play') === 'true',
@@ -241,7 +255,7 @@ export class Switcher extends EventEmitter {
   private async checkClipEnd(): Promise<void> {
     const item = this.snapshot.ddrItem;
     const remaining = await this.readTimecode();
-    if (remaining !== null && remaining <= 0.5 && this.snapshot.dskOn && this.snapshot.ddrItem === item) this.emit('clipEnded', item);
+    if (remaining !== null && remaining <= 0.5 && (this.snapshot.dskOn || this.snapshot.layoutOn) && this.snapshot.ddrItem === item) this.emit('clipEnded', item);
   }
 
   async readPlaylists(): Promise<void> {
@@ -303,6 +317,7 @@ export class Switcher extends EventEmitter {
       else if (c.kind === 'cueClip') await this.send('ddr2_select_clips', String(c.item));
       else if (c.kind === 'play') await this.send('ddr2_play');
       else if (c.kind === 'dsk') await this.send('main_dsk2_value', c.on ? '1' : '0');
+      else if (c.kind === 'layout') await this.layout(c.on, c.camera, 'DDR2', this.greenScreenSource, () => this.send('ddr2_stop'));
       else if (c.kind === 'music') {
         if (c.play) {
           await this.send('sound_select_clips', String(c.track ?? 0));
@@ -322,6 +337,7 @@ export class Switcher extends EventEmitter {
     if (c.kind === 'cueClip') playout.select(c.item);
     else if (c.kind === 'play') playout.play();
     else if (c.kind === 'music') playout.music(c.play, this.musicPath ?? undefined);
+    else if (c.kind === 'layout') await this.layout(c.on, c.camera, 'INPUT4', 'INPUT5', async () => playout.stop());
     else if (c.kind === 'dsk') {
       if (c.on) {
         playout.play();
@@ -331,6 +347,24 @@ export class Switcher extends EventEmitter {
         playout.stop();
       }
     }
+  }
+
+  /**
+   * The LITES layout on M/E 4 (RG, Nov 2, 2026), as the TSTV session already had it (probe, Oct 29, 2026):
+   * the camera on its A layer (left box), the clip on B (right box), the background on C. On: the layers
+   * are set, then program shows M/E 4. Off: program goes back to M/E 1, with the camera, and the clip stops.
+   * In live mode the clip is the laptop's graphics (input 4) and the background its green screen (input 5).
+   */
+  private async layout(on: boolean, camera: number | undefined, clip: string, background: string, stop: () => Promise<unknown>): Promise<void> {
+    if (!on) {
+      await this.send('main_a_row_named_input', PROGRAM_ME.toUpperCase());
+      await stop();
+      return;
+    }
+    await this.send(`${LAYOUT_ME}_a_row_named_input`, `INPUT${camera ?? 1}`);
+    await this.send(`${LAYOUT_ME}_b_row_named_input`, clip);
+    await this.send(`${LAYOUT_ME}_c_row_named_input`, background);
+    await this.send('main_a_row_named_input', LAYOUT_ME.toUpperCase());
   }
 
   /**

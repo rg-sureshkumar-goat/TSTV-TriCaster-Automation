@@ -508,14 +508,33 @@ function Program({ state }: { state: AppState }) {
   const onAir = state.automation.onAir;
   // On the simulator, the app's own picture; live mode shows the TC1's program instead.
   const simulator = state.mode === 'simulator';
-  const keyed = simulator && state.switcher.dskOn ? onAir?.playable : null;
+  // The LITES layout (RG, Nov 2, 2026): drawn here on the simulator; live mode shows the TC1's own.
+  const layout = simulator && state.switcher.layoutOn;
+  const showing = state.switcher.dskOn || layout;
+  const keyed = simulator && showing ? onAir?.playable : null;
   // Until its clip can play (being made, or its drive isn't plugged in), a graphic shows as its still.
-  const still = simulator && state.switcher.dskOn && onAir && !onAir.playable ? onAir.thumbnail : null;
+  const still = simulator && showing && onAir && !onAir.playable ? onAir.thumbnail : null;
+  const layoutCamera = state.cameras.find((c) => c.input === state.switcher.layoutCamera);
+  const background = state.greenScreen;
   // Ready before the first clip, so it isn't held back while the laptop's sound wakes up.
   useEffect(() => void programSound(), []);
   return (
-    <div className="program" aria-label="Program">
-      {state.mode === 'live' ? (
+    <div className={`program${layout ? ' with-layout' : ''}`} aria-label="Program">
+      {layout ? (
+        // As in RG's template: the green screen behind, the camera in the left box, the clip in the right.
+        <div className="lites-frame">
+          {background?.playable && background.seconds ? (
+            <video className="lites-background" src={background.playable} autoPlay loop muted playsInline />
+          ) : background?.playable || background?.thumbnail ? (
+            <img className="lites-background" src={background.playable ?? background.thumbnail!} alt="" />
+          ) : null}
+          <div className="lites-box lites-camera">{layoutCamera?.video ? <CameraPicture src={`${layoutCamera.video}?size=large`} /> : null}</div>
+          <div className="lites-box lites-clip">
+            {keyed && <ProgramClip key={onAir!.id} src={keyed} />}
+            {still && <img className="program-clip" src={still} alt="" />}
+          </div>
+        </div>
+      ) : state.mode === 'live' ? (
         // Live mode: the TC1's real program, picture only.
         <CameraPicture src={state.programVideo} />
       ) : camera?.video ? (
@@ -523,13 +542,13 @@ function Program({ state }: { state: AppState }) {
       ) : (
         <span className="program-note">Start the simulator, or turn on live mode, to see the program here.</span>
       )}
-      {keyed && <ProgramClip key={onAir!.id} src={keyed} />}
-      {still && <img className="program-clip" src={still} alt="" />}
+      {!layout && keyed && <ProgramClip key={onAir!.id} src={keyed} />}
+      {!layout && still && <img className="program-clip" src={still} alt="" />}
       {/* On the simulator, the Sound player only pretends: the app plays the music out loud while it plays. */}
       {simulator && state.switcher.musicPlaying && state.musicTrack?.playable && <ProgramMusic src={state.musicTrack.playable} />}
       <span className={`live-dot${state.live.on ? ' on' : ''}`}>{state.live.on ? '● LIVE' : '○ Not live'}</span>
       <span className="program-caption">
-        <strong>{camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera')}</strong>
+        <strong>{layout ? `LITES layout: ${layoutCamera?.name ?? 'camera'}` : (camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera'))}</strong>
         {onAir && <> + {onAir.label}</>}
         {still && <span className="muted"> (still: {onAir!.fileFound ? 'getting its clip ready' : 'the app can’t read its file'})</span>}
         {state.switcher.musicPlaying && <> + ♪ music</>}

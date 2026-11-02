@@ -112,6 +112,9 @@ export interface AppState {
     ddrRemaining: number | null;
     musicPlaying: boolean;
     dskSource: string | null;
+    /** The LITES layout is on program (M/E 4), with this camera in its left box. */
+    layoutOn: boolean;
+    layoutCamera: number | null;
     playlist: string[];
     soundTracks: string[];
   };

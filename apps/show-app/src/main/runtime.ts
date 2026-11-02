@@ -498,6 +498,8 @@ export class Runtime extends EventEmitter {
       const name = path.basename(this.greenScreen.path).replace(/\.[^.]+$/, '');
       const seconds = this.greenScreen.seconds;
       await this.switcher.loadPlaylist([{ name, durationMs: seconds ? Math.round(seconds * 1000) : 0 }], seconds ? 'ddr1' : 'gfx1');
+      // The LITES layout's background is the same green screen (RG, Nov 2, 2026).
+      this.switcher.greenScreenSource = seconds ? 'DDR1' : 'GFX1';
     }
     this.note(this.greenScreen ? `Green screen: ${path.basename(this.greenScreen.path)}` : 'Green screen removed');
     this.changed();
@@ -1182,7 +1184,7 @@ export class Runtime extends EventEmitter {
         this.note(action.byHand ? 'Cameras by hand: the producer switches them' : 'Cameras follow the prompter again from the next section');
         return this.changed();
       case 'setManual':
-        engine?.setManual(action.manual, { dskOn: this.switcher.snapshot.dskOn, camera: this.switcher.snapshot.programInput });
+        engine?.setManual(action.manual, { dskOn: this.switcher.snapshot.dskOn, camera: this.switcher.snapshot.programInput, layoutOn: this.switcher.snapshot.layoutOn });
         this.note(action.manual ? 'Manual mode: the producer fires the graphics' : 'Automation continued from the prompter’s place');
         this.reportStatus();
         return this.changed();

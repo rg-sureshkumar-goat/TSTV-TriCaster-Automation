@@ -100,6 +100,19 @@ describe('live mode’s driver', () => {
     switcher.close();
   });
 
+  it('puts the LITES layout up on M/E 4, with the laptop’s graphics and green screen, and takes it down', async () => {
+    pretendToBeTc1();
+    const playout = new FakePlayout();
+    const switcher = new Switcher(`127.0.0.1:${sim.httpPort}`, sim.statePort, 'live', playout as unknown as Playout);
+    await switcher.connect();
+    const before = sim.externalCommands().length;
+    await switcher.run([{ kind: 'cueClip', item: 2 }, { kind: 'layout', on: true, camera: 3 }, { kind: 'play' }]);
+    await switcher.run([{ kind: 'layout', on: false }]);
+    expect(commands().slice(before)).toEqual(['v4_a_row_named_input INPUT3', 'v4_b_row_named_input INPUT4', 'v4_c_row_named_input INPUT5', 'main_a_row_named_input V4', 'main_a_row_named_input V1']);
+    expect(playout.calls).toEqual(['select 2', 'play', 'stop']);
+    switcher.close();
+  });
+
   it('reports a clip that ends while DSK 2 is on, by its item', async () => {
     pretendToBeTc1();
     const playout = new FakePlayout();
@@ -117,3 +130,21 @@ describe('live mode’s driver', () => {
     switcher.close();
   });
 });
+
+describe('the LITES layout on the simulator', () => {
+  it('puts M/E 4 on program with the camera, DDR 2 and the green screen, and goes back to M/E 1', async () => {
+    const switcher = new Switcher(`127.0.0.1:${sim.httpPort}`, sim.statePort);
+    await switcher.connect();
+    await switcher.run([{ kind: 'cueClip', item: 2 }, { kind: 'layout', on: true, camera: 3 }, { kind: 'play' }]);
+    const state = sim.switcher.snapshot();
+    expect(state.program).toBe('v4');
+    expect(state.mes.v4).toMatchObject({ a: 'input3', b: 'ddr2', c: 'gfx1' });
+    await waitFor(() => switcher.snapshot.layoutOn && switcher.snapshot.layoutCamera === 3);
+    await switcher.run([{ kind: 'layout', on: false }]);
+    expect(sim.switcher.snapshot().program).toBe('v1');
+    expect(sim.switcher.snapshot().players.ddr2.playing).toBe(false);
+    await waitFor(() => !switcher.snapshot.layoutOn);
+    switcher.close();
+  });
+});
+

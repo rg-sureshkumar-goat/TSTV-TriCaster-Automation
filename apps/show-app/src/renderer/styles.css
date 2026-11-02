@@ -1362,3 +1362,65 @@ button.danger {
   position: static;
   width: auto;
 }
+
+/*
+ * The LITES layout in the Program box (RG's template, Nov 2, 2026): a 16:9 picture with the green screen
+ * behind, the camera in a box at the left and the clip in a box at the right.
+ */
+.program.with-layout {
+  container-type: size;
+}
+
+.lites-frame {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(100cqw, 100cqh * 16 / 9);
+  height: min(100cqh, 100cqw * 9 / 16);
+  overflow: hidden;
+}
+
+.lites-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lites-box {
+  position: absolute;
+  overflow: hidden;
+  background: #000;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 4px;
+}
+
+.lites-box > * {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.lites-camera {
+  left: 2.3%;
+  top: 16.3%;
+  width: 35.2%;
+  height: 65.9%;
+}
+
+.lites-camera .camera-picture {
+  object-fit: cover;
+}
+
+.lites-clip {
+  left: 39.4%;
+  top: 19.7%;
+  width: 58.7%;
+  height: 58.7%;
+}
+
+.lites-clip .program-clip {
+  object-fit: contain;
+}

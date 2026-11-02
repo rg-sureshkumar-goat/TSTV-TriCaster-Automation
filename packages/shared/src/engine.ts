@@ -7,6 +7,8 @@
 // is up. Music plays from the Sound player alongside it. A clip that replaces another goes straight on:
 // DSK 2 stays on while DDR 2 moves to the new clip and plays it, so the camera never flashes between them
 // (RG, Oct 29, 2026). Only a clip going up over the camera takes DSK 2 on, which plays it (AutoPlay).
+// A LITES clip goes up in its own layout instead (M/E 4, with the camera beside it; RG, Nov 2, 2026), not
+// over the camera on DSK 2.
 import { breakCueId, cueLabel, type ElementType, type RundownTiming, type SectionRow } from './rundown.ts';
 import { breakGraphic, cameraInput, type ShowSettings } from './show.ts';
 
@@ -92,6 +94,11 @@ export type SwitcherCommand =
   /** DDR 2 plays its cued clip; with DSK 2 already on, the clip goes straight to air. */
   | { kind: 'play' }
   | { kind: 'dsk'; on: boolean }
+  /**
+   * The LITES layout (RG, Nov 2, 2026): M/E 4 on program, with camera in its left box, the clip playing in
+   * its right box and the green screen behind. Off: back to the camera on program (M/E 1).
+   */
+  | { kind: 'layout'; on: boolean; camera?: number }
   | { kind: 'music'; play: boolean; track?: number };
 
 /**
@@ -339,7 +346,7 @@ export class CueEngine {
     // The section that just ended takes its graphic or voiceover off. A SOT or package plays to its end.
     const onAir = this.element(this.state.onAir);
     if (onAir && onAir.behavior !== 'clip' && onAir.sectionId !== sectionId && !replaced) {
-      commands.push({ kind: 'dsk', on: false });
+      commands.push(this.takeDown(onAir));
       this.state.onAir = null;
       // DSK 2 off also stops DDR 2 and moves it to its next item.
       this.state.cued = null;
@@ -409,7 +416,7 @@ export class CueEngine {
       const onAir = this.element(this.state.onAir);
       // A VO over the section's L3: bring the L3 back if the VO ends first.
       this.state.returnTo = onAir && onAir.behavior === 'graphic' && onAir.sectionId === element.sectionId && element.behavior === 'voiceover' ? onAir.id : null;
-      commands.push(...this.putUp(element.ddrItem));
+      commands.push(...this.putUp(element.ddrItem, element));
       this.waitingToCue = null;
       this.state.onAir = element.id;
       if (this.plan.music.withTeases && element.type === 'TEASE' && !this.state.musicPlaying) {
@@ -426,13 +433,32 @@ export class CueEngine {
    * Puts DDR 2's item on air. Over the camera, DSK 2 goes on, which plays it. Over another clip, DSK 2
    * stays on and DDR 2 moves straight to the new clip and plays it, so the camera never shows between them.
    */
-  private putUp(item: number): SwitcherCommand[] {
-    const over = this.state.onAir !== null;
+  private putUp(item: number, element?: ShowElement): SwitcherCommand[] {
     const commands: SwitcherCommand[] = [];
+    // Between a LITES layout and DSK 2, the one up comes off first.
+    const current = this.element(this.state.onAir);
+    const lites = element?.type === 'LITES';
+    if (current && (current.type === 'LITES') !== lites) {
+      commands.push(this.takeDown(current));
+      this.state.onAir = null;
+      this.state.cued = null;
+    }
+    const over = this.state.onAir !== null;
+    if (lites) {
+      // The LITES layout: the camera on program goes in its left box, and the clip plays in its right box.
+      commands.push({ kind: 'cueClip', item }, { kind: 'layout', on: true, camera: this.state.camera ?? this.section(element.sectionId)?.input ?? 1 }, { kind: 'play' });
+      this.state.cued = item;
+      return commands;
+    }
     if (over || this.state.cued !== item) commands.push({ kind: 'cueClip', item });
     commands.push(over ? { kind: 'play' } : { kind: 'dsk', on: true });
     this.state.cued = item;
     return commands;
+  }
+
+  /** What takes an element off: DSK 2 off, or for a LITES clip, back from its layout to the camera. */
+  private takeDown(element: ShowElement | undefined): SwitcherCommand {
+    return element?.type === 'LITES' ? { kind: 'layout', on: false } : { kind: 'dsk', on: false };
   }
 
   /**
@@ -447,11 +473,11 @@ export class CueEngine {
     this.state.returnTo = null;
     if (ended.behavior === 'voiceover' && returning && returning.sectionId === this.state.sectionId && returning.ddrItem !== null) {
       // The VO ended before the section did: the section's L3 comes straight back.
-      const commands = this.putUp(returning.ddrItem);
+      const commands = this.putUp(returning.ddrItem, returning);
       this.state.onAir = returning.id;
       return [...commands, ...this.teaseMusicCommands()];
     }
-    const commands: SwitcherCommand[] = [{ kind: 'dsk', on: false }];
+    const commands: SwitcherCommand[] = [this.takeDown(ended)];
     this.state.onAir = null;
     this.state.cued = null;
     const waiting = this.waitingToCue ?? (this.state.sectionId ? this.firstClipFrom(this.state.sectionId, ended.sectionId === this.state.sectionId ? ended.id : null) : null);
@@ -486,12 +512,13 @@ export class CueEngine {
   /** The producer takes the graphic on DSK 2 off (the down arrow in manual mode). */
   takeOff(): SwitcherCommand[] {
     if (!this.state.onAir) return [];
+    const down = this.takeDown(this.element(this.state.onAir));
     this.state.onAir = null;
     this.state.returnTo = null;
     this.waitingToCue = null;
     // DSK 2 off also stops DDR 2 and moves it to its next item.
     this.state.cued = null;
-    return [{ kind: 'dsk', on: false }, ...this.teaseMusicCommands()];
+    return [down, ...this.teaseMusicCommands()];
   }
 
   skip(elementId: string, skipped = true): void {
@@ -531,11 +558,12 @@ export class CueEngine {
    * fire again from its current place, without firing the ones it passed in manual mode. now says what's
    * on the switcher, since the producer (or the TD) may have changed it.
    */
-  setManual(manual: boolean, now?: { dskOn: boolean; camera: number | null }): void {
+  setManual(manual: boolean, now?: { dskOn: boolean; camera: number | null; layoutOn?: boolean }): void {
     this.state.manual = manual;
     if (manual) return;
     if (now) {
-      if (!now.dskOn) this.state.onAir = null;
+      const lites = this.element(this.state.onAir)?.type === 'LITES';
+      if (!(lites ? now.layoutOn : now.dskOn)) this.state.onAir = null;
       this.state.camera = now.camera;
     }
     this.state.cued = null;

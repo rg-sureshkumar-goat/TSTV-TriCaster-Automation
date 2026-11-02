@@ -364,6 +364,43 @@ describe('the cue engine', () => {
     expect(engine.cueReached('camera-top')).toEqual([]);
   });
 
+  it('plays a LITES clip in its own layout beside the camera, then goes back to the camera', () => {
+    const { plan, ids } = show();
+    // A3 has a LITES clip (DDR item 4) after its L3.
+    const lites = { id: 'lites', sectionId: ids.a3, type: 'LITES' as const, name: 'Highlights', behavior: 'voiceover' as const, ddrItem: 4 };
+    plan.sections[2].elements.push(lites);
+    const engine = new CueEngine(plan);
+    engine.sectionStarted(ids.a3);
+    expect(engine.cueReached(ids.l3)).toEqual([{ kind: 'dsk', on: true }]);
+    // The L3 comes off DSK 2, and the layout goes up with A3's camera (camera 1) in its left box.
+    expect(engine.cueReached('lites')).toEqual([
+      { kind: 'dsk', on: false },
+      { kind: 'cueClip', item: 4 },
+      { kind: 'layout', on: true, camera: 1 },
+      { kind: 'play' },
+    ]);
+    // It ends: back to the camera, and the section's L3 comes back up.
+    expect(engine.clipEnded(4)).toEqual([{ kind: 'layout', on: false }, { kind: 'cueClip', item: 3 }, { kind: 'dsk', on: true }]);
+    // Fired again, then the section ends first: back to the camera.
+    engine.cueReached('lites');
+    engine.takeOff();
+    engine.cueReached('lites');
+    expect(engine.sectionStarted(ids.a4)).toContainEqual({ kind: 'layout', on: false });
+    expect(engine.sectionStarted(ids.a4)).not.toContainEqual({ kind: 'dsk', on: false });
+  });
+
+  it('takes a LITES layout off by hand, and a graphic fired after it goes on DSK 2', () => {
+    const { plan, ids } = show();
+    plan.sections[2].elements.push({ id: 'lites', sectionId: ids.a3, type: 'LITES', name: '', behavior: 'voiceover', ddrItem: 4 });
+    const engine = new CueEngine(plan);
+    engine.sectionStarted(ids.a3);
+    engine.cueReached('lites');
+    expect(engine.takeOff()).toEqual([{ kind: 'layout', on: false }]);
+    engine.cueReached('lites');
+    expect(engine.cueReached(ids.vo).slice(0, 1)).toEqual([{ kind: 'layout', on: false }]);
+    expect(engine.state.onAir).toBe(ids.vo);
+  });
+
   it('plays a clip the producer fired in manual mode to its end', () => {
     const { plan, ids } = show();
     const engine = new CueEngine(plan);

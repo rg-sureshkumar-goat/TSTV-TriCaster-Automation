@@ -77,6 +77,20 @@ The website's "Sign in with Google" setup in Google Cloud is reused. In [Google 
 4. On a second computer with RiGster (or the installed RiGster with another laptop), paste a key: the show's files download, and the boxes fill in.
 5. On one laptop, click **Remove** on the green screen. Within two minutes (or after picking the profile again), it's gone on the other.
 
+## Part 3: LITES in their own layout (built Nov 2, 2026)
+
+A LITES clip no longer plays over the camera on DSK 2. It goes up in TSTV's LITES layout, from RG's template (`LITES Graphic Onscreen template.png`): the camera in a box at the left, the clip in a box at the right, and the green screen behind.
+
+- **On the TC1 it's M/E 4**, already built as the LITES layout in the TSTV session (the probe on Oct 29, 2026 found camera on layer A, DDR 2 on B, the background on C). When a LITES cue fires, RiGster puts the section's camera on A, the clip on B (in live mode the laptop's graphics, input 4), the green screen on C (input 5 in live mode, the same background as the anchors'), plays the clip and switches program to M/E 4.
+- **When the clip ends**, program goes back to M/E 1, the camera, full screen. If the section ends first, the same. If the section's L3 was up before the LITES, it comes back afterward, as after a VO. ↓ in manual mode takes the layout down too.
+- **On the simulator,** RiGster's Program box draws the layout like the template.
+
+### Test for Part 3
+
+1. **On the simulator:** in a rundown, add a LITES graphic to a section, cue it in the script, import its file, and run the show. When the LITES cue fires, the Program box shows the green screen with the camera in a box at the left and the clip in a box at the right. When the clip ends, it goes back to the camera full screen.
+2. **On the TC1 (live mode, RiGster session):** the same, on the TC1's program. Check M/E 4's boxes are where they should be, and that program goes back to the camera after.
+3. If the TC1's M/E 4 layers aren't A camera, B clip, C background in the RiGster session, tell me: the layers are easy to change.
+
 ## Still to come in Phase 6
 
 - A one-page producer guide

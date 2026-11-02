@@ -70,6 +70,9 @@ export const PROGRAM_ME = 'v1';
 /** The green screen is M/E 2: a camera on its A row keyed over GFX 1 on its B row. All three cameras face it. */
 export const GREEN_SCREEN = { me: 'v2', background: 'gfx1', keyedCamera: 'input2' } as const;
 
+/** TSTV's LITES layout (RG, Nov 2, 2026): M/E 4, with a camera in a box at the left (A), the clip at the right (B) and the background (C). */
+export const LITES_LAYOUT = { me: 'v4' } as const;
+
 /** Main DSK sources as found on the TC1: DSK 2 shows DDR 2, DSK 3 is the bug in buffer 11. */
 export const DSK_SOURCES: Record<string, string> = { main_dsk1: 'ddr1', main_dsk2: 'ddr2', main_dsk3: 'bfr11', main_dsk4: 'ddr1' };
 

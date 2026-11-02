@@ -10,6 +10,7 @@ import {
   GREEN_SCREEN,
   GUESSED_NAMES,
   INPUTS,
+  LITES_LAYOUT,
   MACROS,
   ME_COUNT,
   PLAYERS,
@@ -49,6 +50,9 @@ export interface Player {
 export interface Me {
   a: string;
   b: string;
+  /** Layers C and D (the TC1's M/Es have four; the LITES layout on M/E 4 uses C for its background). */
+  c: string;
+  d: string;
   layered: boolean;
 }
 
@@ -120,8 +124,10 @@ export class Switcher extends EventEmitter {
     this.dsks = {};
     for (let n = 1; n <= DSK_COUNT; n++) this.dsks[`main_dsk${n}`] = { source: DSK_SOURCES[`main_dsk${n}`] ?? 'ddr1', onAir: false };
     this.mes = {};
-    for (let n = 1; n <= ME_COUNT; n++) this.mes[`v${n}`] = { a: 'input1', b: 'gfx1', layered: false };
-    this.mes[GREEN_SCREEN.me] = { a: GREEN_SCREEN.keyedCamera, b: GREEN_SCREEN.background, layered: true };
+    for (let n = 1; n <= ME_COUNT; n++) this.mes[`v${n}`] = { a: 'input1', b: 'gfx1', c: 'gfx1', d: 'gfx2', layered: false };
+    this.mes[GREEN_SCREEN.me] = { a: GREEN_SCREEN.keyedCamera, b: GREEN_SCREEN.background, c: 'gfx1', d: 'gfx2', layered: true };
+    // TSTV's LITES layout (probe, Oct 29, 2026): a camera on A, DDR 2 on B, the background on C.
+    this.mes[LITES_LAYOUT.me] = { a: 'input2', b: 'ddr2', c: 'gfx1', d: 'gfx2', layered: true };
     this.players = {};
     for (const p of PLAYERS) {
       this.players[p.id] = { ...p, playlist: [...(DEFAULT_PLAYLISTS[p.id] ?? [])], index: 0, playing: false, positionMs: 0 };
@@ -198,18 +204,18 @@ export class Switcher extends EventEmitter {
       return { result: 'ok', note: name.endsWith('auto') ? 'Transition shown as a cut in the simulator' : undefined };
     }
     // A row by source name, as the TC1 takes it (confirmed Oct 30, 2026), on the main switcher or an M/E.
-    if ((m = name.match(/^(main|v\d)_(a|b)_row_named_input$/))) {
+    if ((m = name.match(/^(main|v\d)_(a|b|c|d)_row_named_input$/))) {
       const source = this.resolveSource(value);
       if (!source) return { result: 'rejected', note: `Unknown source "${value}"` };
       if (m[1] === 'main') {
         if (m[2] === 'a') this.program = source;
-        else this.preview = source;
+        else if (m[2] === 'b') this.preview = source;
+        else return { result: 'rejected', note: `The main switcher has no ${m[2].toUpperCase()} row` };
         return { result: 'ok' };
       }
       const me = this.mes[m[1]];
       if (!me) return { result: 'rejected', note: `No M/E ${m[1].slice(1)}` };
-      if (m[2] === 'a') me.a = source;
-      else me.b = source;
+      me[m[2] as 'a' | 'b' | 'c' | 'd'] = source;
       return { result: 'ok' };
     }
     // A row by number: the real TC1 ignores a name here (it answers OK and changes nothing).
@@ -405,7 +411,8 @@ export class Switcher extends EventEmitter {
   /** The sources you can actually see on an output: an M/E's camera (and background, for the green screen), plus on-air DSKs. */
   private visibleLeaves(source: string, withDsks: boolean): string[] {
     const me = this.mes[source];
-    const leaves = me ? (me.layered ? [me.a, me.b] : [me.a]) : [source];
+    // The LITES layout shows its camera, its clip and its background.
+    const leaves = me ? (source === LITES_LAYOUT.me ? [me.a, me.b, me.c] : me.layered ? [me.a, me.b] : [me.a]) : [source];
     if (withDsks) for (const dsk of Object.values(this.dsks)) if (dsk.onAir) leaves.push(dsk.source);
     return [...new Set(leaves)];
   }
@@ -443,7 +450,7 @@ export class Switcher extends EventEmitter {
     }
     for (const [id, me] of Object.entries(this.mes)) {
       s.set(`${id}_long_name`, str(`M/E ${id.slice(1)}`));
-      for (const row of ['a', 'b'] as const) {
+      for (const row of ['a', 'b', 'c', 'd'] as const) {
         s.set(`${id}_${row}_row`, int(SOURCE_INDEX[me[row]]));
         s.set(`${id}_${row}_row_named_input`, text(rowName(me[row])));
       }
