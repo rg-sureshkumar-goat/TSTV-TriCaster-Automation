@@ -1430,6 +1430,12 @@ tr.dragging td {
   min-height: 1.6em;
 }
 
+/* Tab indents (RG, Nov 2, 2026), by a few letters' width, here and on the prompter. */
+.script-editor,
+.p-text {
+  tab-size: 4;
+}
+
 .script-editor p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;

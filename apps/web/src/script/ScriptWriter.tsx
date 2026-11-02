@@ -13,7 +13,7 @@ import { Dropcursor, Gapcursor, Placeholder } from '@tiptap/extensions';
 import { addElement, cueLabel, elementKind, readersOf, speakerTag, type Element, type Person, type SectionRow } from '@tstv/shared';
 import { Popover } from '../components/Popover.tsx';
 import { GraphicMenu } from '../rundown/GraphicMenu.tsx';
-import { CameraCue, Capitals, Cue, insertCameraCue, insertCue, live, SpeakerTags } from './extensions.ts';
+import { CameraCue, Capitals, Cue, Indent, insertCameraCue, insertCue, live, SpeakerTags } from './extensions.ts';
 
 interface Props {
   body: Y.XmlFragment;
@@ -52,6 +52,7 @@ export function ScriptWriter({ body, provider, doc, section, label, me, readOnly
         Gapcursor,
         Dropcursor.configure({ color: false, width: 3, class: 'drop-cursor' }),
         Capitals,
+        Indent,
         Cue.configure({ elements: elementsLive }),
         CameraCue,
         SpeakerTags.configure({ speakers: speakersLive }),

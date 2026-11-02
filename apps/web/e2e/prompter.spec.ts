@@ -60,6 +60,16 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await expect(script.locator('.cue-chip.camera')).toHaveText('Take Camera 2');
   await script.locator('p').last().click();
   await rg.keyboard.type('On camera two.');
+  // Tab indents the line; Shift+Tab takes it back off (RG, Nov 2, 2026).
+  await rg.keyboard.press('Enter');
+  await rg.keyboard.press('Tab');
+  await rg.keyboard.type('Indented line.');
+  await expect(script.locator('p').last()).toHaveText('\tINDENTED LINE.');
+  await rg.keyboard.press('Shift+Tab');
+  await expect(script.locator('p').last()).toHaveText('INDENTED LINE.');
+  await rg.keyboard.press('Home');
+  await rg.keyboard.press('Tab');
+  await expect(script.locator('p').last()).toHaveText('\tINDENTED LINE.');
 
   // The prompter, in its own window.
   const prompter = await rg.context().newPage();
@@ -73,6 +83,7 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await expect(prompter.locator('.p-speaker')).toHaveText('JORDAN');
   await expect(prompter.locator('.p-cue')).toHaveText(['TAKE FSG', 'TAKE CAMERA 2']);
   await expect(prompter.locator('.p-text', { hasText: 'SECOND LINE.' })).toBeVisible();
+  await expect(prompter.locator('.p-text', { hasText: 'INDENTED LINE.' })).toHaveText('\tINDENTED LINE.');
   await expect(prompter.getByText('FLOATED STORY')).toHaveCount(0);
 
   // Page Down jumps to A1 and starts it; the rundown page shows where the prompter is.

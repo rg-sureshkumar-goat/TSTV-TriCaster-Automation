@@ -268,6 +268,55 @@ export const Capitals = Extension.create({
   },
 });
 
+/**
+ * Tab indents (RG, Nov 2, 2026): it types a tab where the cursor is, or with several lines selected, puts
+ * one at the start of each. Shift+Tab takes one off the start of the line (or of each selected line).
+ */
+export const Indent = Extension.create({
+  name: 'indent',
+
+  addKeyboardShortcuts() {
+    /** The text lines the selection touches, each with where it starts. */
+    const lines = (editor: Editor) => {
+      const found: { pos: number; text: string }[] = [];
+      const { from, to } = editor.state.selection;
+      editor.state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.isTextblock) {
+          found.push({ pos: pos + 1, text: node.textContent });
+          return false;
+        }
+        return true;
+      });
+      return found;
+    };
+    return {
+      Tab: ({ editor }) => {
+        if (!editor.isEditable) return false;
+        const { selection } = editor.state;
+        const touched = lines(editor);
+        if (selection.empty || touched.length < 2) return editor.commands.insertContent('\t');
+        const tr = editor.state.tr;
+        // From the last line up, so the earlier lines' places don't move.
+        for (const line of touched.reverse()) tr.insertText('\t', line.pos);
+        editor.view.dispatch(tr);
+        return true;
+      },
+      'Shift-Tab': ({ editor }) => {
+        if (!editor.isEditable) return false;
+        const tr = editor.state.tr;
+        for (const line of lines(editor).reverse()) {
+          // A tab, or up to four spaces, at the start of the line.
+          const indent = /^(\t| {1,4})/.exec(line.text)?.[0];
+          if (indent) tr.delete(line.pos, line.pos + indent.length);
+        }
+        if (tr.docChanged) editor.view.dispatch(tr);
+        // Kept in the script either way, rather than moving to the previous button.
+        return true;
+      },
+    };
+  },
+});
+
 /** Shows each {NAME} in that speaker's color, and flags names that aren't this episode's talent. */
 export const SpeakerTags = Extension.create<{ speakers: Live<Map<string, string | undefined>> }>({
   name: 'speakerTags',
