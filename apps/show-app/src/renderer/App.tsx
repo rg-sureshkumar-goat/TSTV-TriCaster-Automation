@@ -1264,7 +1264,9 @@ function GraphicsWindow({ state, onClose, onImport }: { state: AppState; onClose
           <tbody>
             {state.sections.map((s) =>
               s.elements
-                .filter((e) => e.behavior !== 'music')
+                // Only this episode's own graphics: the show's permanent graphics (and its commercial
+                // breaks) are in the Permanent graphics box (RG, Nov 2, 2026).
+                .filter((e) => e.behavior !== 'music' && e.type !== 'PERM')
                 .map((e, i) => (
                   <tr key={e.id}>
                     <td className="muted">{i === 0 ? `${s.label} ${s.slug}` : ''}</td>
