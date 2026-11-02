@@ -98,6 +98,15 @@ export class Store {
     return this.write(`green-screen/${showId}.json`, { file });
   }
 
+  /** A show's transitions, by which: "tease" and "lites" (RG, Nov 2, 2026). */
+  transitions(showId: string): Promise<Record<string, FileInfo>> {
+    return this.read(`transitions/${showId}.json`, {});
+  }
+
+  saveTransitions(showId: string, files: Record<string, FileInfo>): Promise<void> {
+    return this.write(`transitions/${showId}.json`, files);
+  }
+
   /** A show's music track, dropped on the Music box (RG, Oct 29, 2026). */
   async musicTrack(showId: string): Promise<FileInfo | null> {
     return (await this.read<{ file: FileInfo | null }>(`music/${showId}.json`, { file: null })).file;

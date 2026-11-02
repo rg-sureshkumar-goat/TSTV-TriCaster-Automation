@@ -13,6 +13,7 @@ import http from 'node:http';
 import net from 'node:net';
 import WebSocket from 'ws';
 import type { SwitcherCommand } from '@tstv/shared';
+import type { FileInfo } from './media.ts';
 import type { Playout } from './playout.ts';
 
 export const SIMULATOR_NAME = 'TSTV Simulator';
@@ -66,6 +67,8 @@ export interface SwitcherSnapshot {
   /** The LITES layout is on program (M/E 4), with this camera in its left box (RG, Nov 2, 2026). */
   layoutOn: boolean;
   layoutCamera: number | null;
+  /** A transition wipe playing (RG, Nov 2, 2026): which, and when it started, for the Program box. */
+  transition: { which: string; startedAt: number; seconds: number } | null;
   playlist: string[];
   soundTracks: string[];
 }
@@ -97,6 +100,8 @@ export class Switcher extends EventEmitter {
 
   /** The music track's file, which the playout plays in live mode. */
   musicPath: string | null = null;
+  /** The show's transitions (RG, Nov 2, 2026), by which: "tease" and "lites". */
+  transitions: Record<string, FileInfo> = {};
   /** On the simulator, where the green screen is: GFX 1 for a still, DDR 1 for a clip. */
   greenScreenSource = 'GFX1';
 
@@ -113,7 +118,7 @@ export class Switcher extends EventEmitter {
     private localAddress?: string,
   ) {
     super();
-    this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, dskSource: null, layoutOn: false, layoutCamera: null, playlist: [], soundTracks: [] };
+    this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, dskSource: null, layoutOn: false, layoutCamera: null, transition: null, playlist: [], soundTracks: [] };
     if (playout) {
       // The playout stands in for DDR 2 and the Sound player.
       const follow = () => this.set({ ddrItem: playout.state.item, ddrPlaying: playout.state.playing, ddrRemaining: playout.state.remaining, musicPlaying: playout.state.musicPlaying });
@@ -307,6 +312,10 @@ export class Switcher extends EventEmitter {
 
   private async sendAll(commands: SwitcherCommand[]): Promise<void> {
     for (const c of commands) {
+      if (c.kind === 'transition') {
+        await this.transition(c.which, c.then);
+        continue;
+      }
       if (this.live && this.playout && c.kind !== 'camera') {
         await this.sendLive(c, this.playout);
         continue;
@@ -347,6 +356,29 @@ export class Switcher extends EventEmitter {
         playout.stop();
       }
     }
+  }
+
+  /**
+   * A transition wipe (RG, Nov 2, 2026): the show's transition plays over everything, and at its middle,
+   * when it covers the picture, the switch underneath happens (then). In live mode it's the playout's
+   * Transition source on input 6, shown by DSK 4; on the simulator, RiGster's Program box draws it. With
+   * no transition file, the switch just happens.
+   */
+  private async transition(which: string, then: SwitcherCommand[]): Promise<void> {
+    const file = this.transitions[which];
+    if (!file) return this.sendAll(then);
+    const seconds = file.seconds && file.seconds > 0 ? file.seconds : 1;
+    this.set({ transition: { which, startedAt: Date.now(), seconds } });
+    if (this.live && this.playout) {
+      this.playout.transition(file.path, file.playable);
+      await this.send('main_dsk4_value', '1');
+    }
+    await new Promise((r) => setTimeout(r, (seconds * 1000) / 2));
+    await this.sendAll(then);
+    setTimeout(() => {
+      if (this.live) void this.send('main_dsk4_value', '0');
+      if (this.snapshot.transition?.which === which) this.set({ transition: null });
+    }, (seconds * 1000) / 2);
   }
 
   /**

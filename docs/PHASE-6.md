@@ -91,6 +91,30 @@ A LITES clip no longer plays over the camera on DSK 2. It goes up in TSTV's LITE
 2. **On the TC1 (live mode, RiGster session):** the same, on the TC1's program. Check M/E 4's boxes are where they should be, and that program goes back to the camera after.
 3. If the TC1's M/E 4 layers aren't A camera, B clip, C background in the RiGster session, tell me: the layers are easy to change.
 
+## Part 4: transitions (built Nov 2, 2026)
+
+Each show has two transitions, kept in its show profile like the permanent graphics, in RiGster's new **Transitions** box (next to the Up next preview):
+
+- **Tease Transition:** plays between back-to-back teases, when one tease goes straight to the next. Not before the first or after the last.
+- **LITES Transition:** plays going into a LITES layout, and again coming out of it.
+- **They're wipes:** the transition plays over everything, and at its middle (when it covers the picture) the switch happens underneath: the next tease starts, or program goes to the LITES layout, or back to the camera. A show without a transition file just switches, as before.
+- **Adding them:** drop a file on the Transitions box (a name with "tease" or "lites" in it goes to that one; otherwise it fills an empty one), or use **Choose**. Like the permanent graphics, they upload to the show's folder in Google Drive and reach every laptop.
+- **On the simulator,** RiGster's Program box plays the transition over the picture.
+
+**What the TC1 needs (live mode, RiGster session):** RiGster sends the transition as a third source, **RIGSTER (Transition)**:
+
+1. **Input 6 → RIGSTER (Transition).**
+2. **DSK 4's source → input 6.** (DSK 4 sits above DSK 2 and the M/Es, so it covers the switch. The probe found DSK 4 on media player A; if DSK 4 is used for something else in shows, tell me and RiGster can use another.)
+3. Save the session.
+
+**Note:** the website must be deployed for the transitions to save to Google Drive (it now accepts them in a show's profile).
+
+### Test for Part 4
+
+1. Deploy the website. Open RiGster, pick a show, and drop a tease transition and a LITES transition on the Transitions box. They show their pictures, and upload.
+2. **On the simulator:** run two teases back to back: the tease transition plays over the Program box, and the second tease appears under it halfway through. Fire a LITES: the LITES transition plays, and the layout appears under it halfway; when the LITES ends, the transition plays again and the camera comes back under it.
+3. **On the TC1:** set input 6 and DSK 4 as above, and do the same in live mode.
+
 ## Still to come in Phase 6
 
 - A one-page producer guide

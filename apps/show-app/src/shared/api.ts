@@ -52,6 +52,8 @@ export interface PermanentView {
 }
 
 export interface AppState {
+  /** The show's two transitions, saved in its profile (RG, Nov 2, 2026). */
+  transitions: { which: 'tease' | 'lites'; file: string | null; seconds: number | null; thumbnail: string | null; playable: string | null }[];
   /** Show profiles (RG, Nov 2, 2026): every show, from the website, with its logo, and the one picked by hand. */
   profiles: { id: string; name: string; logo: string | null }[];
   profile: { id: string; name: string } | null;
@@ -115,6 +117,8 @@ export interface AppState {
     /** The LITES layout is on program (M/E 4), with this camera in its left box. */
     layoutOn: boolean;
     layoutCamera: number | null;
+    /** A transition wipe playing: which, and when it started. */
+    transition: { which: string; startedAt: number; seconds: number } | null;
     playlist: string[];
     soundTracks: string[];
   };
@@ -151,6 +155,10 @@ export type Action =
   | { kind: 'getUpdate' }
   /** Picks the show profile by hand: its permanent graphics, green screen and music load. */
   | { kind: 'setProfile'; showId: string }
+  /** The show's transitions (RG, Nov 2, 2026): between back-to-back teases, and in and out of a LITES. */
+  | { kind: 'setTransition'; which: 'tease' | 'lites'; path: string }
+  | { kind: 'chooseTransition'; which: 'tease' | 'lites' }
+  | { kind: 'clearTransition'; which: 'tease' | 'lites' }
   | { kind: 'connect'; siteUrl: string; key: string }
   | { kind: 'disconnect' }
   | { kind: 'connectSwitcher'; address: string }

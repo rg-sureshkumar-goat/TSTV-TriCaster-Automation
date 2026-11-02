@@ -25,6 +25,9 @@ class FakePlayout extends EventEmitter {
   music(play: boolean, path?: string) {
     this.calls.push(`music ${play} ${path ?? ''}`.trim());
   }
+  transition(path: string) {
+    this.calls.push(`transition ${path}`);
+  }
 }
 
 let sim: RunningSimulator;
@@ -110,6 +113,30 @@ describe('live mode’s driver', () => {
     await switcher.run([{ kind: 'layout', on: false }]);
     expect(commands().slice(before)).toEqual(['v4_a_row_named_input INPUT3', 'v4_b_row_named_input INPUT4', 'v4_c_row_named_input INPUT5', 'main_a_row_named_input V4', 'main_a_row_named_input V1']);
     expect(playout.calls).toEqual(['select 2', 'play', 'stop']);
+    switcher.close();
+  });
+
+  it('wipes with the transition on DSK 4, switching underneath at its middle', async () => {
+    pretendToBeTc1();
+    const playout = new FakePlayout();
+    const switcher = new Switcher(`127.0.0.1:${sim.httpPort}`, sim.statePort, 'live', playout as unknown as Playout);
+    switcher.transitions = { tease: { path: '/usb/Tease Wipe.mov', seconds: 0.4, thumbnail: null } };
+    await switcher.connect();
+    const before = sim.externalCommands().length;
+    const started = Date.now();
+    const running = switcher.run([{ kind: 'transition', which: 'tease', then: [{ kind: 'cueClip', item: 1 }, { kind: 'play' }] }]);
+    await waitFor(() => switcher.snapshot.transition?.which === 'tease');
+    expect(playout.calls).toEqual(['transition /usb/Tease Wipe.mov']);
+    await running;
+    // The next tease went up at the middle of the wipe, not before.
+    expect(Date.now() - started).toBeGreaterThanOrEqual(190);
+    expect(playout.calls).toEqual(['transition /usb/Tease Wipe.mov', 'select 1', 'play']);
+    await waitFor(() => switcher.snapshot.transition === null);
+    expect(commands().slice(before)).toEqual(['main_dsk4_value 1', 'main_dsk4_value 0']);
+    // With no transition file, the switch just happens.
+    playout.calls = [];
+    await switcher.run([{ kind: 'transition', which: 'lites', then: [{ kind: 'play' }] }]);
+    expect(playout.calls).toEqual(['play']);
     switcher.close();
   });
 

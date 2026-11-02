@@ -33,6 +33,8 @@ export type PlayoutMessage =
   | { type: 'fader'; level: number }
   /** The green-screen background (a still or a clip, which loops), or none; fallback as for the playlist. */
   | { type: 'background'; path: string | null; fallback?: string }
+  /** A transition wipe (RG, Nov 2, 2026), played once on its own source, over everything on the TC1 (DSK 4). */
+  | { type: 'transition'; path: string; fallback?: string }
   | { type: 'close' };
 
 export type PlayoutReport =
@@ -236,10 +238,13 @@ class Music {
   }
 }
 
-function startPlayout(name: string, backgroundName: string): void {
+function startPlayout(name: string, backgroundName: string, transitionName: string): void {
   const ndi = loadNdi();
   const sender = ndi.sendCreate({ p_ndi_name: name, p_groups: null, clock_video: false, clock_audio: false });
   const backgroundSender = ndi.sendCreate({ p_ndi_name: backgroundName, p_groups: null, clock_video: false, clock_audio: false });
+  const transitionSender = ndi.sendCreate({ p_ndi_name: transitionName, p_groups: null, clock_video: false, clock_audio: false });
+  // The transition playing, if one is (see-through when none is, so DSK 4 shows nothing).
+  let transition: Clip | null = null;
   let background: Background | null = null;
   // The latest background asked for wins, if two come quickly.
   let backgroundAsked = 0;
@@ -293,6 +298,7 @@ function startPlayout(name: string, backgroundName: string): void {
   /** Input 4 shows nothing: a see-through frame, so a DSK going on never flashes an old picture. */
   const clearPicture = () => sendPicture(clear);
   clearPicture();
+  sendPicture(clear, transitionSender);
 
   const select = async (item: number) => {
     const clip = playlist[item];
@@ -338,6 +344,19 @@ function startPlayout(name: string, backgroundName: string): void {
         // The clip ended: its last picture stays on input 4, as DDR 2 holds it.
         playing = false;
         post({ type: 'ended', item: current.item });
+      }
+    }
+    // A transition's next picture and sound; when it's over, its source goes see-through again.
+    if (transition) {
+      const frame = transition.take();
+      if (frame) {
+        sendPicture(frame, transitionSender);
+        transition.sent++;
+        transition.sound.mixInto(sound, samples);
+      } else if (transition.done) {
+        transition.close();
+        transition = null;
+        sendPicture(clear, transitionSender);
       }
     }
     // The background: a clip's next frame, or a still twice a second (the TC1 holds the last one).
@@ -412,21 +431,35 @@ function startPlayout(name: string, backgroundName: string): void {
           if (asked === backgroundAsked) background = new Background(file, info.still);
         })();
         return;
+      case 'transition':
+        void (async () => {
+          let file = message.path;
+          let info = await probeOf(file);
+          if (!info.readable && message.fallback) {
+            file = message.fallback;
+            info = await probeOf(file);
+          }
+          transition?.close();
+          transition = new Clip(-1, file, info.seconds ? Math.round(info.seconds * FPS) : null, info.audio, info.still);
+        })();
+        return;
       case 'close':
+        transition?.close();
         current?.close();
         next?.close();
         music?.close();
         background?.close();
         ndi.sendDestroy(sender);
         ndi.sendDestroy(backgroundSender);
+        ndi.sendDestroy(transitionSender);
         process.exit(0);
     }
   });
 }
 
 try {
-  const names = (workerData ?? {}) as { name?: string; backgroundName?: string };
-  startPlayout(names.name ?? 'Graphics', names.backgroundName ?? 'Green Screen');
+  const names = (workerData ?? {}) as { name?: string; backgroundName?: string; transitionName?: string };
+  startPlayout(names.name ?? 'Graphics', names.backgroundName ?? 'Green Screen', names.transitionName ?? 'Transition');
 } catch (e) {
   post({ type: 'error', message: e instanceof Error ? e.message : String(e) });
 }

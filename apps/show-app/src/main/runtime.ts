@@ -74,6 +74,8 @@ export class Runtime extends EventEmitter {
   private timing: RundownTiming | null = null;
   private files: Record<string, FileInfo> = {};
   private permanent: Record<string, FileInfo> = {};
+  /** The show's transitions, by which: "tease" (between back-to-back teases) and "lites" (in and out of a LITES). */
+  private transitions: Record<string, FileInfo> = {};
   /**
    * Show profiles (RG, Nov 2, 2026): the permanent graphics, green screen and music above are the profile
    * picked by hand (settings.profileShowId), shared through Google Drive. The list comes from the website.
@@ -183,6 +185,7 @@ export class Runtime extends EventEmitter {
 
   private newSwitcher(address: string, statePort?: number, mode: SwitcherMode = 'simulator', playout: Playout | null = null, localAddress?: string): Switcher {
     const switcher = new Switcher(address, statePort, mode, playout, localAddress);
+    switcher.transitions = this.transitions;
     let playlist = '';
     switcher.on('change', () => {
       const now = `${switcher.snapshot.playlist.join('\n')}|${switcher.snapshot.soundTracks.join('\n')}`;
@@ -263,6 +266,7 @@ export class Runtime extends EventEmitter {
     // First without the producer's music choices (they need the sections), then with them.
     this.plan = buildShowPlan(this.timing, show.settings, files, playlist, soundTracks, undefined, cameras);
     this.plan = buildShowPlan(this.timing, show.settings, files, playlist, soundTracks, this.musicPoints(), cameras);
+    this.plan.transitions = { tease: Boolean(this.transitions.tease), lites: Boolean(this.transitions.lites) };
     if (this.engine) this.engine.setPlan(this.plan);
     else this.engine = new CueEngine(this.plan);
     this.changed();
@@ -332,6 +336,7 @@ export class Runtime extends EventEmitter {
     if (profile) await this.deps.store.savePermanentFiles(profile, this.permanent);
     if (profile) await this.deps.store.saveMusicTrack(profile, this.musicTrack);
     if (profile) await this.deps.store.saveGreenScreen(profile, this.greenScreen);
+    if (profile) await this.deps.store.saveTransitions(profile, this.transitions);
   }
 
   /**
@@ -351,7 +356,7 @@ export class Runtime extends EventEmitter {
       do {
         this.playableAgain = false;
         let made = false;
-        for (const info of [...Object.values(this.files), ...Object.values(this.permanent), ...(this.musicTrack ? [this.musicTrack] : []), ...(this.greenScreen ? [this.greenScreen] : [])]) {
+        for (const info of [...Object.values(this.files), ...Object.values(this.permanent), ...(this.musicTrack ? [this.musicTrack] : []), ...(this.greenScreen ? [this.greenScreen] : []), ...Object.values(this.transitions)]) {
           if ((info.playable && (await exists(info.playable))) || this.unplayable.has(info.path)) continue;
           const found = await readable(info.path);
           if (found !== (this.unreachable.get(info.path) ?? 'yes')) {
@@ -506,6 +511,28 @@ export class Runtime extends EventEmitter {
   }
 
   /**
+   * A transition for the show (RG, Nov 2, 2026): "tease" plays between back-to-back teases, "lites" going
+   * into and coming out of a LITES. Saved in the show profile, like the permanent graphics.
+   */
+  private async setTransition(which: 'tease' | 'lites', file: string | null): Promise<void> {
+    if (!this.profileShow()) return;
+    if (!file && this.transitions[which]?.driveFileId) await this.removeFromProfile(`transition:${which}`);
+    if (file) this.transitions[which] = await readFile(file);
+    else delete this.transitions[which];
+    this.note(file ? `${which === 'tease' ? 'Tease' : 'LITES'} transition: ${path.basename(file)}` : `${which === 'tease' ? 'Tease' : 'LITES'} transition removed`);
+    await this.saveFiles();
+    this.useTransitions();
+    void this.makePlayables();
+    void this.syncProfile();
+  }
+
+  /** Tells the switcher and the cue engine which transitions the show has. */
+  private useTransitions(): void {
+    this.switcher.transitions = this.transitions;
+    this.rebuild();
+  }
+
+  /**
    * The show's music track, dropped on the Music box (RG, Oct 29, 2026), so the right track plays. On the
    * simulator it's put in the Sound player; in live mode the playout plays it from the laptop (Oct 30, 2026).
    */
@@ -571,6 +598,8 @@ export class Runtime extends EventEmitter {
     this.permanent = id ? await this.deps.store.permanentFiles(id) : {};
     this.greenScreen = id ? await this.deps.store.greenScreen(id) : null;
     this.musicTrack = id ? await this.deps.store.musicTrack(id) : null;
+    this.transitions = id ? await this.deps.store.transitions(id) : {};
+    this.switcher.transitions = this.transitions;
     this.playout?.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
     if (this.musicTrack && this.switcher.snapshot.status === 'connected') await this.loadSound().catch(() => undefined);
     this.rebuild();
@@ -614,6 +643,7 @@ export class Runtime extends EventEmitter {
   private slotFile(slot: string): FileInfo | null {
     if (slot === 'greenScreen') return this.greenScreen;
     if (slot === 'music') return this.musicTrack;
+    if (slot.startsWith('transition:')) return this.transitions[slot.slice('transition:'.length)] ?? null;
     return this.permanent[slot.slice('permanent:'.length).toLowerCase()] ?? null;
   }
 
@@ -625,6 +655,13 @@ export class Runtime extends EventEmitter {
     if (slot === 'music') {
       this.musicTrack = file;
       return this.setMusicTrack(null, true);
+    }
+    if (slot.startsWith('transition:')) {
+      const which = slot.slice('transition:'.length);
+      if (file) this.transitions[which] = file;
+      else delete this.transitions[which];
+      await this.saveFiles();
+      return this.useTransitions();
     }
     const key = slot.slice('permanent:'.length).toLowerCase();
     if (file) this.permanent[key] = file;
@@ -665,7 +702,7 @@ export class Runtime extends EventEmitter {
       this.changed();
     };
     const percent = (done: number, total: number) => (total ? ` ${Math.floor((done / total) * 100)}%` : '');
-    const slots = ['greenScreen', 'music', ...profile.settings.permanentGraphics.map((g) => `permanent:${g}`)];
+    const slots = ['greenScreen', 'music', 'transition:tease', 'transition:lites', ...profile.settings.permanentGraphics.map((g) => `permanent:${g}`)];
     let problem: string | null = null;
     let changedHere = false;
     // Files to send up that this laptop can't read now: they go as soon as their drive is plugged in.
@@ -800,6 +837,10 @@ export class Runtime extends EventEmitter {
         drive: this.profileList ? this.profileList.drive.email : null,
         checked: this.profileList !== null,
       },
+      transitions: (['tease', 'lites'] as const).map((which) => {
+        const file = this.transitions[which];
+        return { which, file: file ? path.basename(file.path) : null, seconds: file?.seconds ?? null, thumbnail: file?.thumbnail ?? null, playable: file?.playable ? pathToFileURL(file.playable).href : null };
+      }),
       greenScreen: this.greenScreen
         ? {
             file: path.basename(this.greenScreen.path),
@@ -1232,6 +1273,15 @@ export class Runtime extends EventEmitter {
       }
       case 'clearGreenScreen':
         return this.setGreenScreen(null);
+      case 'setTransition':
+        return this.setTransition(action.which, action.path);
+      case 'chooseTransition': {
+        const file = await this.deps.pickFile();
+        if (file) await this.setTransition(action.which, file);
+        return;
+      }
+      case 'clearTransition':
+        return this.setTransition(action.which, null);
       case 'setMusicTrack':
         return this.setMusicTrack(action.path);
       case 'chooseMusicTrack': {

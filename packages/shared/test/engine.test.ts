@@ -401,6 +401,34 @@ describe('the cue engine', () => {
     expect(engine.state.onAir).toBe(ids.vo);
   });
 
+  it('wipes between back-to-back teases, and in and out of a LITES, with the show’s transitions', () => {
+    const { plan, ids } = show();
+    plan.transitions = { tease: true, lites: true };
+    const tease2 = { id: 'tease2', sectionId: ids.a1, type: 'TEASE' as const, name: '', behavior: 'voiceover' as const, ddrItem: 2 };
+    plan.sections[0].elements.push(tease2);
+    plan.sections[2].elements.push({ id: 'lites', sectionId: ids.a3, type: 'LITES', name: '', behavior: 'voiceover', ddrItem: 4 });
+    const engine = new CueEngine(plan);
+    engine.sectionStarted(ids.a1);
+    // The first tease goes up as before; the next one through the Tease Transition.
+    expect(engine.cueReached(ids.tease)).toEqual([{ kind: 'dsk', on: true }, { kind: 'music', play: true, track: 1 }]);
+    expect(engine.cueReached('tease2')).toEqual([{ kind: 'transition', which: 'tease', then: [{ kind: 'cueClip', item: 2 }, { kind: 'play' }] }]);
+    // Into a LITES (the L3 comes off under the wipe), and out of it when it ends.
+    engine.sectionStarted(ids.a3);
+    engine.cueReached(ids.l3);
+    expect(engine.cueReached('lites')).toEqual([
+      { kind: 'transition', which: 'lites', then: [{ kind: 'dsk', on: false }, { kind: 'cueClip', item: 4 }, { kind: 'layout', on: true, camera: 1 }, { kind: 'play' }] },
+    ]);
+    expect(engine.clipEnded(4)[0]).toEqual({ kind: 'transition', which: 'lites', then: [{ kind: 'layout', on: false }] });
+  });
+
+  it('plays no transition when the show hasn’t got one', () => {
+    const { plan, ids } = show();
+    plan.sections[2].elements.push({ id: 'lites', sectionId: ids.a3, type: 'LITES', name: '', behavior: 'voiceover', ddrItem: 4 });
+    const engine = new CueEngine(plan);
+    engine.sectionStarted(ids.a3);
+    expect(engine.cueReached('lites').some((c) => c.kind === 'transition')).toBe(false);
+  });
+
   it('plays a clip the producer fired in manual mode to its end', () => {
     const { plan, ids } = show();
     const engine = new CueEngine(plan);

@@ -23,9 +23,9 @@ export class Playout extends EventEmitter {
   state: PlayoutState = { item: null, playing: false, remaining: null, musicPlaying: false, connections: 0, level: -60, error: null };
 
   /** The NDI sources' names, as the TC1 lists them after the machine's name (RIGSTER). */
-  constructor(name = 'Graphics', backgroundName = 'Green Screen') {
+  constructor(name = 'Graphics', backgroundName = 'Green Screen', transitionName = 'Transition') {
     super();
-    this.worker = startWorker('playout-worker', { name, backgroundName });
+    this.worker = startWorker('playout-worker', { name, backgroundName, transitionName });
     this.worker.on('message', (report: PlayoutReport) => {
       if (report.type === 'ended') return void this.emit('ended', report.item);
       if (report.type === 'level') {
@@ -70,6 +70,11 @@ export class Playout extends EventEmitter {
   /** The green-screen background, sent as the "… Background" source; null for none. */
   background(path: string | null, fallback?: string): void {
     this.send({ type: 'background', path, fallback });
+  }
+
+  /** Plays a transition once, on its own source (RIGSTER (Transition), shown by DSK 4 on the TC1). */
+  transition(path: string, fallback?: string): void {
+    this.send({ type: 'transition', path, fallback });
   }
 
   fader(level: number): void {

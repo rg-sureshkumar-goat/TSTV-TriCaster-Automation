@@ -46,6 +46,9 @@ describe('RiGster’s Google Drive', () => {
   it('knows a show profile’s slots: green screen, music, and the show’s own permanent graphics', () => {
     expect(isSlot('greenScreen', [])).toBe(true);
     expect(isSlot('music', [])).toBe(true);
+    expect(isSlot('transition:tease', [])).toBe(true);
+    expect(isSlot('transition:lites', [])).toBe(true);
+    expect(isSlot('transition:other', [])).toBe(false);
     expect(isSlot('permanent:Station ID', ['Station ID'])).toBe(true);
     expect(isSlot('permanent:Station ID', ['Show Intro'])).toBe(false);
     expect(isSlot('something', ['Station ID'])).toBe(false);

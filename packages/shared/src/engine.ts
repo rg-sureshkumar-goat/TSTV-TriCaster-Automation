@@ -86,6 +86,8 @@ export interface ShowPlan {
    * the teases end, except for teases before the out point, which keep it going until then.
    */
   music: { in: CuePoint | null; out: CuePoint | null; track: number; withTeases: boolean };
+  /** Which of the show's transitions have a file (RG, Nov 2, 2026): tease, between back-to-back teases; lites, in and out of a LITES. */
+  transitions?: { tease: boolean; lites: boolean };
 }
 
 export type SwitcherCommand =
@@ -99,6 +101,11 @@ export type SwitcherCommand =
    * its right box and the green screen behind. Off: back to the camera on program (M/E 1).
    */
   | { kind: 'layout'; on: boolean; camera?: number }
+  /**
+   * A transition wipe (RG, Nov 2, 2026): the show's transition plays over everything, and at its middle,
+   * when it covers the picture, the commands in then happen underneath.
+   */
+  | { kind: 'transition'; which: 'tease' | 'lites'; then: SwitcherCommand[] }
   | { kind: 'music'; play: boolean; track?: number };
 
 /**
@@ -416,7 +423,10 @@ export class CueEngine {
       const onAir = this.element(this.state.onAir);
       // A VO over the section's L3: bring the L3 back if the VO ends first.
       this.state.returnTo = onAir && onAir.behavior === 'graphic' && onAir.sectionId === element.sectionId && element.behavior === 'voiceover' ? onAir.id : null;
-      commands.push(...this.putUp(element.ddrItem, element));
+      // A tease straight after another goes up through the Tease Transition (RG, Nov 2, 2026).
+      const teaseToTease = element.type === 'TEASE' && onAir?.type === 'TEASE' && this.plan.transitions?.tease;
+      const up = this.putUp(element.ddrItem, element);
+      commands.push(...(teaseToTease ? [{ kind: 'transition' as const, which: 'tease' as const, then: up }] : up));
       this.waitingToCue = null;
       this.state.onAir = element.id;
       if (this.plan.music.withTeases && element.type === 'TEASE' && !this.state.musicPlaying) {
@@ -446,9 +456,10 @@ export class CueEngine {
     const over = this.state.onAir !== null;
     if (lites) {
       // The LITES layout: the camera on program goes in its left box, and the clip plays in its right box.
-      commands.push({ kind: 'cueClip', item }, { kind: 'layout', on: true, camera: this.state.camera ?? this.section(element.sectionId)?.input ?? 1 }, { kind: 'play' });
+      // Going into it from anything else, the LITES Transition wipes over the change (RG, Nov 2, 2026).
+      const into: SwitcherCommand[] = [...commands, { kind: 'cueClip', item }, { kind: 'layout', on: true, camera: this.state.camera ?? this.section(element.sectionId)?.input ?? 1 }, { kind: 'play' }];
       this.state.cued = item;
-      return commands;
+      return !over && this.plan.transitions?.lites ? [{ kind: 'transition', which: 'lites', then: into }] : into;
     }
     if (over || this.state.cued !== item) commands.push({ kind: 'cueClip', item });
     commands.push(over ? { kind: 'play' } : { kind: 'dsk', on: true });
@@ -456,9 +467,14 @@ export class CueEngine {
     return commands;
   }
 
-  /** What takes an element off: DSK 2 off, or for a LITES clip, back from its layout to the camera. */
+  /**
+   * What takes an element off: DSK 2 off, or for a LITES clip, back from its layout to the camera, through
+   * the LITES Transition when the show has one (RG, Nov 2, 2026).
+   */
   private takeDown(element: ShowElement | undefined): SwitcherCommand {
-    return element?.type === 'LITES' ? { kind: 'layout', on: false } : { kind: 'dsk', on: false };
+    if (element?.type !== 'LITES') return { kind: 'dsk', on: false };
+    const off: SwitcherCommand = { kind: 'layout', on: false };
+    return this.plan.transitions?.lites ? { kind: 'transition', which: 'lites', then: [off] } : off;
   }
 
   /**

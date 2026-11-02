@@ -100,8 +100,11 @@ export async function trash(token: string, id: string, fetchFn: typeof fetch = f
   await drive(token, `${API}/files/${encodeURIComponent(id)}?fields=id`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }, fetchFn).catch(() => undefined);
 }
 
-/** A show's profile slots: its green screen, its tease music, and each of its permanent graphics. */
+/**
+ * A show's profile slots: its green screen, its tease music, its two transitions (between back-to-back
+ * teases, and in and out of a LITES; RG, Nov 2, 2026), and each of its permanent graphics.
+ */
 export function isSlot(slot: string, permanentGraphics: string[]): boolean {
-  if (slot === 'greenScreen' || slot === 'music') return true;
+  if (slot === 'greenScreen' || slot === 'music' || slot === 'transition:tease' || slot === 'transition:lites') return true;
   return slot.startsWith('permanent:') && permanentGraphics.includes(slot.slice('permanent:'.length));
 }

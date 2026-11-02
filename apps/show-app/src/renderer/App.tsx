@@ -490,6 +490,7 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
         <Playlist state={state} onImport={onImport} onEdit={onEdit} onMissing={onMissing} />
         <Status state={state} />
         <Preview state={state} />
+        <TransitionsBox state={state} />
         <PermanentBox state={state} />
         <GreenScreenBox state={state} />
         <Music state={state} />
@@ -546,6 +547,8 @@ function Program({ state }: { state: AppState }) {
       {!layout && still && <img className="program-clip" src={still} alt="" />}
       {/* On the simulator, the Sound player only pretends: the app plays the music out loud while it plays. */}
       {simulator && state.switcher.musicPlaying && state.musicTrack?.playable && <ProgramMusic src={state.musicTrack.playable} />}
+      {/* A transition wipe on top of everything (RG, Nov 2, 2026); live mode shows the TC1's own. */}
+      {simulator && state.switcher.transition && <TransitionWipe state={state} />}
       <span className={`live-dot${state.live.on ? ' on' : ''}`}>{state.live.on ? '● LIVE' : '○ Not live'}</span>
       <span className="program-caption">
         <strong>{layout ? `LITES layout: ${layoutCamera?.name ?? 'camera'}` : (camera?.name ?? (state.switcher.programInput ? `Input ${state.switcher.programInput}` : 'No camera'))}</strong>
@@ -565,11 +568,21 @@ function ProgramMusic({ src }: { src: string }) {
 }
 
 /** The clip on DSK 2, playing from its start with its sound; a still is shown as it is. */
-function ProgramClip({ src }: { src: string }) {
+/** The transition playing, over the whole Program box (its picture, or its still until a copy is ready). */
+function TransitionWipe({ state }: { state: AppState }) {
+  const playing = state.switcher.transition!;
+  const t = state.transitions.find((x) => x.which === playing.which);
+  if (!t) return null;
+  if (t.playable && !t.playable.endsWith('.png')) return <ProgramClip key={playing.startedAt} src={t.playable} className="program-transition" />;
+  const still = t.playable ?? t.thumbnail;
+  return still ? <img key={playing.startedAt} className="program-clip program-transition" src={still} alt="" /> : null;
+}
+
+function ProgramClip({ src, className = '' }: { src: string; className?: string }) {
   const video = useRef<HTMLVideoElement>(null);
   // Its sound goes through the Sound strip's fader and meter.
   useEffect(() => (video.current ? connectSound(video.current) : undefined), []);
-  return src.endsWith('.png') ? <img className="program-clip" src={src} alt="" /> : <video ref={video} className="program-clip" src={src} autoPlay playsInline />;
+  return src.endsWith('.png') ? <img className={`program-clip ${className}`} src={src} alt="" /> : <video ref={video} className={`program-clip ${className}`} src={src} autoPlay playsInline />;
 }
 
 /**
@@ -1003,6 +1016,51 @@ function PermanentBox({ state }: { state: AppState }) {
             <button className="small-button" onClick={() => act({ kind: 'choosePermanent', name: g.name })}>
               {g.file ? 'Change' : 'Choose'}
             </button>
+          </li>
+        ))}
+      </ul>
+    </DropPanel>
+  );
+}
+
+/**
+ * The show's transitions (RG, Nov 2, 2026), saved in its profile like the permanent graphics: the Tease
+ * Transition wipes between back-to-back teases, the LITES Transition into and out of a LITES layout.
+ * A dropped file whose name says "tease" or "lites" goes there; others fill an empty one.
+ */
+function TransitionsBox({ state }: { state: AppState }) {
+  const labels = { tease: 'Tease Transition', lites: 'LITES Transition' } as const;
+  const help = { tease: 'Between back-to-back teases', lites: 'Into and out of a LITES' } as const;
+  const drop = (paths: string[]) => {
+    const empty = state.transitions.filter((t) => !t.file).map((t) => t.which);
+    for (const file of paths) {
+      const name = file.toLowerCase();
+      const which = name.includes('lites') ? 'lites' : name.includes('tease') ? 'tease' : empty.shift();
+      if (which) void act({ kind: 'setTransition', which, path: file });
+    }
+  };
+  return (
+    <DropPanel title="Transitions" className="transitions" onFiles={drop}>
+      <ul className="transition-list">
+        {state.transitions.map((t) => (
+          <li key={t.which}>
+            <div className="thumb transition-thumb">{t.thumbnail ? <img src={t.thumbnail} alt="" /> : <span>{t.file ? '' : 'None'}</span>}</div>
+            <div className="transition-text">
+              <strong>{labels[t.which]}</strong>
+              <span className="small muted" title={t.file ?? undefined}>
+                {t.file ?? help[t.which]}
+              </span>
+              <span className="row">
+                <button className="small-button" onClick={() => act({ kind: 'chooseTransition', which: t.which })}>
+                  {t.file ? 'Change' : 'Choose'}
+                </button>
+                {t.file && (
+                  <button className="small-button" onClick={() => act({ kind: 'clearTransition', which: t.which })}>
+                    Remove
+                  </button>
+                )}
+              </span>
+            </div>
           </li>
         ))}
       </ul>
