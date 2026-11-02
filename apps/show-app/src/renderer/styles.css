@@ -1487,3 +1487,63 @@ button.danger {
 .program-transition {
   z-index: 3;
 }
+
+/* Open On Manual Mode (RG, Nov 2, 2026): below the shows on the Select A Show Profile page. */
+.picker-manual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 28px auto 0;
+  padding: 14px 28px;
+  max-width: 460px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+}
+.picker-manual strong {
+  font-size: 18px;
+}
+.picker-manual:hover {
+  border-color: var(--blue);
+}
+
+/* Manual Mode's Playlist: a handle at the left of each graphic to drag it up or down. */
+.drag-handle {
+  cursor: grab;
+  padding: 2px 4px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+  user-select: none;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.manual-number {
+  min-width: 1.6em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.manual-queue li.dragging {
+  opacity: 0.4;
+}
+.manual-queue li.drop-before {
+  box-shadow: inset 0 3px 0 var(--blue);
+}
+.manual-queue li.on-air-item {
+  opacity: 0.6;
+}
+.queue-empty {
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* Manual Mode's Green screen menu: any show's green screen. */
+.green-pick select {
+  width: 100%;
+  margin: 4px 0;
+}

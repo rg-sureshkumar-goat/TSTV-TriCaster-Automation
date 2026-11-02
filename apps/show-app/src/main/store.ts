@@ -20,6 +20,13 @@ export interface Settings {
   profileShowId: string;
 }
 
+export interface ManualSession {
+  /** The graphics' ids, in the Playlist's order. */
+  order: string[];
+  files: Record<string, FileInfo>;
+  greenScreen: FileInfo | null;
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   siteUrl: 'https://tstv-show.tstv-rundown.workers.dev',
   key: '',
@@ -105,6 +112,18 @@ export class Store {
 
   saveTransitions(showId: string, files: Record<string, FileInfo>): Promise<void> {
     return this.write(`transitions/${showId}.json`, files);
+  }
+
+  /**
+   * Manual Mode's graphics, in the Playlist's order, and its green screen (RG, Nov 2, 2026). They stay until
+   * the producer clears them.
+   */
+  manualSession(): Promise<ManualSession> {
+    return this.read('manual.json', { order: [], files: {}, greenScreen: null });
+  }
+
+  saveManualSession(session: ManualSession): Promise<void> {
+    return this.write('manual.json', session);
   }
 
   /** A show's music track, dropped on the Music box (RG, Oct 29, 2026). */

@@ -93,6 +93,13 @@ export interface AppState {
    */
   mode: 'simulator' | 'live';
   /**
+   * Open On Manual Mode (RG, Nov 2, 2026): running the TC1 by hand, with no rundown, prompter or RiGster
+   * key. Its graphics fire in the Playlist's order and stay up until taken off.
+   */
+  manualSession: boolean;
+  /** The shows whose green screen Manual Mode can use. */
+  greenScreenChoices: { showId: string; name: string }[];
+  /**
    * RiGster runs the TC1 from the moment it opens, with no simulator (RG, Nov 2, 2026). Off only in
    * development (npm run show-app:simulator).
    */
@@ -158,6 +165,14 @@ export interface AppState {
 export type Action =
   /** Mac: opens the download page for the new version. Windows: restarts RiGster into it. */
   | { kind: 'getUpdate' }
+  /** Open On Manual Mode (RG, Nov 2, 2026): runs the TC1 by hand, with no rundown, prompter or key. */
+  | { kind: 'openManual' }
+  /** Drags a Manual Mode graphic to just before another (null: to the end). */
+  | { kind: 'moveManual'; elementId: string; before: string | null }
+  /** Takes every graphic out of Manual Mode's Playlist. */
+  | { kind: 'clearManual' }
+  /** Manual Mode uses a show's green screen. */
+  | { kind: 'useShowGreenScreen'; showId: string }
   /** Picks the show profile by hand: its permanent graphics, green screen and music load. */
   | { kind: 'setProfile'; showId: string }
   /** The show's transitions (RG, Nov 2, 2026): between back-to-back teases, and in and out of a LITES. */

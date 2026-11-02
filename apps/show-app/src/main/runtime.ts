@@ -2,6 +2,7 @@
 // sends the engine's commands to the switcher, and keeps track of each element's file. It knows nothing
 // about Electron (the window and file pickers come in from main.ts), so it can be tested on its own.
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -18,6 +19,7 @@ import {
   CueEngine,
   cueLabel,
   cuePointLabel,
+  DEFAULT_SHOW_SETTINGS,
   defaultMusicPoints,
   matchMedia,
   readRows,
@@ -27,6 +29,7 @@ import {
   type MediaProblem,
   type RundownTiming,
   type ShowPlan,
+  type ShowSection,
   type SwitcherCommand,
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
@@ -43,6 +46,9 @@ import { WebsiteLink, type CueEvent } from './website.ts';
 
 /** What RiGster asks for until it sees the TC1's cable (RG, Nov 2, 2026). */
 export const PLUG_IN = 'Plug in the TC1 Cable to Connect to TC1';
+
+/** Manual Mode's one pretend section, which holds its graphics in the Playlist's order. */
+const MANUAL_SECTION = 'manual';
 
 /** The clip TSTV holds during each commercial break, at the start of every block in DDR 2 (probe, Oct 28, 2026). */
 export const BREAK_CLIP = { name: 'TSTV Ident 2022 News', durationMs: 4_963 };
@@ -93,6 +99,17 @@ export class Runtime extends EventEmitter {
   private profileList: ProfileList | null = null;
   /** The RiGster key's episode belongs to a different show than the profile picked: it isn't followed. */
   private profileMismatch = false;
+  /**
+   * Open On Manual Mode (RG, Nov 2, 2026): RiGster runs the TC1 by hand, with no rundown, prompter or
+   * RiGster key, for recordings. Its graphics fire in the order they were imported (dragged into another
+   * order if wanted) and stay up until taken off. No show profile: no permanent graphics, music or
+   * transitions, and a green screen of its own, which can be one of the shows'.
+   */
+  private manualSession = false;
+  /** Manual Mode's graphics' ids, in the Playlist's order (their files are in this.files). */
+  private manualOrder: string[] = [];
+  /** The shows whose green screen Manual Mode can use. */
+  private greenScreenChoices: { showId: string; name: string }[] = [];
   /** A profile has been picked on the Select A Show Profile page since RiGster opened. */
   private profilePicked = false;
   /**
@@ -273,6 +290,7 @@ export class Runtime extends EventEmitter {
 
   /** Rebuilds the show from the rundown, the files and the switcher's playlists. */
   private rebuild(): void {
+    if (this.manualSession) return this.rebuildManual();
     const doc = this.website.doc;
     const show = this.website.show;
     if (!doc || !show) return;
@@ -355,6 +373,7 @@ export class Runtime extends EventEmitter {
   }
 
   private async writeFiles(): Promise<void> {
+    if (this.manualSession) return this.deps.store.saveManualSession({ order: this.manualOrder, files: this.files, greenScreen: this.greenScreen });
     const episode = this.website.episode;
     const profile = this.profileShow()?.id;
     if (episode) await this.deps.store.saveEpisodeFiles(episode.id, this.files);
@@ -435,6 +454,7 @@ export class Runtime extends EventEmitter {
   }
 
   private async addFiles(paths: string[]): Promise<void> {
+    if (this.manualSession) return this.addManualFiles(paths);
     if (!this.plan) return;
     const all = await collectFiles(paths);
     // Files already on a cue (imported again from the same drive, say) are read again and keep their cues.
@@ -513,13 +533,15 @@ export class Runtime extends EventEmitter {
 
   private async setGreenScreen(file: string | null, fromProfile = false): Promise<void> {
     const show = this.profileShow();
-    if (!show) return;
+    if (!show && !this.manualSession) return;
     if (!fromProfile) {
-      if (!file && this.greenScreen?.driveFileId) await this.removeFromProfile('greenScreen');
+      if (!file && this.greenScreen?.driveFileId && show) await this.removeFromProfile('greenScreen');
       this.greenScreen = file ? await readFile(file) : null;
     }
-    await this.deps.store.saveGreenScreen(show.id, this.greenScreen);
-    if (!fromProfile) void this.syncProfile();
+    // Manual Mode's green screen is its own, not any show's.
+    if (show) await this.deps.store.saveGreenScreen(show.id, this.greenScreen);
+    else await this.writeFiles();
+    if (!fromProfile && show) void this.syncProfile();
     // On the simulator, a still goes in GFX 1 and a clip in DDR 1. In live mode the playout sends it to the
     // TC1 as the RIGSTER (Green Screen) source (RG, Oct 30 and Nov 1, 2026).
     this.playout?.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
@@ -610,6 +632,7 @@ export class Runtime extends EventEmitter {
    * (and while none is picked).
    */
   private profileShow(): { id: string; name: string; settings: ShowSettings } | null {
+    if (this.manualSession) return null;
     const id = this.settings.profileShowId || this.website.show?.id;
     if (!id) return null;
     const listed = this.profileList?.profiles.find((p) => p.id === id);
@@ -636,6 +659,7 @@ export class Runtime extends EventEmitter {
   private async setProfile(showId: string): Promise<void> {
     const first = !this.profilePicked;
     this.profilePicked = true;
+    if (this.manualSession) return this.leaveManual(showId);
     if (showId === this.settings.profileShowId) {
       if (first) void this.syncProfile();
       return this.changed();
@@ -650,11 +674,155 @@ export class Runtime extends EventEmitter {
     else void this.syncProfile();
   }
 
+  // ---- Manual Mode (RG, Nov 2, 2026) ----
+
+  /**
+   * Open On Manual Mode: RiGster stops following any episode and runs the TC1 by hand, with the graphics
+   * imported for Manual Mode, kept from last time.
+   */
+  private async openManual(): Promise<void> {
+    this.profilePicked = true;
+    this.manualSession = true;
+    this.profileMismatch = false;
+    this.website.close();
+    this.website.episode = null;
+    this.website.show = null;
+    this.engine = null;
+    this.plan = null;
+    this.timing = null;
+    this.problems = [];
+    this.clock = { startedAt: null, sectionLabel: null, overUnderSeconds: null };
+    const saved = await this.deps.store.manualSession();
+    this.files = saved.files;
+    this.manualOrder = saved.order.filter((id) => saved.files[id]);
+    // No permanent graphics, music or transitions in Manual Mode.
+    this.permanent = {};
+    this.musicTrack = null;
+    this.transitions = {};
+    this.switcher.transitions = this.transitions;
+    this.greenScreen = saved.greenScreen;
+    this.note('Manual Mode: the producer runs the TC1 by hand');
+    this.rebuild();
+    await this.setGreenScreen(null, true);
+    this.reportStatus();
+    void this.findGreenScreens();
+    void this.makePlayables();
+  }
+
+  /** Leaves Manual Mode for a show profile (and, with reconnect, the saved RiGster key's episode). */
+  private async leaveManual(showId: string, reconnect = true): Promise<void> {
+    this.manualSession = false;
+    this.files = {};
+    this.manualOrder = [];
+    this.problems = [];
+    this.engine = null;
+    this.plan = null;
+    if (showId !== this.settings.profileShowId) {
+      this.settings = { ...this.settings, profileShowId: showId };
+      await this.deps.store.saveSettings(this.settings);
+    }
+    this.note(`Show profile: ${this.profileShow()?.name ?? 'none'}`);
+    this.profileStatus = { working: null, error: null, waiting: [] };
+    await this.loadProfile();
+    if (reconnect && this.settings.key) await this.connect(this.settings.siteUrl, this.settings.key);
+    else void this.syncProfile();
+  }
+
+  /** Manual Mode's plan: one section with its graphics, in the Playlist's order, each staying up until taken off. */
+  private rebuildManual(): void {
+    const settings = DEFAULT_SHOW_SETTINGS;
+    const playlist = this.switcher.snapshot.playlist.map(clipKey);
+    const section: ShowSection = {
+      id: MANUAL_SECTION,
+      label: 'Manual',
+      slug: '',
+      type: '',
+      camera: settings.defaultCamera,
+      input: settings.cameraInputs[settings.defaultCamera] ?? 1,
+      elements: this.manualOrder
+        .filter((id) => this.files[id])
+        .map((id) => {
+          const file = path.basename(this.files[id].path);
+          const item = playlist.indexOf(clipKey(file));
+          return { id, sectionId: MANUAL_SECTION, type: 'FSG', name: file.replace(/\.[^.]+$/, ''), behavior: 'graphic', ddrItem: item < 0 ? null : item };
+        }),
+      cameraCues: [],
+    };
+    this.timing = null;
+    this.plan = { sections: [section], music: { in: null, out: null, track: 0, withTeases: false }, transitions: { tease: false, lites: false } };
+    if (this.engine) this.engine.setPlan(this.plan);
+    else {
+      this.engine = new CueEngine(this.plan);
+      this.engine.setManual(true);
+      this.engine.setCamerasByHand(true, this.switcher.snapshot.programInput);
+    }
+    this.changed();
+    void this.syncSimulator();
+  }
+
+  /** Imported in Manual Mode: added to the end of the Playlist, in the order they came. */
+  private async addManualFiles(paths: string[]): Promise<void> {
+    const known = new Set(this.manualOrder.map((id) => this.files[id]?.path));
+    let added = 0;
+    for (const file of await collectFiles(paths)) {
+      if (known.has(file)) continue;
+      const id = `manual-${randomUUID()}`;
+      this.files[id] = await readFile(file);
+      this.manualOrder.push(id);
+      known.add(file);
+      added++;
+    }
+    this.note(`Imported ${added} graphic(s)`);
+    await this.saveFiles();
+  }
+
+  /** Drags a Manual Mode graphic to just before another (or to the end, with null). */
+  private async moveManual(id: string, before: string | null): Promise<void> {
+    if (!this.manualOrder.includes(id) || id === before) return;
+    const order = this.manualOrder.filter((x) => x !== id);
+    const at = before ? order.indexOf(before) : -1;
+    order.splice(at < 0 ? order.length : at, 0, id);
+    this.manualOrder = order;
+    await this.saveFiles();
+  }
+
+  /** The shows with a green screen, for Manual Mode's Green screen menu. */
+  private async findGreenScreens(): Promise<void> {
+    const choices: { showId: string; name: string }[] = [];
+    for (const p of this.profileList?.profiles ?? []) {
+      if (p.files.greenScreen || (await this.deps.store.greenScreen(p.id))) choices.push({ showId: p.id, name: p.name });
+    }
+    this.greenScreenChoices = choices;
+    this.changed();
+  }
+
+  /** Manual Mode uses a show's green screen: this laptop's copy, or downloaded from Google Drive. */
+  private async useShowGreenScreen(showId: string): Promise<void> {
+    let file = await this.deps.store.greenScreen(showId);
+    if (file && !(await stat(file.path).catch(() => null))) file = null;
+    const online = this.profileList?.profiles.find((p) => p.id === showId)?.files.greenScreen;
+    if (online && (!file || file.driveFileId !== online.driveFileId)) {
+      try {
+        this.profileStatus = { ...this.profileStatus, working: `Downloading ${online.fileName}…` };
+        this.changed();
+        file = { ...(await readFile(await this.profiles.download(showId, online))), driveFileId: online.driveFileId };
+      } catch (e) {
+        if (!file) this.profileStatus = { ...this.profileStatus, error: e instanceof Error ? e.message : String(e) };
+      } finally {
+        this.profileStatus = { ...this.profileStatus, working: null };
+      }
+    }
+    if (!file) return this.changed();
+    this.greenScreen = file;
+    await this.setGreenScreen(null, true);
+  }
+
   /** Gets the profiles from the website again, and brings this laptop's copy of the picked one up to date. */
   private async refreshProfiles(): Promise<void> {
     if (!this.settings.key) return;
     try {
       this.profileList = await this.profiles.list();
+      if (this.manualSession) await this.findGreenScreens();
     } catch (e) {
       // Offline: the laptop's copy of the profile still works.
       this.profileStatus = { ...this.profileStatus, error: e instanceof Error ? e.message : String(e) };
@@ -700,6 +868,7 @@ export class Runtime extends EventEmitter {
    * elsewhere goes here too. After the Drive moves to another account, laptops send it the files they have.
    */
   private async syncProfile(): Promise<void> {
+    if (this.manualSession) return;
     if (this.syncingProfile) {
       this.syncProfileAgain = true;
       return;
@@ -813,7 +982,8 @@ export class Runtime extends EventEmitter {
       sectionId: e.sectionId,
       // A commercial break's cue sits at the end of the section before it, but reads as the break.
       sectionLabel: isBreakCue(e.id) ? 'Break' : sectionLabel,
-      label: cueLabel(e),
+      // Manual Mode's graphics go by their file names.
+      label: e.sectionId === MANUAL_SECTION ? e.name : cueLabel(e),
       type: e.type,
       behavior: e.behavior,
       file: file ? path.basename(file.path) : null,
@@ -853,6 +1023,8 @@ export class Runtime extends EventEmitter {
       profiles: (this.profileList?.profiles ?? []).map((p) => ({ id: p.id, name: p.name, logo: p.logo ?? null })),
       profile: profileShow ? { id: profileShow.id, name: profileShow.name } : null,
       profilePicked: this.profilePicked,
+      manualSession: this.manualSession,
+      greenScreenChoices: this.greenScreenChoices,
       profileMismatch: this.profileMismatch,
       profileSync: {
         working: this.profileStatus.working,
@@ -884,9 +1056,10 @@ export class Runtime extends EventEmitter {
         : null,
       episode: this.website.episode ? { id: this.website.episode.id, title: this.website.episode.title, showName: show?.name ?? '', airDate: this.website.episode.airDate, airTime: this.website.episode.airTime } : null,
       // The episode's show, or the profile's when no episode is followed.
-      cameras: (show ?? profileShow)
-        ? (show ?? profileShow)!.settings.cameras.map((name) => {
-            const input = (show ?? profileShow)!.settings.cameraInputs[name] ?? 1;
+      // Manual Mode: TSTV's three cameras.
+      cameras: (show ?? profileShow ?? (this.manualSession ? { settings: DEFAULT_SHOW_SETTINGS } : null))
+        ? (show ?? profileShow ?? { settings: DEFAULT_SHOW_SETTINGS }).settings.cameras.map((name) => {
+            const input = (show ?? profileShow ?? { settings: DEFAULT_SHOW_SETTINGS }).settings.cameraInputs[name] ?? 1;
             return { name, input, video: this.switcher.mode === 'live' ? (this.feeds?.url(String(input)) ?? null) : this.switcher.cameraVideo(input) };
           })
         : [],
@@ -1170,7 +1343,7 @@ export class Runtime extends EventEmitter {
     const episode = this.website.episode;
     const words = (text: string) => text.replace(/[^A-Za-z0-9]+/g, ' ').trim().replace(/ /g, '-') || 'Show';
     const date = episode?.airDate || new Date().toISOString().slice(0, 10);
-    const name = `${words(this.website.show?.name ?? 'Show')}_${words(episode?.title ?? 'Episode')}_${date}`;
+    const name = this.manualSession ? `Recording_${date}` : `${words(this.website.show?.name ?? 'Show')}_${words(episode?.title ?? 'Episode')}_${date}`;
     // The suggestion is never an earlier recording's name.
     const folder = this.settings.recordFolder || this.deps.recordingsFolder || '';
     let suggested = path.join(folder, `${name}.mp4`);
@@ -1229,6 +1402,8 @@ export class Runtime extends EventEmitter {
     const engine = this.engine;
     switch (action.kind) {
       case 'connect':
+        // A key pasted in Manual Mode follows its episode, with the profile picked last.
+        if (this.manualSession) await this.leaveManual(this.settings.profileShowId, false);
         return this.connect(action.siteUrl, action.key);
       case 'disconnect':
         this.profileMismatch = false;
@@ -1278,6 +1453,8 @@ export class Runtime extends EventEmitter {
         this.note(action.byHand ? 'Cameras by hand: the producer switches them' : 'Cameras follow the prompter again from the next section');
         return this.changed();
       case 'setManual':
+        // Manual Mode has no automation to go back to.
+        if (this.manualSession) return;
         engine?.setManual(action.manual, { dskOn: this.switcher.snapshot.dskOn, camera: this.switcher.snapshot.programInput, layoutOn: this.switcher.snapshot.layoutOn });
         this.note(action.manual ? 'Manual mode: the producer fires the graphics' : 'Automation continued from the prompter’s place');
         this.reportStatus();
@@ -1294,6 +1471,8 @@ export class Runtime extends EventEmitter {
       case 'assign':
         return this.assign(action.path, action.elementId);
       case 'clearFile': {
+        // In Manual Mode, a graphic's file going means the graphic goes from the Playlist.
+        if (this.manualSession) this.manualOrder = this.manualOrder.filter((id) => id !== action.elementId);
         const element = this.element(action.elementId);
         if (element?.type === 'PERM') delete this.permanent[element.name.trim().toLowerCase()];
         delete this.files[action.elementId];
@@ -1317,6 +1496,18 @@ export class Runtime extends EventEmitter {
       }
       case 'setProfile':
         return this.setProfile(action.showId);
+      case 'openManual':
+        return this.openManual();
+      case 'moveManual':
+        return this.moveManual(action.elementId, action.before);
+      case 'clearManual':
+        this.files = {};
+        this.manualOrder = [];
+        this.problems = [];
+        this.note('Manual Mode’s graphics cleared');
+        return this.saveFiles();
+      case 'useShowGreenScreen':
+        return this.useShowGreenScreen(action.showId);
       case 'setGreenScreen':
         return this.setGreenScreen(action.path);
       case 'chooseGreenScreen': {
@@ -1365,9 +1556,11 @@ export class Runtime extends EventEmitter {
    * show's break graphic, when it has a file), then each element's file in rundown order.
    */
   private simulatorClips(): PlaylistClip[] | null {
+    const clip = (file: FileInfo) => ({ name: path.basename(file.path).replace(/\.[^.]+$/, ''), durationMs: Math.round((file.seconds ?? 20) * 1000), path: file.path, fallback: file.playable });
+    // Manual Mode: just its graphics, in the Playlist's order.
+    if (this.manualSession) return this.manualOrder.flatMap((id) => (this.files[id] ? [clip(this.files[id])] : []));
     if (!this.timing) return null;
     const clips: PlaylistClip[] = [];
-    const clip = (file: FileInfo) => ({ name: path.basename(file.path).replace(/\.[^.]+$/, ''), durationMs: Math.round((file.seconds ?? 20) * 1000), path: file.path, fallback: file.playable });
     const breakFile = this.breakFile();
     for (const c of this.timing.rows) {
       if (c.row.kind === 'block') {

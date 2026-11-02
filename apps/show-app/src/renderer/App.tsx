@@ -53,7 +53,7 @@ export function App() {
   // The show's keys (see the top of this file). Not while typing in a box or with a window open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest('input, select, textarea') || !state?.episode || graphicsOpen) return;
+      if ((e.target as HTMLElement).closest('input, select, textarea') || !(state?.episode || state?.manualSession) || graphicsOpen) return;
       // The arrows work only in manual mode, so a stray press can't upset the automation.
       const manual = state.automation.manual;
       const action: Action | null =
@@ -63,7 +63,7 @@ export function App() {
             ? { kind: 'fireBack' }
             : manual && e.key === 'ArrowDown'
               ? { kind: 'takeOff' }
-              : e.key === 'p' || e.key === 'P'
+              : (e.key === 'p' || e.key === 'P') && !state.manualSession
                 ? { kind: 'setManual', manual: !state.automation.manual }
                 : null;
       if (!action) return;
@@ -144,7 +144,7 @@ function UpdateNote({ state }: { state: AppState }) {
  */
 function ProfileMenu({ state }: { state: AppState }) {
   const options = state.profiles.length ? state.profiles : state.profile ? [state.profile] : [];
-  if (!options.length) {
+  if (!options.length && !state.manualSession) {
     return (
       <span className="profile-menu muted small" title="Show profiles come from the website: paste a RiGster key first">
         No show profile yet
@@ -154,17 +154,24 @@ function ProfileMenu({ state }: { state: AppState }) {
   return (
     <label className="profile-menu" title="The show profile: its permanent graphics, green screen and tease music">
       <span className="visually-hidden">Show profile</span>
-      <select value={state.profile?.id ?? ''} onChange={(e) => e.target.value && act({ kind: 'setProfile', showId: e.target.value })}>
-        {!state.profile && <option value="">Pick a show profile…</option>}
+      <select
+        value={state.manualSession ? MANUAL : (state.profile?.id ?? '')}
+        onChange={(e) => e.target.value && act(e.target.value === MANUAL ? { kind: 'openManual' } : { kind: 'setProfile', showId: e.target.value })}
+      >
+        {!state.profile && !state.manualSession && <option value="">Pick a show profile…</option>}
         {options.map((p) => (
           <option key={p.id} value={p.id}>
             {p.name}
           </option>
         ))}
+        <option value={MANUAL}>Manual Mode</option>
       </select>
     </label>
   );
 }
+
+/** The Show profile menu's choice for Manual Mode. */
+const MANUAL = '__manual';
 
 /** Whether the profile's files are in Google Drive, and what's going up or coming down. */
 function ProfileStatus({ state }: { state: AppState }) {
@@ -218,6 +225,11 @@ function ProfilePicker({ state }: { state: AppState }) {
           ))}
         </div>
       )}
+      {/* Below the shows (RG, Nov 2, 2026): running the TC1 by hand, for recordings, with no rundown or key. */}
+      <button className="picker-manual" onClick={() => act({ kind: 'openManual' })}>
+        <strong>Open On Manual Mode</strong>
+        <span className="small muted">Run the TC1 by hand: cameras, graphics and recording, with no rundown, prompter or RiGster key.</span>
+      </button>
       {!state.profiles.length && state.website.key && (
         <p className="muted">{state.profileSync.error ? `${state.profileSync.error}${shows.length ? ' Showing the show used last.' : ''}` : 'Getting the shows from the website…'}</p>
       )}
@@ -243,7 +255,7 @@ function Header({ state }: { state: AppState }) {
       <strong className="app-name">RiGster</strong>
       <ProfileMenu state={state} />
       <span className="title" title={episode ? episode.title : undefined}>
-        {episode ? episode.title : ''}
+        {state.manualSession ? 'Manual Mode' : episode ? episode.title : ''}
       </span>
       <LiveSwitch state={state} />
       <span className="lights">
@@ -258,10 +270,13 @@ function Header({ state }: { state: AppState }) {
         )}
       </span>
       <UpdateNote state={state} />
-      <button className={episode ? '' : 'primary'} onClick={() => setOpen(open === 'key' ? null : 'key')} aria-expanded={open === 'key'}>
-        Episode key
-      </button>
-      {open === 'key' && <KeyPanel state={state} onDone={() => setOpen(null)} />}
+      {/* Manual Mode follows no episode, so it has no key. */}
+      {!state.manualSession && (
+        <button className={episode ? '' : 'primary'} onClick={() => setOpen(open === 'key' ? null : 'key')} aria-expanded={open === 'key'}>
+          Episode key
+        </button>
+      )}
+      {open === 'key' && !state.manualSession && <KeyPanel state={state} onDone={() => setOpen(null)} />}
       {open === 'simulator' && <SimulatorPanel state={state} />}
     </header>
   );
@@ -464,7 +479,12 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
           {state.liveWaiting}
         </div>
       )}
-      {automation.manual ? (
+      {state.manualSession ? (
+        <div className="banner manual-banner" role="status">
+          Manual Mode: no rundown or prompter. <kbd>Space</kbd> or <kbd>→</kbd> fires the next graphic, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off; each stays up until
+          it’s taken off. Click a camera to take it. Drag a graphic by its <strong>⠿</strong> to change the order.
+        </div>
+      ) : automation.manual ? (
         <div className="banner manual-banner" role="alert">
           Manual mode: the prompter fires nothing. <kbd>Space</kbd> or <kbd>→</kbd> fires the next graphic, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off. Click a camera to take it.{' '}
           <strong>Continue automation</strong> (<kbd>P</kbd>) lets the prompter’s cues fire them again.
@@ -759,6 +779,19 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
       title="Playlist"
       className="playlist"
       actions={
+        state.manualSession ? (
+          <>
+            <button className="primary" onClick={onImport}>
+              Import graphics
+            </button>
+            <button
+              onClick={() => confirm('Take every graphic out of the Playlist? Their files stay where they are.') && act({ kind: 'clearManual' })}
+              disabled={state.sections.every((s) => s.elements.length === 0)}
+            >
+              Clear
+            </button>
+          </>
+        ) : (
         <>
           <button className="primary" onClick={onImport}>
             Import graphics
@@ -770,6 +803,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
             {missing ? `${missing} missing` : 'All files ✓'}
           </button>
         </>
+        )
       }
     >
       <h3>
@@ -799,6 +833,9 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
           </button>
         </span>
       </h3>
+      {state.manualSession ? (
+        <ManualQueue state={state} />
+      ) : (
       <ol className="queue">
         {automation.upNext.map((e, i) => (
           <li key={e.id} className={i === 0 ? 'first' : ''}>
@@ -812,8 +849,88 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
         ))}
         {automation.upNext.length === 0 && <li className="muted">Nothing left to fire.</li>}
       </ol>
-      <Skipped state={state} />
+      )}
+      {!state.manualSession && <Skipped state={state} />}
     </Panel>
+  );
+}
+
+/**
+ * Manual Mode's Playlist (RG, Nov 2, 2026): every graphic, in the order imported, each with a handle at
+ * its left to drag it up or down. Space fires the one marked next.
+ */
+function ManualQueue({ state }: { state: AppState }) {
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const all = state.sections.flatMap((s) => s.elements);
+  const next = state.automation.upNext[0]?.id;
+  const drop = (before: string | null) => {
+    if (dragging) void act({ kind: 'moveManual', elementId: dragging, before });
+    setDragging(null);
+    setOver(null);
+  };
+  // Files dropped on the list from outside RiGster are imported, onto the end.
+  const dropFiles = (e: DragEvent) => {
+    e.preventDefault();
+    if (dragging) return drop(null);
+    const paths = droppedPaths(e);
+    if (paths.length) void act({ kind: 'addFiles', paths });
+  };
+  if (all.length === 0) {
+    return (
+      <p className="muted queue-empty" onDragOver={(e) => e.preventDefault()} onDrop={dropFiles}>
+        No graphics yet. Click <strong>Import graphics</strong>, or drop files here.
+      </p>
+    );
+  }
+  return (
+    <ol className="queue manual-queue" onDragOver={(e) => e.preventDefault()} onDrop={dropFiles}>
+      {all.map((e, i) => (
+        <li
+          key={e.id}
+          className={`${e.id === next ? 'first' : ''}${e.id === state.automation.onAir?.id ? ' on-air-item' : ''}${over === e.id ? ' drop-before' : ''}${dragging === e.id ? ' dragging' : ''}`}
+          onDragOver={(ev) => {
+            if (!dragging) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            setOver(e.id);
+          }}
+          onDrop={(ev) => {
+            if (!dragging) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            drop(e.id);
+          }}
+        >
+          <span
+            className="drag-handle"
+            draggable
+            role="button"
+            aria-label={`Drag ${e.label} up or down`}
+            title="Drag up or down to change the order"
+            onDragStart={(ev) => {
+              ev.dataTransfer.effectAllowed = 'move';
+              ev.dataTransfer.setData('text/plain', e.id);
+              setDragging(e.id);
+            }}
+            onDragEnd={() => {
+              setDragging(null);
+              setOver(null);
+            }}
+          >
+            ⠿
+          </span>
+          <span className="manual-number">{i + 1}</span>
+          <Item element={e} />
+          <span className="actions">
+            {e.id !== next && <button onClick={() => act({ kind: 'chooseNext', elementId: e.id })}>Play next</button>}
+            <button onClick={() => act({ kind: 'clearFile', elementId: e.id })} aria-label={`Remove ${e.label}`} title="Take it out of the Playlist">
+              ✕
+            </button>
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -937,9 +1054,15 @@ function Status({ state }: { state: AppState }) {
   const ms = lastCue?.latencyMs ?? null;
   return (
     <section className="cell panel status">
-      <button className={`pause${automation.manual ? ' resume' : ''}`} onClick={() => act({ kind: 'setManual', manual: !automation.manual })}>
-        {automation.manual ? 'Continue automation' : 'Pause automation'} <kbd>P</kbd>
-      </button>
+      {state.manualSession ? (
+        <button className="pause resume" disabled title="Manual Mode has no prompter, so there’s no automation to continue">
+          Manual Mode
+        </button>
+      ) : (
+        <button className={`pause${automation.manual ? ' resume' : ''}`} onClick={() => act({ kind: 'setManual', manual: !automation.manual })}>
+          {automation.manual ? 'Continue automation' : 'Pause automation'} <kbd>P</kbd>
+        </button>
+      )}
       <RecordButton state={state} />
       <dl>
         <dt>Section</dt>
@@ -1105,6 +1228,20 @@ function GreenScreenBox({ state }: { state: AppState }) {
         )}
       </div>
       {g && <p className="small">{g.file}</p>}
+      {/* Manual Mode (RG, Nov 2, 2026): any show's green screen. */}
+      {state.manualSession && (
+        <label className="green-pick">
+          <span className="visually-hidden">Use a show’s green screen</span>
+          <select value="" onChange={(e) => e.target.value && act({ kind: 'useShowGreenScreen', showId: e.target.value })} disabled={state.greenScreenChoices.length === 0}>
+            <option value="">{state.greenScreenChoices.length ? 'Use a show’s green screen…' : 'No show has a green screen yet'}</option>
+            {state.greenScreenChoices.map((c) => (
+              <option key={c.showId} value={c.showId}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="row">
         <button className="small-button" onClick={() => act({ kind: 'chooseGreenScreen' })}>
           {g ? 'Change' : 'Choose'}
