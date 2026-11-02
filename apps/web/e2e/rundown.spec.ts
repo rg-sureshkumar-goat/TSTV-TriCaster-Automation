@@ -244,7 +244,7 @@ test('two people build one rundown together', async ({ browser }) => {
   await expect(rg.getByLabel('A1 estimated length')).toHaveAttribute('placeholder', '0:07');
   await expect(sam.locator('.timing-bar')).toContainText('Total 0:07');
 
-  // Export CSV includes the rows and who wrote them.
+  // Export CSV has the rundown's columns, its rows, and who last edited each (Nov 2, 2026).
   const downloadPromise = rg.waitForEvent('download');
   await rg.getByRole('button', { name: 'Export CSV' }).click();
   const download = await downloadPromise;
@@ -252,10 +252,11 @@ test('two people build one rundown together', async ({ browser }) => {
   expect(download.suggestedFilename()).toBe('E2E News - Test Episode rundown.csv');
   expect(csv).toContain('A1,Cold Open');
   expect(csv).toContain('"VO Highlights, L3"');
-  expect(csv).toContain('A2,Basketball Wins,Reader,Sam,Jordan,Camera 1,Horns win big,');
+  expect(csv).toContain('A2 (floated),Basketball Wins,Reader,Sam,Jordan,Camera 1,Horns win big,');
   expect(csv).toContain('"Jordan, Riley Park"');
   expect(csv).toContain('"Station ID, TEASE, LITES, MUSIC PrimeTime Main, FSG"');
-  expect(csv).toContain('Sam Writer');
+  expect(csv.split('\r\n')[0]).toBe('\ufeff#,Slug,Story Type,Writer,Talent,Camera,Headline,Graphics,Notes,Assign Graphics,Est.,Back-time,Last edit');
+  expect(csv).toContain(',RG (TD)');
 
   // Export PDF makes a real PDF file.
   const pdfPromise = rg.waitForEvent('download');
