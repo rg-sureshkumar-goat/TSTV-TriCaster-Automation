@@ -90,6 +90,21 @@ describe('a mock show on the simulator', () => {
     expect(runtime.state().problems).toEqual([]);
   }, 30_000);
 
+  it('can put a file on any cue by hand, even when every cue already has one (it replaces that file)', async () => {
+    await makeClip('Coach Interview Take 2.mp4', 1.2);
+    await runtime.act({ kind: 'addFiles', paths: [path.join(folder, 'usb', 'Coach Interview Take 2.mp4')] });
+    const problem = runtime.state().problems[0];
+    expect(problem.name).toBe('Coach Interview Take 2.mp4');
+    expect(problem.candidates.find((c) => c.id === ids.sot)?.label).toContain('replaces A4_SOT_Coach.mp4');
+    await runtime.act({ kind: 'assign', path: problem.path, elementId: ids.sot });
+    expect(runtime.state().problems).toEqual([]);
+    const sot = () => runtime.state().sections.flatMap((x) => x.elements).find((e) => e.id === ids.sot)?.file;
+    expect(sot()).toBe('Coach Interview Take 2.mp4');
+    // Back to the original, for the show below.
+    await runtime.act({ kind: 'assign', path: path.join(folder, 'usb', 'A4_SOT_Coach.mp4'), elementId: ids.sot });
+    expect(sot()).toBe('A4_SOT_Coach.mp4');
+  }, 30_000);
+
   it('makes a copy of each file that the Program box can play', async () => {
     const withFiles = () => runtime.state().sections.flatMap((x) => x.elements).filter((e) => e.file);
     await waitFor(() => withFiles().every((e) => e.playable), 30_000);

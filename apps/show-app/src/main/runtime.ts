@@ -473,7 +473,14 @@ export class Runtime extends EventEmitter {
     // Elements this import fills aren't offered for the files it couldn't place.
     const placed = new Set(matches.filter((m) => !m.checkSlug).map((m) => m.elementId));
     const open = this.views().filter((e) => e.type !== 'MUSIC' && !e.file && !placed.has(e.id));
-    const choices = (ids?: string[]) => (ids ? this.views().filter((e) => ids.includes(e.id)) : open).map((e) => ({ id: e.id, label: `${e.sectionLabel} · ${e.label}` }));
+    // The likely cues first, then every other one, so there's always somewhere to put a file: one that
+    // already has a file says so, and placing it there replaces that file (RG, Nov 2, 2026: Put it there
+    // did nothing when every cue already had a file, as the list was empty).
+    const choices = (ids?: string[]) => {
+      const first = ids ? this.views().filter((e) => ids.includes(e.id)) : open;
+      const rest = this.views().filter((e) => e.type !== 'MUSIC' && !first.includes(e));
+      return [...first, ...rest].map((e) => ({ id: e.id, label: `${e.sectionLabel} · ${e.label}${e.file ? ` (replaces ${e.file})` : ''}` }));
+    };
     const asked: FileProblem[] = problems.map((p) => ({ path: p.file, name: path.basename(p.file), reason: this.problemText(p), candidates: choices(p.reason === 'which-element' ? p.candidates : undefined) }));
     for (const m of matches) {
       if (m.checkSlug) {
@@ -615,7 +622,11 @@ export class Runtime extends EventEmitter {
       return void this.syncProfile();
     }
     const element = this.element(elementId);
-    if (!element) return;
+    if (!element) {
+      // Said where the producer sees it, instead of nothing happening.
+      this.problems = this.problems.map((p) => (p.path === file ? { ...p, reason: 'That cue isn’t in the rundown any more. Pick another one.' } : p));
+      return this.changed();
+    }
     const info = await readFile(file);
     // A permanent graphic's file is remembered for the whole show, so every episode has it.
     if (element.type === 'PERM') this.permanent[element.name.trim().toLowerCase()] = info;

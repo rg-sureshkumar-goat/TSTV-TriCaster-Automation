@@ -1452,13 +1452,15 @@ function GraphicsWindow({ state, onClose, onImport }: { state: AppState; onClose
 }
 
 function Problem({ problem }: { problem: AppState['problems'][number] }) {
-  const [target, setTarget] = useState(problem.candidates[0]?.id ?? '');
+  const [picked, setPicked] = useState(problem.candidates[0]?.id ?? '');
+  // The menu shows the first choice when the one picked isn't in it any more, so that's the one used.
+  const target = problem.candidates.some((c) => c.id === picked) ? picked : (problem.candidates[0]?.id ?? '');
   return (
     <div className="problem">
       <strong>{problem.name}</strong>
       <span className="muted">{problem.reason}</span>
       <span className="row">
-        <select value={target} onChange={(e) => setTarget(e.target.value)} aria-label={`Put ${problem.name} on`}>
+        <select value={target} onChange={(e) => setPicked(e.target.value)} aria-label={`Put ${problem.name} on`}>
           {problem.candidates.map((c) => (
             <option key={c.id} value={c.id}>
               {c.label}
