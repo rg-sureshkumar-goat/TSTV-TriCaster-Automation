@@ -114,6 +114,13 @@ describe('Open On Manual Mode', () => {
     await runtime.act({ kind: 'useShowGreenScreen', showId: 'show1' });
   });
 
+  it('takes a new green screen dropped on its box, and the switcher gets it', async () => {
+    await runtime.act({ kind: 'setGreenScreen', path: path.join(folder, 'usb', 'Credits.mp4') });
+    expect(runtime.state().greenScreen?.file).toBe('Credits.mp4');
+    await waitFor(() => sim.switcher.snapshot().players.ddr1.playlist.map((c) => c.name).join() === 'Credits');
+    await runtime.act({ kind: 'useShowGreenScreen', showId: 'show1' });
+  });
+
   it('keeps its graphics and green screen for next time, until Clear', async () => {
     runtime.close();
     runtime = await laptop();
