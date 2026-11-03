@@ -82,7 +82,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   server?.close();
-  await rm(folder, { recursive: true, force: true });
+  await rm(folder, { recursive: true, force: true, maxRetries: 5 });
 });
 
 const waitFor = async (check: () => boolean, ms = 10_000) => {

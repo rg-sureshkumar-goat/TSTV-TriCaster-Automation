@@ -50,10 +50,12 @@ export function App() {
   const [graphicsOpen, setGraphicsOpen] = useState<'edit' | 'missing' | false>(false);
   useEffect(() => window.showApp.onState(setState), []);
 
-  // The show's keys (see the top of this file). Not while typing in a box or with a window open.
+  // The show's keys (see the top of this file). Not while typing in a box or with a window open. A menu
+  // picked from last (like the green screen's) still has the keyboard, but isn't typed in: the keys still
+  // fire, and the menu lets go (RG, Nov 2, 2026).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest('input, select, textarea') || !(state?.episode || state?.manualSession) || graphicsOpen) return;
+      if ((e.target as HTMLElement).closest('input, textarea') || !(state?.episode || state?.manualSession) || graphicsOpen) return;
       // The arrows work only in manual mode, so a stray press can't upset the automation.
       const manual = state.automation.manual;
       const action: Action | null =
@@ -69,7 +71,7 @@ export function App() {
       if (!action) return;
       e.preventDefault();
       // The button clicked last still has the keyboard; let go of it, so Space doesn't press it as well.
-      if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
+      if (document.activeElement instanceof HTMLButtonElement || document.activeElement instanceof HTMLSelectElement) document.activeElement.blur();
       void act(action);
     };
     window.addEventListener('keydown', onKey);
