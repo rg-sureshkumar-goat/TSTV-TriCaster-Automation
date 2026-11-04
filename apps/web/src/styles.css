@@ -1815,6 +1815,11 @@ button.danger {
 
 .p-speaker {
   font-weight: 800;
+  font-size: 0.8em;
+}
+
+.p-speaker::before {
+  content: '▸ ';
 }
 
 .p-speaker-line {
@@ -1828,7 +1833,7 @@ button.danger {
   display: inline-block;
   padding: 0 0.35em;
   border-radius: 0.15em;
-  font-size: var(--p-cue-size);
+  font-size: 0.6em;
   font-weight: 800;
   color: #fff;
 }

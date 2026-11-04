@@ -416,7 +416,6 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
 
   const style = {
     '--p-size': `${settings.styles.regular.fontSize}pt`,
-    '--p-cue-size': `${settings.styles.curly.fontSize}pt`,
     '--p-spacing': settings.lineSpacing,
     '--p-margin': `${settings.margin}vw`,
     '--p-text': settings.styles.regular.color,
@@ -558,8 +557,7 @@ function Line({ line, settings, colors }: { line: PrompterLine; settings: Prompt
       return (
         <div className="p-speaker-line" data-key={line.key}>
           {!settings.styles.curly.hide && (
-            // In the color assigned to that speaker, not the curly brackets' colors (RG, Nov 4, 2026).
-            <span className="p-speaker" style={{ ...textLook(settings.styles.curly, false), color: colorForTalent(line.name, colors) }}>
+            <span className="p-speaker" style={{ color: colorForTalent(line.name, colors) }}>
               {line.name}
             </span>
           )}
