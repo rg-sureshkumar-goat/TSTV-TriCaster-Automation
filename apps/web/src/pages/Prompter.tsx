@@ -6,21 +6,21 @@
 // Keys: ↑ faster, ↓ slower and then backwards, Space pause, Page Down / → next section, Page Up / ← back a
 // section, H (or Home) the top, F full screen, S settings, ? help. The Go to section list at the top jumps
 // to any section.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import * as Y from 'yjs';
 import {
-  colorForTalent,
   computeRundown,
   cueLabel,
   elementKind,
   formatDuration,
   prompterLines,
+  scriptRuns,
   readRows,
   rowsOf,
   scriptBodiesOf,
-  talentColors,
   type PrompterCue,
   type PrompterLine,
+  type PrompterTextStyle,
   type ShowSettings,
 } from '@tstv/shared';
 import { useLoad, type User } from '../lib/api.ts';
@@ -32,35 +32,53 @@ interface EpisodeData {
   show: { id: string; name: string; settings: ShowSettings };
 }
 
-/** Saved on the prompter computer (decided in the brief: no mirror setting is needed). */
-export interface PrompterSettings {
-  /** Text size, in pixels. */
+/** How one kind of text looks: regular words, or words in a kind of bracket. */
+interface TextLook {
+  /** In points, as in Rundown Creator. */
   fontSize: number;
+  color: string;
+  background: string;
+  bold: boolean;
+  italic: boolean;
+  hide: boolean;
+}
+
+/** Saved on the prompter computer. */
+export interface PrompterSettings {
+  styles: Record<PrompterTextStyle, TextLook>;
+  showPageNumbers: boolean;
+  showStorySlugs: boolean;
+  flipText: boolean;
   lineSpacing: number;
   /**
    * Space on each side that the prompter's hood hides, as a percentage of the screen's width. The arrows
    * sit just inside it, and the text just inside them.
    */
   margin: number;
-  textColor: string;
-  background: string;
   /** Where the reading line is, as a percentage of the screen's height from the top. */
   readingLine: number;
-  /** How much each arrow press changes the speed, from 1 (gentle) to 10. */
-  speedStep: number;
   /** Size of the reading-line arrows, as a percentage of the text size. */
   markerSize: number;
 }
 
+/** TSTV's settings in Rundown Creator, read from its prompter (RG, Nov 4, 2026). */
 export const DEFAULT_PROMPTER_SETTINGS: PrompterSettings = {
-  fontSize: 64,
-  lineSpacing: 1.35,
+  styles: {
+    regular: { fontSize: 81, color: 'White', background: 'Black', bold: true, italic: false, hide: false },
+    curly: { fontSize: 35, color: 'Red', background: 'Yellow', bold: true, italic: false, hide: false },
+    square: { fontSize: 24, color: 'White', background: 'Black', bold: false, italic: false, hide: true },
+    parentheses: { fontSize: 30, color: 'Green', background: 'Black', bold: true, italic: true, hide: false },
+    carets: { fontSize: 24, color: 'White', background: 'Black', bold: false, italic: false, hide: true },
+  },
+  showPageNumbers: true,
+  showStorySlugs: false,
+  flipText: false,
+  // The browser's normal spacing for this font, which is Rundown Creator's.
+  lineSpacing: 1.15,
   margin: 8,
-  textColor: '#ffffff',
-  background: '#000000',
   readingLine: 30,
-  speedStep: 5,
-  markerSize: 110,
+  // The same size as before the text grew to 81 points (70 pixels).
+  markerSize: 65,
 };
 
 const SETTINGS_KEY = 'tstv-prompter-settings';
@@ -68,9 +86,30 @@ const copyKey = (episodeId: string) => `tstv-prompter-copy-${episodeId}`;
 /** Arrow presses from stopped to the top speed, either way (20 until RG raised it, Nov 2, 2026). */
 const MAX_SPEED = 40;
 
+const TEXT_STYLES: { style: PrompterTextStyle; label: string }[] = [
+  { style: 'regular', label: 'Regular Text' },
+  { style: 'curly', label: '{Curly Brackets}' },
+  { style: 'square', label: '[Square Brackets]' },
+  { style: 'parentheses', label: '(Parentheses)' },
+  { style: 'carets', label: '<Carets>' },
+];
+const COLORS = ['Black', 'White', 'Maroon', 'Green', 'Olive', 'Navy', 'Purple', 'Teal', 'Gray', 'Silver', 'Red', 'Lime', 'Yellow', 'Blue', 'Fuchsia', 'Aqua'];
+
+function textLook(look: TextLook, showBackground = true): CSSProperties {
+  return { fontSize: `${look.fontSize}pt`, color: look.color, background: showBackground ? look.background : undefined, fontWeight: look.bold ? 700 : 400, fontStyle: look.italic ? 'italic' : 'normal' };
+}
+
+/** Whether a line has anything to show: a line of only hidden text takes up no room. */
+function lineShows(line: PrompterLine, settings: PrompterSettings): boolean {
+  if (line.kind === 'speaker') return !settings.styles.curly.hide || line.cues.length > 0;
+  if (line.kind !== 'text' || !line.text.trim()) return true;
+  return scriptRuns(line.text).some((run) => !settings.styles[run.style].hide && run.text.trim());
+}
+
 function loadSettings(): PrompterSettings {
   try {
-    return { ...DEFAULT_PROMPTER_SETTINGS, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<PrompterSettings>) };
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<PrompterSettings>;
+    return { ...DEFAULT_PROMPTER_SETTINGS, ...saved, styles: { ...DEFAULT_PROMPTER_SETTINGS.styles, ...saved.styles } };
   } catch {
     return DEFAULT_PROMPTER_SETTINGS;
   }
@@ -104,8 +143,7 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
   const viewport = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   // The scroll engine lives outside React, so scrolling never re-draws the page.
-  const engine = useRef({ pos: 0, speed: 0, paused: false, lastTime: 0, markers: [] as Marker[], anchor: null as { key: string; offset: number } | null });
-  const colors = useMemo(() => talentColors(room.talent, show.settings.talent), [room.talent, show.settings.talent]);
+  const engine = useRef({ pos: 0, speed: 0, paused: false, markers: [] as Marker[], anchor: null as { key: string; offset: number } | null });
 
   const readingY = () => (viewport.current?.clientHeight ?? 0) * (settingsRef.current.readingLine / 100);
   const maxPos = () => Math.max(0, (content.current?.scrollHeight ?? 0) - (viewport.current?.clientHeight ?? 0));
@@ -220,22 +258,15 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
   useLayoutEffect(() => {
     keepLine();
     measureMarkers();
-  }, [lines, settings, colors]);
+  }, [lines, settings]);
 
-  // Scrolling, about 60 times a second.
+  // Scrolling, once per screen refresh. Each arrow press adds a pixel per refresh, as in Rundown Creator, so
+  // the same presses give the same speed on the same screen (RG, Nov 4, 2026).
   useEffect(() => {
     let frame = 0;
-    const tick = (time: number) => {
+    const tick = () => {
       const e = engine.current;
-      const seconds = e.lastTime ? Math.min(0.1, (time - e.lastTime) / 1000) : 0;
-      e.lastTime = time;
-      if (!e.paused && e.speed !== 0) {
-        const s = settingsRef.current;
-        // Each arrow press adds speedStep × 0.016 lines a second: at the default, 4 presses is about a
-        // typical anchor's reading pace.
-        const pixelsPerSecond = e.speed * s.speedStep * 0.016 * s.fontSize * s.lineSpacing;
-        moveBy(pixelsPerSecond * seconds);
-      }
+      if (!e.paused && e.speed !== 0) moveBy(e.speed);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -380,17 +411,18 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
   };
 
   const style = {
-    '--p-size': `${settings.fontSize}px`,
+    '--p-size': `${settings.styles.regular.fontSize}pt`,
+    '--p-cue-size': `${settings.styles.curly.fontSize}pt`,
     '--p-spacing': settings.lineSpacing,
     '--p-margin': `${settings.margin}vw`,
-    '--p-text': settings.textColor,
-    '--p-bg': settings.background,
+    '--p-text': settings.styles.regular.color,
+    '--p-bg': settings.styles.regular.background,
     '--p-line': `${settings.readingLine}vh`,
     '--p-marker': settings.markerSize / 100,
   } as CSSProperties;
 
   return (
-    <div className={`prompter${controlsVisible ? '' : ' idle'}`} style={style} aria-label={`Prompter for ${episode.title}`}>
+    <div className={`prompter${controlsVisible ? '' : ' idle'}${settings.flipText ? ' flipped' : ''}`} style={style} aria-label={`Prompter for ${episode.title}`}>
       <div
         className="prompter-viewport"
         ref={viewport}
@@ -399,8 +431,8 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
         }}
       >
         <div className="prompter-content" ref={content}>
-          {lines.map((line) => (
-            <Line key={line.key} line={line} colors={colors} />
+          {lines.filter((line) => lineShows(line, settings)).map((line) => (
+            <Line key={line.key} line={line} settings={settings} />
           ))}
         </div>
       </div>
@@ -486,7 +518,7 @@ function Cue({ line }: { line: PrompterCue }) {
   );
 }
 
-function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof talentColors> }) {
+function Line({ line, settings }: { line: PrompterLine; settings: PrompterSettings }) {
   switch (line.kind) {
     case 'block':
       return (
@@ -506,7 +538,8 @@ function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof 
       return (
         <div className="p-section" data-key={line.key} data-marker="section" data-section={line.sectionId} data-label={line.label}>
           {/* Just the number and the camera; the script's speaker markers say who reads (RG, Oct 29, 2026). */}
-          <span className="p-label">{line.label}</span>
+          {settings.showPageNumbers && <span className="p-label">{line.label}</span>}
+          {settings.showStorySlugs && line.slug && <span className="p-slug">{line.slug.toUpperCase()}</span>}
           <span className="p-camera">{line.camera.toUpperCase()}</span>
         </div>
       );
@@ -520,9 +553,11 @@ function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof 
     case 'speaker':
       return (
         <div className="p-speaker-line" data-key={line.key}>
-          <span className="p-speaker" style={{ color: colorForTalent(line.name, colors) }}>
-            {line.name}
-          </span>
+          {!settings.styles.curly.hide && (
+            <span className="p-speaker" style={textLook(settings.styles.curly)}>
+              {line.name}
+            </span>
+          )}
           {/* The cues at the top of this reader's part, on the line with their name (RG, Nov 4, 2026). */}
           {line.cues.map((cue) => (
             <Cue key={cue.key} line={cue} />
@@ -539,7 +574,15 @@ function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof 
     case 'text':
       return (
         <p className="p-text" data-key={line.key}>
-          {line.text || ' '}
+          {line.text.trim()
+            ? scriptRuns(line.text)
+                .filter((run) => !settings.styles[run.style].hide)
+                .map((run, i) => (
+                  <span key={i} style={textLook(settings.styles[run.style], run.style !== 'regular')}>
+                    {run.text}
+                  </span>
+                ))
+            : line.text || ' '}
         </p>
       );
     case 'end':
@@ -552,11 +595,11 @@ function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof 
 }
 
 function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSettings; onChange: (s: PrompterSettings) => void; onClose: () => void }) {
-  const number = (key: keyof PrompterSettings, label: string, min: number, max: number, step: number, unit = '') => (
+  const number = (key: 'lineSpacing' | 'margin' | 'readingLine' | 'markerSize', label: string, min: number, max: number, step: number, unit = '') => (
     <label>
       {label}
       <span className="row">
-        <input type="range" min={min} max={max} step={step} value={settings[key] as number} onChange={(e) => onChange({ ...settings, [key]: Number(e.target.value) })} />
+        <input type="range" min={min} max={max} step={step} value={settings[key]} onChange={(e) => onChange({ ...settings, [key]: Number(e.target.value) })} />
         <output>
           {settings[key]}
           {unit}
@@ -573,20 +616,67 @@ function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSett
     <div className="prompter-panel settings-panel" role="dialog" aria-label="Prompter settings">
       <h2>Prompter settings</h2>
       <p className="small">Saved on this computer.</p>
-      {number('fontSize', 'Text size', 24, 160, 2, ' px')}
+      <table className="prompter-looks">
+        <thead>
+          <tr>
+            <th />
+            <th>Font Size</th>
+            <th>Text Color</th>
+            <th>Background Color</th>
+            <th>Bold</th>
+            <th>Italic</th>
+            <th>Hide</th>
+          </tr>
+        </thead>
+        <tbody>
+          {TEXT_STYLES.map(({ style, label }) => {
+            const look = settings.styles[style];
+            const change = (patch: Partial<TextLook>) => onChange({ ...settings, styles: { ...settings.styles, [style]: { ...look, ...patch } } });
+            const colorMenu = (name: string, value: string, key: 'color' | 'background') => (
+              <select aria-label={`${label} ${name}`} value={value} onChange={(e) => change({ [key]: e.target.value })}>
+                {COLORS.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            );
+            return (
+              <tr key={style}>
+                <th scope="row">{label}</th>
+                <td>
+                  <input aria-label={`${label} font size`} type="number" min={8} max={200} value={look.fontSize} onChange={(e) => e.target.value && change({ fontSize: Number(e.target.value) })} />
+                </td>
+                <td>{colorMenu('text color', look.color, 'color')}</td>
+                <td>{colorMenu('background color', look.background, 'background')}</td>
+                <td>
+                  <input aria-label={`${label} bold`} type="checkbox" checked={look.bold} onChange={(e) => change({ bold: e.target.checked })} />
+                </td>
+                <td>
+                  <input aria-label={`${label} italic`} type="checkbox" checked={look.italic} onChange={(e) => change({ italic: e.target.checked })} />
+                </td>
+                <td>
+                  <input aria-label={`${label} hide`} type="checkbox" checked={look.hide} disabled={style === 'regular'} onChange={(e) => change({ hide: e.target.checked })} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <label className="row">
+        <input type="checkbox" checked={settings.showPageNumbers} onChange={(e) => onChange({ ...settings, showPageNumbers: e.target.checked })} />
+        Show page numbers
+      </label>
+      <label className="row">
+        <input type="checkbox" checked={settings.showStorySlugs} onChange={(e) => onChange({ ...settings, showStorySlugs: e.target.checked })} />
+        Show story slugs
+      </label>
+      <label className="row">
+        <input type="checkbox" checked={settings.flipText} onChange={(e) => onChange({ ...settings, flipText: e.target.checked })} />
+        Flip text
+      </label>
       {number('lineSpacing', 'Line spacing', 1, 2.2, 0.05)}
       {number('margin', 'Side margins (hidden by the hood)', 0, 30, 1, '%')}
       {number('readingLine', 'Reading line, from the top', 10, 70, 1, '%')}
       {number('markerSize', 'Marker Size', 30, 250, 5, '%')}
-      {number('speedStep', 'Speed change per arrow press', 1, 10, 1)}
-      <label>
-        Text color
-        <input type="color" value={settings.textColor} onChange={(e) => onChange({ ...settings, textColor: e.target.value })} />
-      </label>
-      <label>
-        Background color
-        <input type="color" value={settings.background} onChange={(e) => onChange({ ...settings, background: e.target.value })} />
-      </label>
       <div className="row">
         <button onClick={() => onChange(DEFAULT_PROMPTER_SETTINGS)}>Back to the defaults</button>
         <button onClick={close}>Close (Esc)</button>

@@ -195,3 +195,64 @@ test('a cue at the top of a reader’s part sits on the line with their name, bu
   expect(Math.abs((await middle('.p-speaker')) - (await middle('.p-cue')))).toBeLessThan(30);
   await expect(prompter.locator('.p-text')).toHaveText(['GOOD EVENING.', 'NEXT LINE.', '']);
 });
+
+test('speeds and settings match Rundown Creator’s', async ({ browser }) => {
+  const rg = await signIn(browser, 'RG (TD)');
+  await rg.getByPlaceholder('Show name').fill('Settings Show');
+  await rg.getByRole('button', { name: 'Add show' }).click();
+  await rg.getByPlaceholder('Title, e.g.').fill('Settings Episode');
+  await rg.getByRole('button', { name: 'Create episode' }).click();
+  await rg.getByLabel('Add an anchor').fill('Jordan');
+  await rg.getByLabel('Add an anchor').press('Enter');
+  await rg.getByLabel('A1 slug').fill('Open');
+  await rg.getByLabel('A1 slug').press('Enter');
+  await rg.getByRole('button', { name: 'A1 talent' }).click();
+  await rg.getByRole('checkbox', { name: 'Jordan' }).check();
+  await rg.getByRole('button', { name: 'Done' }).click();
+  const episodeUrl = rg.url();
+  await rg.getByRole('link', { name: 'Open the script for A1 Open' }).click();
+  const script = rg.getByRole('textbox', { name: 'Script for A1' });
+  await script.locator('p').last().click();
+  await rg.keyboard.type('Read this (Say it) [Secret] <Tag> {Cam 2} end.');
+  await rg.keyboard.press('Enter');
+  await rg.keyboard.type('[All hidden]');
+  await rg.keyboard.press('Enter');
+  await rg.keyboard.type('Last line.');
+
+  const prompter = await rg.context().newPage();
+  await prompter.goto(episodeUrl.replace('/episodes/', '/prompter/'));
+  const line = prompter.locator('.p-text', { hasText: 'READ THIS' });
+  await expect(line).toHaveText('READ THIS SAY IT   CAM 2 END.', { useInnerText: true });
+  const look = (text: string) =>
+    line.locator('span', { hasText: text }).evaluate((el) => {
+      const c = getComputedStyle(el);
+      return { size: Math.round(parseFloat(c.fontSize)), color: c.color, background: c.backgroundColor, weight: c.fontWeight, style: c.fontStyle };
+    });
+  expect(await look('READ THIS')).toMatchObject({ size: 108, color: 'rgb(255, 255, 255)', weight: '700', style: 'normal' });
+  expect(await look('CAM 2')).toEqual({ size: 47, color: 'rgb(255, 0, 0)', background: 'rgb(255, 255, 0)', weight: '700', style: 'normal' });
+  expect(await look('SAY IT')).toMatchObject({ size: 40, color: 'rgb(0, 128, 0)', weight: '700', style: 'italic' });
+  // A line of only hidden text takes up no room.
+  await expect(prompter.locator('.p-text', { hasText: 'ALL HIDDEN' })).toHaveCount(0);
+
+  // Three presses of the up arrow: three pixels per screen refresh.
+  for (let i = 0; i < 3; i++) await prompter.keyboard.press('ArrowUp');
+  const moved = await prompter.locator('.p-section').first().evaluate(async (el) => {
+    const frame = () => new Promise((r) => requestAnimationFrame(r));
+    await frame();
+    const top = el.getBoundingClientRect().top;
+    for (let i = 0; i < 10; i++) await frame();
+    return top - el.getBoundingClientRect().top;
+  });
+  expect(moved).toBe(30);
+  await prompter.keyboard.press(' ');
+
+  // The settings can change them, and show the slug, on this computer.
+  await prompter.keyboard.press('s');
+  await prompter.getByLabel('[Square Brackets] hide').uncheck();
+  await prompter.getByLabel('Regular Text font size').fill('60');
+  await prompter.getByLabel('Show story slugs').check();
+  await expect(line.locator('span', { hasText: 'SECRET' })).toBeVisible();
+  expect((await look('READ THIS')).size).toBe(80);
+  await expect(prompter.locator('.p-section').first()).toContainText('OPEN');
+  await expect(prompter.getByLabel('Regular Text hide')).toBeDisabled();
+});

@@ -65,7 +65,7 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     await run(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=0xff8000:s=1920x1080', '-frames:v', '1', file('Background.png')]);
     await run(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=0x00c000:s=1280x720:r=30:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', file('Background.mp4')]);
 
-    playout = new Playout(NAME, `${NAME} Background`);
+    playout = new Playout(NAME, `${NAME} Background`, `${NAME} Transition`, `${NAME} Up Next`);
     playout.setPlaylist([
       { name: 'A1_L3_Bar', path: file('A1_L3_Bar.mov'), seconds: 2 },
       { name: 'A2_VO_Tone', path: file('A2_VO_Tone.mp4'), seconds: 4 },
@@ -110,7 +110,7 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     let source = null;
     for (let i = 0; i < 20 && !source; i++) {
       ndi.findWait(finder, 500);
-      source = listSources(ndi, finder).find((s) => s.p_ndi_name.endsWith('(Up Next)')) ?? null;
+      source = listSources(ndi, finder).find((s) => s.p_ndi_name.endsWith(`(${NAME} Up Next)`)) ?? null;
     }
     expect(source).not.toBeNull();
     const graphics = receiver;
