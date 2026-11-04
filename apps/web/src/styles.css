@@ -1737,13 +1737,13 @@ button.danger {
   color: var(--p-text);
   font-family: Helvetica, Arial, sans-serif;
   /*
-   * The reading-line arrows each have a space of their own, between the side margin and the text (RG,
-   * Nov 1, 2026): the studio prompter's hood hides the screen's edges, so the arrows sit right beside the
-   * text, and a bigger arrow moves the text over rather than covering it.
+   * The reading-line arrow sits in the left margin, right beside the text (RG, Nov 1, 2026: the studio
+   * prompter's hood hides the screen's edge). It's alone there, as in Rundown Creator (RG, Nov 4, 2026),
+   * and an arrow too big for the margin moves the text over rather than covering it.
    */
-  --p-arrow: calc(var(--p-size) * var(--p-marker, 1.1));
-  --p-arrow-space: calc(var(--p-arrow) + var(--p-size) * 0.2);
-  --p-side: calc(var(--p-margin) + var(--p-arrow-space));
+  --p-arrow: calc(var(--p-size) * var(--p-marker, 0.65));
+  --p-arrow-space: calc(var(--p-arrow) + 4px);
+  --p-left: max(var(--p-left-margin), var(--p-arrow-space));
 }
 
 .prompter.idle {
@@ -1767,7 +1767,7 @@ button.danger {
 
 .prompter-content {
   position: relative;
-  padding: var(--p-line) var(--p-side) 100vh;
+  padding: var(--p-line) var(--p-right-margin) 100vh var(--p-left);
   font-size: var(--p-size);
   line-height: var(--p-spacing);
   font-weight: 600;
@@ -1888,10 +1888,8 @@ button.danger {
 .prompter-reading-line {
   position: absolute;
   top: var(--p-line);
-  left: var(--p-margin);
-  right: var(--p-margin);
+  left: calc(var(--p-left) - var(--p-arrow-space));
   display: flex;
-  justify-content: space-between;
   align-items: center;
   height: calc(var(--p-size) * var(--p-spacing));
   /* Set in the prompter's settings (markerSize). */
@@ -1902,15 +1900,11 @@ button.danger {
   pointer-events: none;
 }
 
-/* Each arrow fills its own space, ending a little before the text. */
+/* The arrow fills its own space, ending a little before the text. */
 .prompter-reading-line > span {
   width: var(--p-arrow-space);
   overflow: visible;
   white-space: nowrap;
-}
-
-.prompter-reading-line > span:last-child {
-  text-align: right;
 }
 
 .prompter-hud {

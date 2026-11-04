@@ -40,17 +40,15 @@ export interface PrompterSettings {
   background: string;
   bold: boolean;
   italic: boolean;
-  /** Set once this computer's look is in Rundown Creator's terms. */
+  /** Settings saved under an older version don't carry over. */
   lookVersion: number;
   showPageNumbers: boolean;
   showStorySlugs: boolean;
   flipText: boolean;
   lineSpacing: number;
-  /**
-   * Space on each side that the prompter's hood hides, as a percentage of the screen's width. The arrows
-   * sit just inside it, and the text just inside them.
-   */
-  margin: number;
+  /** Space to the left and right of the text, in pixels, whatever the screen's width. */
+  leftMargin: number;
+  rightMargin: number;
   /** Where the reading line is, as a percentage of the screen's height from the top. */
   readingLine: number;
   /** Size of the reading-line arrows, as a percentage of the text size. */
@@ -64,14 +62,15 @@ export const DEFAULT_PROMPTER_SETTINGS: PrompterSettings = {
   background: 'Black',
   bold: true,
   italic: false,
-  lookVersion: 1,
+  lookVersion: 2,
   showPageNumbers: true,
   showStorySlugs: false,
   flipText: false,
   // The browser's normal spacing for this font, which is Rundown Creator's.
   lineSpacing: 1.15,
-  margin: 8,
-  readingLine: 30,
+  leftMargin: 75,
+  rightMargin: 30,
+  readingLine: 31,
   // The same size as before the text grew to 81 points (70 pixels).
   markerSize: 65,
 };
@@ -86,12 +85,8 @@ const COLORS = ['Black', 'White', 'Maroon', 'Green', 'Olive', 'Navy', 'Purple', 
 function loadSettings(): PrompterSettings {
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<PrompterSettings>;
-    const settings = { ...DEFAULT_PROMPTER_SETTINGS, ...saved };
-    if (saved.lookVersion) return settings;
-    // Saved before Nov 4, 2026: a text size in pixels, and picked colors. The look starts over from the
-    // defaults, and the margins and reading line set for the hood stay.
-    const { fontSize, textColor, background, bold, italic, lookVersion } = DEFAULT_PROMPTER_SETTINGS;
-    return { ...settings, fontSize, textColor, background, bold, italic, lookVersion };
+    // Saved before the layout matched Rundown Creator's (RG, Nov 4, 2026): it starts over from the defaults.
+    return saved.lookVersion === DEFAULT_PROMPTER_SETTINGS.lookVersion ? { ...DEFAULT_PROMPTER_SETTINGS, ...saved } : DEFAULT_PROMPTER_SETTINGS;
   } catch {
     return DEFAULT_PROMPTER_SETTINGS;
   }
@@ -397,7 +392,8 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
   const style = {
     '--p-size': `${settings.fontSize}pt`,
     '--p-spacing': settings.lineSpacing,
-    '--p-margin': `${settings.margin}vw`,
+    '--p-left-margin': `${settings.leftMargin}px`,
+    '--p-right-margin': `${settings.rightMargin}px`,
     '--p-text': settings.textColor,
     '--p-bg': settings.background,
     '--p-line': `${settings.readingLine}vh`,
@@ -422,7 +418,6 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
       <div className="prompter-reading-line" aria-hidden="true">
         {/* Drawn as text, never as an emoji. */}
         <span>{'\u25B6\uFE0E'}</span>
-        <span>{'\u25C0\uFE0E'}</span>
       </div>
 
       <div className="prompter-hud" role="status">
@@ -568,7 +563,7 @@ function Line({ line, settings, colors }: { line: PrompterLine; settings: Prompt
 }
 
 function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSettings; onChange: (s: PrompterSettings) => void; onClose: () => void }) {
-  const number = (key: 'lineSpacing' | 'margin' | 'readingLine' | 'markerSize', label: string, min: number, max: number, step: number, unit = '') => (
+  const number = (key: 'lineSpacing' | 'leftMargin' | 'rightMargin' | 'readingLine' | 'markerSize', label: string, min: number, max: number, step: number, unit = '') => (
     <label>
       {label}
       <span className="row">
@@ -630,7 +625,8 @@ function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSett
         Flip text
       </label>
       {number('lineSpacing', 'Line spacing', 1, 2.2, 0.05)}
-      {number('margin', 'Side margins (hidden by the hood)', 0, 30, 1, '%')}
+      {number('leftMargin', 'Left margin', 0, 300, 5, ' px')}
+      {number('rightMargin', 'Right margin', 0, 300, 5, ' px')}
       {number('readingLine', 'Reading line, from the top', 10, 70, 1, '%')}
       {number('markerSize', 'Marker Size', 30, 250, 5, '%')}
       <div className="row">

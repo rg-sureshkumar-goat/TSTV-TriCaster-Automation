@@ -94,8 +94,8 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await expect(bar).toContainText('on A1');
 
   // The up arrow scrolls; the FSG cue fires as it crosses the reading line.
-  for (let i = 0; i < 15; i++) await prompter.keyboard.press('ArrowUp');
-  await expect(prompter.locator('.prompter-hud')).toContainText('▶ 15');
+  for (let i = 0; i < 3; i++) await prompter.keyboard.press('ArrowUp');
+  await expect(prompter.locator('.prompter-hud')).toContainText('▶ 3');
   await expect(bar).toContainText('Take FSG (A1)', { timeout: 20_000 });
   await expect(bar).toContainText('Camera cue (A1)', { timeout: 20_000 });
   await prompter.keyboard.press(' ');
@@ -111,31 +111,29 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await expect(prompter.locator('.p-text', { hasText: 'A BRAND NEW LINE.' })).toHaveCount(1);
   expect(Math.abs((await topOf()) - before)).toBeLessThanOrEqual(2);
 
-  // The reading-line arrows can be made bigger in the settings. Each sits between the side margin (which
-  // the studio prompter's hood hides) and the text, and never covers the text, however big (RG, Nov 1, 2026).
+  // The reading-line arrow can be made bigger in the settings. It sits in the left margin, beside the text,
+  // and never covers the text, however big (RG, Nov 1 and 4, 2026).
   const arrowSize = () => prompter.locator('.prompter-reading-line').evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-  const arrowsFit = () =>
+  const arrowFits = () =>
     prompter.evaluate(() => {
       const range = document.createRange();
-      const glyph = (span: Element) => (range.selectNodeContents(span), range.getBoundingClientRect());
-      const [left, right] = Array.from(document.querySelectorAll('.prompter-reading-line > span')).map(glyph);
-      const text = Array.from(document.querySelectorAll('.prompter-content > *')).map((el) => el.getBoundingClientRect());
-      const textLeft = Math.min(...text.map((r) => r.left));
-      const textRight = Math.max(...text.map((r) => r.right));
-      const margin = (parseFloat(getComputedStyle(document.querySelector('.prompter')!).getPropertyValue('--p-margin')) / 100) * innerWidth;
-      return { leftClear: left.right <= textLeft, rightClear: right.left >= textRight, leftInside: left.left >= margin - 1, rightInside: right.right <= innerWidth - margin + 1 };
+      const arrows = document.querySelectorAll('.prompter-reading-line > span');
+      range.selectNodeContents(arrows[0]);
+      const glyph = range.getBoundingClientRect();
+      const textLeft = Math.min(...Array.from(document.querySelectorAll('.prompter-content > *')).map((el) => el.getBoundingClientRect().left));
+      return { count: arrows.length, clear: glyph.right <= textLeft, onScreen: glyph.left >= 0 };
     });
-  const allFit = { leftClear: true, rightClear: true, leftInside: true, rightInside: true };
-  expect(await arrowsFit()).toEqual(allFit);
-  const arrowsBefore = await arrowSize();
+  const fits = { count: 1, clear: true, onScreen: true };
+  expect(await arrowFits()).toEqual(fits);
+  const arrowBefore = await arrowSize();
   await prompter.keyboard.press('s');
   await prompter.getByLabel('Marker Size').fill('250');
-  expect(await arrowSize()).toBeGreaterThan(arrowsBefore * 1.5);
-  expect(await arrowsFit()).toEqual(allFit);
+  expect(await arrowSize()).toBeGreaterThan(arrowBefore * 1.5);
+  expect(await arrowFits()).toEqual(fits);
   await prompter.keyboard.press('Escape');
 
   // The down arrow slows it, then runs it backwards.
-  for (let i = 0; i < 17; i++) await prompter.keyboard.press('ArrowDown');
+  for (let i = 0; i < 5; i++) await prompter.keyboard.press('ArrowDown');
   await expect(prompter.locator('.prompter-hud')).toContainText('◀ 2 backwards');
 
   // H goes back to the top, stopped; the Go to section list jumps to any section and starts it.
@@ -218,6 +216,10 @@ test('speeds and settings match Rundown Creator’s', async ({ browser }) => {
   const prompter = await rg.context().newPage();
   await prompter.goto(episodeUrl.replace('/episodes/', '/prompter/'));
   const line = prompter.locator('.p-text', { hasText: 'READ THIS' });
+  // Rundown Creator's layout: 75 pixels on the left and 30 on the right, at any screen width.
+  const box = (await line.boundingBox())!;
+  expect(box.x).toBe(75);
+  expect(box.x + box.width).toBe(prompter.viewportSize()!.width - 30);
   // Brackets are just text.
   await expect(line).toHaveText('READ THIS (WITH BRACKETS) [AS TYPED].');
   const look = () =>
