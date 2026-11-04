@@ -99,7 +99,12 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await expect(bar).toContainText('Take FSG (A1)', { timeout: 20_000 });
   await expect(bar).toContainText('Camera cue (A1)', { timeout: 20_000 });
   await prompter.keyboard.press(' ');
-  await expect(prompter.locator('.prompter-hud')).toContainText('Paused');
+  // Space stops it, with the speed back at zero; the up arrow builds it again from there.
+  await expect(prompter.locator('.prompter-hud')).toContainText('Stopped');
+  await prompter.keyboard.press('ArrowUp');
+  await expect(prompter.locator('.prompter-hud')).toContainText('▶ 1');
+  await prompter.keyboard.press(' ');
+  await expect(prompter.locator('.prompter-hud')).toContainText('Stopped');
 
   // Someone adds a line near the top of the script: what's on screen doesn't move.
   const topOf = () => prompter.locator('.p-text', { hasText: 'AFTER THE GRAPHIC.' }).evaluate((el) => Math.round(el.getBoundingClientRect().top));
@@ -133,7 +138,7 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   await prompter.keyboard.press('Escape');
 
   // The down arrow slows it, then runs it backwards.
-  for (let i = 0; i < 5; i++) await prompter.keyboard.press('ArrowDown');
+  for (let i = 0; i < 2; i++) await prompter.keyboard.press('ArrowDown');
   await expect(prompter.locator('.prompter-hud')).toContainText('◀ 2 backwards');
 
   // H goes back to the top, stopped; the Go to section list jumps to any section and starts it.
@@ -235,9 +240,9 @@ test('speeds and settings match Rundown Creator’s', async ({ browser }) => {
   });
   expect(name).toEqual({ size: 86, background: 'rgba(0, 0, 0, 0)' });
 
-  // Rundown Creator's spacing: a header as tall as a line of the script, and 50 pixels between sections.
+  // A header as tall as a line of the script, as in Rundown Creator, and 100 pixels between sections.
   expect(Math.round((await prompter.locator('.p-section').first().boundingBox())!.height)).toBe(124);
-  expect((await prompter.locator('.p-gap').first().boundingBox())!.height).toBe(50);
+  expect((await prompter.locator('.p-gap').first().boundingBox())!.height).toBe(100);
 
   // Three presses of the up arrow: three pixels per screen refresh.
   for (let i = 0; i < 3; i++) await prompter.keyboard.press('ArrowUp');

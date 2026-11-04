@@ -32,7 +32,6 @@ export interface PrompterStatus {
   label: string;
   /** Arrow-key speed steps; below zero runs backwards. */
   speed: number;
-  paused: boolean;
 }
 
 /** A section start or cue chip that just crossed the prompter's reading line. */

@@ -351,7 +351,7 @@ function PrompterBar({ others, lastCue, timing, live }: { others: Presence[]; la
       <strong>Prompter</strong>
       {prompter ? (
         <span>
-          {prompter.label ? `on ${prompter.label}` : 'at the top'} · {prompter.paused ? 'paused' : prompter.speed === 0 ? 'stopped' : prompter.speed > 0 ? `speed ${prompter.speed}` : `backwards ${-prompter.speed}`}
+          {prompter.label ? `on ${prompter.label}` : 'at the top'} · {prompter.speed === 0 ? 'stopped' : prompter.speed > 0 ? `speed ${prompter.speed}` : `backwards ${-prompter.speed}`}
         </span>
       ) : (
         <span className="muted">not open</span>

@@ -3,7 +3,7 @@
 // about a second without moving the line the anchor is reading. When a section start or a cue chip
 // crosses the reading line, it tells the episode room, which passes it on (to the show app from Phase 4).
 //
-// Keys: ↑ faster, ↓ slower and then backwards, Space pause, Page Down / → next section, Page Up / ← back a
+// Keys: ↑ faster, ↓ slower and then backwards, Space stop, Page Down / → next section, Page Up / ← back a
 // section, H (or Home) the top, F full screen, S settings, ? help. The Go to section list at the top jumps
 // to any section.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -114,13 +114,13 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const [lines, setLines] = useState<PrompterLine[]>([]);
-  const [hud, setHud] = useState({ speed: 0, paused: false, section: '' });
+  const [hud, setHud] = useState({ speed: 0, section: '' });
   const [panel, setPanel] = useState<'help' | 'settings' | null>('help');
   const [controlsVisible, setControlsVisible] = useState(true);
   const viewport = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   // The scroll engine lives outside React, so scrolling never re-draws the page.
-  const engine = useRef({ pos: 0, speed: 0, paused: false, markers: [] as Marker[], anchor: null as { key: string; offset: number } | null });
+  const engine = useRef({ pos: 0, speed: 0, markers: [] as Marker[], anchor: null as { key: string; offset: number } | null });
 
   const readingY = () => (viewport.current?.clientHeight ?? 0) * (settingsRef.current.readingLine / 100);
   const maxPos = () => Math.max(0, (content.current?.scrollHeight ?? 0) - (viewport.current?.clientHeight ?? 0));
@@ -188,7 +188,7 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
     sendCue(target);
   };
 
-  const showHud = () => setHud((h) => ({ ...h, speed: engine.current.speed, paused: engine.current.paused }));
+  const showHud = () => setHud((h) => ({ ...h, speed: engine.current.speed }));
 
   // The episode's lines, rebuilt whenever the rundown or a script changes.
   useEffect(() => {
@@ -245,7 +245,7 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
     let frame = 0;
     const tick = () => {
       const e = engine.current;
-      if (!e.paused && e.speed !== 0) moveBy(e.speed);
+      if (e.speed !== 0) moveBy(e.speed);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -259,12 +259,12 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
       const e = engine.current;
       const lineY = e.pos + readingY();
       const current = [...e.markers].reverse().find((m) => m.kind === 'section' && m.top <= lineY + 1);
-      const status: PrompterStatus = { sectionId: current?.sectionId ?? null, label: current?.label ?? '', speed: e.speed, paused: e.paused };
+      const status: PrompterStatus = { sectionId: current?.sectionId ?? null, label: current?.label ?? '', speed: e.speed };
       const text = JSON.stringify(status);
       if (text === last) return;
       last = text;
       room.provider?.awareness.setLocalStateField('prompter', status);
-      setHud({ speed: e.speed, paused: e.paused, section: status.label });
+      setHud({ speed: e.speed, section: status.label });
     }, 250);
     return () => clearInterval(timer);
   }, [room.provider]);
@@ -302,14 +302,13 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
       switch (event.key) {
         case 'ArrowUp':
           e.speed = Math.min(MAX_SPEED, e.speed + 1);
-          e.paused = false;
           break;
         case 'ArrowDown':
           e.speed = Math.max(-MAX_SPEED, e.speed - 1);
-          e.paused = false;
           break;
         case ' ':
-          e.paused = !e.paused;
+          // The speed goes back to zero, and the up arrow builds it again, as in Rundown Creator (RG, Nov 4, 2026).
+          e.speed = 0;
           break;
         case 'PageDown':
         case 'ArrowRight':
@@ -421,7 +420,7 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
       </div>
 
       <div className="prompter-hud" role="status">
-        <span>{hud.paused ? '❚❚ Paused' : hud.speed === 0 ? '■ Stopped' : hud.speed > 0 ? `▶ ${hud.speed}` : `◀ ${-hud.speed} backwards`}</span>
+        <span>{hud.speed === 0 ? '■ Stopped' : hud.speed > 0 ? `▶ ${hud.speed}` : `◀ ${-hud.speed} backwards`}</span>
         {hud.section && <span>{hud.section}</span>}
         {(room.status !== 'connected' || !room.synced) && (
           <span className="prompter-offline">{lines.length > 1 ? 'Offline: showing the last copy. Cues aren’t reaching the show.' : 'Connecting…'}</span>
@@ -462,7 +461,7 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
             <dt>↓</dt>
             <dd>Slower; below a stop it runs backwards</dd>
             <dt>Space</dt>
-            <dd>Pause and resume</dd>
+            <dd>Stop; the speed goes back to zero</dd>
             <dt>Page Down or →</dt>
             <dd>Next section</dd>
             <dt>Page Up or ←</dt>

@@ -1083,7 +1083,7 @@ export class Runtime extends EventEmitter {
       liveWaiting: this.liveWaiting,
       update: this.update ? { ...this.update, platform: process.platform === 'win32' ? 'windows' : 'mac' } : null,
       playout: this.playout ? { connections: this.playout.state.connections, error: this.playout.state.error } : null,
-      prompter: { connected: p !== null, label: p?.label ?? '', speed: p?.speed ?? 0, paused: p?.paused ?? false },
+      prompter: { connected: p !== null, label: p?.label ?? '', speed: p?.speed ?? 0 },
       automation: {
         manual: engine?.state.manual ?? false,
         camerasByHand: engine?.state.camerasByHand ?? false,

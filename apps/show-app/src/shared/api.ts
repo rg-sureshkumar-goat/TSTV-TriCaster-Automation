@@ -136,7 +136,7 @@ export interface AppState {
     playlist: string[];
     soundTracks: string[];
   };
-  prompter: { connected: boolean; label: string; speed: number; paused: boolean };
+  prompter: { connected: boolean; label: string; speed: number };
   automation: {
     /** Manual mode (Pause Automation): the producer fires the graphics and takes the cameras. */
     manual: boolean;

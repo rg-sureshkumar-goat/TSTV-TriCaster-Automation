@@ -33,7 +33,6 @@ export interface PrompterStatus {
   sectionId: string | null;
   label: string;
   speed: number;
-  paused: boolean;
 }
 
 export class WebsiteLink extends EventEmitter {
