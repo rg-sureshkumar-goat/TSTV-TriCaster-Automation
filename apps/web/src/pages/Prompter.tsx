@@ -6,15 +6,17 @@
 // Keys: ↑ faster, ↓ slower and then backwards, Space pause, Page Down / → next section, Page Up / ← back a
 // section, H (or Home) the top, F full screen, S settings, ? help. The Go to section list at the top jumps
 // to any section.
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import * as Y from 'yjs';
 import {
+  colorForTalent,
   computeRundown,
   cueLabel,
   elementKind,
   formatDuration,
   prompterLines,
   scriptRuns,
+  talentColors,
   readRows,
   rowsOf,
   scriptBodiesOf,
@@ -147,6 +149,8 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
 
   const readingY = () => (viewport.current?.clientHeight ?? 0) * (settingsRef.current.readingLine / 100);
   const maxPos = () => Math.max(0, (content.current?.scrollHeight ?? 0) - (viewport.current?.clientHeight ?? 0));
+  const colors = useMemo(() => talentColors(room.talent, show.settings.talent), [room.talent, show.settings.talent]);
+
   const draw = () => {
     if (content.current) content.current.style.transform = `translate3d(0, ${-engine.current.pos}px, 0)`;
   };
@@ -258,7 +262,7 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
   useLayoutEffect(() => {
     keepLine();
     measureMarkers();
-  }, [lines, settings]);
+  }, [lines, settings, colors]);
 
   // Scrolling, once per screen refresh. Each arrow press adds a pixel per refresh, as in Rundown Creator, so
   // the same presses give the same speed on the same screen (RG, Nov 4, 2026).
@@ -432,7 +436,7 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
       >
         <div className="prompter-content" ref={content}>
           {lines.filter((line) => lineShows(line, settings)).map((line) => (
-            <Line key={line.key} line={line} settings={settings} />
+            <Line key={line.key} line={line} settings={settings} colors={colors} />
           ))}
         </div>
       </div>
@@ -518,7 +522,7 @@ function Cue({ line }: { line: PrompterCue }) {
   );
 }
 
-function Line({ line, settings }: { line: PrompterLine; settings: PrompterSettings }) {
+function Line({ line, settings, colors }: { line: PrompterLine; settings: PrompterSettings; colors: ReturnType<typeof talentColors> }) {
   switch (line.kind) {
     case 'block':
       return (
@@ -554,7 +558,8 @@ function Line({ line, settings }: { line: PrompterLine; settings: PrompterSettin
       return (
         <div className="p-speaker-line" data-key={line.key}>
           {!settings.styles.curly.hide && (
-            <span className="p-speaker" style={textLook(settings.styles.curly)}>
+            // In the color assigned to that speaker, not the curly brackets' colors (RG, Nov 4, 2026).
+            <span className="p-speaker" style={{ ...textLook(settings.styles.curly, false), color: colorForTalent(line.name, colors) }}>
               {line.name}
             </span>
           )}

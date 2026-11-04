@@ -231,6 +231,13 @@ test('speeds and settings match Rundown Creator’s', async ({ browser }) => {
   expect(await look('READ THIS')).toMatchObject({ size: 108, color: 'rgb(255, 255, 255)', weight: '700', style: 'normal' });
   expect(await look('CAM 2')).toEqual({ size: 47, color: 'rgb(255, 0, 0)', background: 'rgb(255, 255, 0)', weight: '700', style: 'normal' });
   expect(await look('SAY IT')).toMatchObject({ size: 40, color: 'rgb(0, 128, 0)', weight: '700', style: 'italic' });
+  // A speaker's name keeps the color assigned to them, with the curly brackets' size and no yellow behind it.
+  const name = await prompter.locator('.p-speaker').first().evaluate((el) => {
+    const c = getComputedStyle(el);
+    return { size: Math.round(parseFloat(c.fontSize)), color: c.color, background: c.backgroundColor };
+  });
+  expect(name).toMatchObject({ size: 47, background: 'rgba(0, 0, 0, 0)' });
+  expect(name.color).not.toBe('rgb(255, 0, 0)');
   // A line of only hidden text takes up no room.
   await expect(prompter.locator('.p-text', { hasText: 'ALL HIDDEN' })).toHaveCount(0);
 
