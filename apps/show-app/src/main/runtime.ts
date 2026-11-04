@@ -1337,6 +1337,10 @@ export class Runtime extends EventEmitter {
     this.switcher.close();
     this.switcher = live;
     this.playout = playout;
+    // The show profile may have finished loading while this connected, with the cable already in when
+    // RiGster opened (RG, Nov 4, 2026): the playout and switcher get its green screen and transitions now.
+    playout.background(this.greenScreen?.path ?? null, this.greenScreen?.playable);
+    live.transitions = this.transitions;
     this.liveCable = localAddress;
     this.feeds = new Feeds();
     this.feeds.on('change', () => this.changed());
