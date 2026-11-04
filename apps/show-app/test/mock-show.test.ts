@@ -190,6 +190,11 @@ describe('a mock show on the simulator', () => {
     await waitFor(() => state().mes.v1.a === 'input3');
     // Continue: up next is from the prompter's place (after A1's tease), and its next section takes its camera.
     await runtime.act({ kind: 'setManual', manual: false });
+    // Back in automation, a double click on a graphic doesn't fire it.
+    const onAir = runtime.state().automation.onAir?.id;
+    const later = runtime.state().automation.upNext.at(-1);
+    if (later) await runtime.act({ kind: 'fireNow', elementId: later.id });
+    expect(runtime.state().automation.onAir?.id).toBe(onAir);
     expect(runtime.state().automation.upNext[0].id).toBe(ids.intro);
     cue('section', ids.a2);
     await waitFor(() => state().mes.v1.a === 'input1');

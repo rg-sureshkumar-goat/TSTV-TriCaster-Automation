@@ -3,7 +3,7 @@
 //   bottom: Up next preview · Permanent graphics drop box · Green screen drop box · Music
 // The episode key is at the top right. Import graphics opens a window that matches files to cues.
 // Keys: see shared/keys.ts.
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
 import { keyAction } from '../shared/keys.ts';
@@ -474,12 +474,12 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
       )}
       {state.manualSession ? (
         <div className="banner manual-banner" role="status">
-          Manual Mode: no rundown or prompter. <kbd>→</kbd> fires the next graphic, <kbd>Space</kbd> pauses it where it is, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off; each stays up until
+          Manual Mode: no rundown or prompter. <kbd>→</kbd> fires the next graphic (or double click any graphic to fire it), <kbd>Space</kbd> pauses it where it is, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off; each stays up until
           it’s taken off. Click a camera to take it. Drag a graphic by its <strong>⠿</strong> to change the order.
         </div>
       ) : automation.manual ? (
         <div className="banner manual-banner" role="alert">
-          Manual mode: the prompter fires nothing. <kbd>→</kbd> fires the next graphic, <kbd>Space</kbd> pauses it where it is, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off. Click a camera to take it.{' '}
+          Manual mode: the prompter fires nothing. <kbd>→</kbd> fires the next graphic (or double click any graphic to fire it), <kbd>Space</kbd> pauses it where it is, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off. Click a camera to take it.{' '}
           <strong>Continue automation</strong> (<kbd>P</kbd>) lets the prompter’s cues fire them again.
         </div>
       ) : !live.on ? (
@@ -832,7 +832,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
       ) : (
       <ol className="queue">
         {automation.upNext.map((e, i) => (
-          <li key={e.id} className={i === 0 ? 'first' : ''}>
+          <li key={e.id} className={i === 0 ? 'first' : ''} onDoubleClick={manual ? (ev) => fireOnDoubleClick(ev, e.id) : undefined}>
             <Item element={e} musicTrack={state.musicTrack?.file} />
             <span className="actions">
               {i > 0 && <button onClick={() => act({ kind: 'chooseNext', elementId: e.id })}>Play next</button>}
@@ -853,6 +853,11 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
  * Manual Mode's Playlist (RG, Nov 2, 2026): every graphic, in the order imported, each with a handle at
  * its left to drag it up or down. → fires the one marked next.
  */
+/** In manual mode, double clicking a graphic in the Playlist fires it (RG, Nov 4, 2026); its buttons don't count. */
+function fireOnDoubleClick(e: MouseEvent, elementId: string) {
+  if (!(e.target as HTMLElement).closest('button, .drag-handle')) void act({ kind: 'fireNow', elementId });
+}
+
 function ManualQueue({ state }: { state: AppState }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
@@ -882,6 +887,7 @@ function ManualQueue({ state }: { state: AppState }) {
       {all.map((e, i) => (
         <li
           key={e.id}
+          onDoubleClick={(ev) => fireOnDoubleClick(ev, e.id)}
           className={`${e.id === next ? 'first' : ''}${e.id === state.automation.onAir?.id ? ' on-air-item' : ''}${over === e.id ? ' drop-before' : ''}${dragging === e.id ? ' dragging' : ''}`}
           onDragOver={(ev) => {
             if (!dragging) return;

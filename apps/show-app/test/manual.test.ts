@@ -138,6 +138,24 @@ describe('Open On Manual Mode', () => {
     expect(runtime.state().switcher.ddrPaused).toBe(false);
   });
 
+  it('fires any graphic straight away with a double click, and carries on from there', async () => {
+    const [title, lower, credits] = runtime.state().sections[0].elements.map((e) => e.id);
+    await runtime.act({ kind: 'chooseNext', elementId: null });
+    await waitFor(() => runtime.state().sections[0].elements.every((e) => e.ddrItem !== null));
+    await runtime.act({ kind: 'fireNow', elementId: credits });
+    await waitFor(() => clipOnAir() === 'Credits');
+    expect(runtime.state().automation.onAir?.id).toBe(credits);
+    // An earlier one, while another is up; → then carries on from it.
+    await runtime.act({ kind: 'fireNow', elementId: title });
+    await waitFor(() => clipOnAir() === 'Title');
+    expect(runtime.state().automation.upNext[0]?.id).toBe(lower);
+    // A graphic with no clip in DDR 2 yet, or that isn't there, does nothing.
+    await runtime.act({ kind: 'fireNow', elementId: 'not-there' });
+    expect(runtime.state().automation.onAir?.id).toBe(title);
+    await runtime.act({ kind: 'takeOff' });
+    await waitFor(() => !dskOn());
+  });
+
   it('uses a show’s green screen, as its own', async () => {
     expect(runtime.state().greenScreen).toBeNull();
     await runtime.act({ kind: 'useShowGreenScreen', showId: 'show1' });

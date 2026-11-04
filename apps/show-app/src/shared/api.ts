@@ -191,6 +191,8 @@ export type Action =
   | { kind: 'fireNext' }
   | { kind: 'fireBack' }
   | { kind: 'takeOff' }
+  /** Manual mode: fires this graphic straight away, by a double click in the Playlist (RG, Nov 4, 2026). */
+  | { kind: 'fireNow'; elementId: string }
   /** Manual mode: pauses the graphic on air where it is, or starts it again (RG, Nov 4, 2026). */
   | { kind: 'pauseGraphic' }
   | { kind: 'skip'; elementId: string; skipped: boolean }

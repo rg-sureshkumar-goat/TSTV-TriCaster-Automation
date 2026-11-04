@@ -1451,6 +1451,13 @@ export class Runtime extends EventEmitter {
         const label = next ? this.view(next.id) : undefined;
         return this.run(engine.fireNext(), label ? `${label.label} (${label.sectionLabel}) fired by hand` : 'Nothing left to fire');
       }
+      case 'fireNow': {
+        const up = engine?.state.manual ? this.view(action.elementId) : undefined;
+        // A graphic with no clip in DDR 2 has nothing to play yet.
+        if (!engine || !up || up.ddrItem === null) return;
+        engine.chooseNext(action.elementId);
+        return this.run(engine.fireNext(), `${up.label} (${up.sectionLabel}) fired by double click`);
+      }
       case 'pauseGraphic': {
         // Manual mode only, and only a clip: a still has nowhere to pause.
         const up = engine?.state.manual ? this.view(engine.state.onAir) : undefined;
