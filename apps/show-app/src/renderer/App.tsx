@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'rea
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
 import { keyAction } from '../shared/keys.ts';
+import { timerLevel } from '../shared/timer.ts';
 import { connectSound, programSound, setFader, soundLevel } from './audio.ts';
 import { useTheme } from './theme.ts';
 
@@ -1056,14 +1057,18 @@ function Status({ state }: { state: AppState }) {
           {automation.manual ? 'Continue automation' : 'Pause automation'} <kbd>P</kbd>
         </button>
       )}
+      {/* In a box of its own, to read at a glance: orange from 15 seconds left, red from 10 (RG, Nov 4, 2026).
+          High in the panel, so a short window never cuts it off. */}
+      <div className={`gfx-timer ${timerLevel(playing ? switcher.ddrRemaining : null)}`} role="timer" aria-label="Time left on current GFX">
+        <span>Time left on current GFX</span>
+        <strong>{playing ? duration(switcher.ddrRemaining) : '—'}</strong>
+      </div>
       <RecordButton state={state} />
       <dl>
         <dt>Section</dt>
         <dd>{automation.sectionLabel ?? '—'}</dd>
         <dt>Elapsed</dt>
         <dd>{clock.startedAt ? duration((now - clock.startedAt) / 1000) : '0:00'}</dd>
-        <dt>Time left on current GFX</dt>
-        <dd>{playing ? duration(switcher.ddrRemaining) : '—'}</dd>
       </dl>
       {lastCue && (
         <p className="small muted last-cue">

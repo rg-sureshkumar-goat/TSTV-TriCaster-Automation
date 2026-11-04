@@ -755,6 +755,38 @@ h3 {
   border-radius: 6px;
 }
 
+.gfx-timer {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px;
+  background: var(--bg);
+  border: 3px solid var(--text);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.gfx-timer span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.gfx-timer strong {
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.gfx-timer.warning strong {
+  color: #ea580c;
+}
+
+.gfx-timer.danger strong {
+  color: var(--red);
+}
+
 .last-cue {
   margin: 0;
 }
