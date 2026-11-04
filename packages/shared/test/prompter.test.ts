@@ -41,7 +41,7 @@ describe('prompter', () => {
     setLines(scriptBody(doc, a2)!, ['NOT TONIGHT.']);
     const timing = computeRundown(readRows(doc), 1800, undefined, 60);
     const lines = prompterLines(doc, timing, 'Camera 1');
-    expect(lines.map((l) => l.kind)).toEqual(['block', 'section', 'speaker', 'text', 'speaker', 'text', 'break', 'block', 'section', 'crossTalk', 'text', 'end']);
+    expect(lines.map((l) => l.kind)).toEqual(['block', 'section', 'speaker', 'text', 'speaker', 'text', 'break', 'block', 'section', 'crossTalk', 'end']);
     expect(lines[1]).toMatchObject({ kind: 'section', label: 'A1', slug: 'Cold Open', readers: ['Jordan', 'Riley Park'], camera: 'Camera 2' });
     expect(lines[2]).toMatchObject({ kind: 'speaker', name: 'JORDAN', cues: [{ kind: 'cue', sectionId: a1, element: { type: 'L3', name: 'Score' } }] });
     expect(lines[6]).toMatchObject({ kind: 'break', seconds: 60 });
@@ -111,14 +111,14 @@ describe('prompter', () => {
     expect(cueNames(lines[6])).toEqual(['Camera 1']);
   });
 
-  it('takes out completely empty lines in the middle of a section, and keeps indents', () => {
+  it('takes out completely empty lines at the start and in the middle of a section, and keeps indents', () => {
     const doc = new Y.Doc();
     const id = insertSection(doc, alex, { talent: ['Jordan'] });
     ensureScripts(doc);
     setLines(scriptBody(doc, id)!, ['', '{JORDAN}', '', 'GOOD EVENING.', '', '\tINDENTED.', '', '\t', '   ', 'MORE.', '']);
     const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
-    // The empty lines at the very start and end stay, as do lines with just an indent or spaces.
-    expect(lines.flatMap((l) => (l.kind === 'text' ? [l.text] : []))).toEqual(['', 'GOOD EVENING.', '\tINDENTED.', '\t', '   ', 'MORE.', '']);
+    // An empty line at the very end stays, as do lines with just an indent or spaces.
+    expect(lines.flatMap((l) => (l.kind === 'text' ? [l.text] : []))).toEqual(['GOOD EVENING.', '\tINDENTED.', '\t', '   ', 'MORE.', '']);
   });
 
   it('leaves cues on their own lines when the script has no reader’s name', () => {

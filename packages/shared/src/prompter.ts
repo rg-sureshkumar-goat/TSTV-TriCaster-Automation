@@ -50,7 +50,7 @@ export function prompterLines(doc: Y.Doc, timing: RundownTiming, defaultCamera: 
       const speaker = speakerTagLine(text);
       script.push(speaker ? { kind: 'speaker', key, sectionId, name: speaker, cues: [] } : { kind: 'text', key, sectionId, text });
     }
-    lines.push(...withoutInnerBlanks(cuesOnSpeakerLines(script)));
+    lines.push(...withoutEmptyLines(cuesOnSpeakerLines(script)));
   }
   lines.push({ kind: 'end', key: 'end' });
   return lines;
@@ -60,15 +60,14 @@ const isCue = (line: PrompterLine): line is PrompterCue => line.kind === 'cue' |
 const isBlank = (line: PrompterLine) => line.kind === 'text' && !line.text.trim();
 
 /**
- * Takes out the completely empty lines in the middle of a section, even ones the writer left in the script
- * (RG, Nov 4, 2026). A line with an indent or spaces on it isn't empty, and stays. So do empty lines at the
- * very start or end of the section.
+ * Takes out the completely empty lines at the start and in the middle of a section, even ones the writer
+ * left in the script (RG, Nov 4, 2026). A line with an indent or spaces on it isn't empty, and stays. So do
+ * empty lines at the very end of the section.
  */
-function withoutInnerBlanks(script: PrompterLine[]): PrompterLine[] {
+function withoutEmptyLines(script: PrompterLine[]): PrompterLine[] {
   const empty = (line: PrompterLine) => line.kind === 'text' && line.text === '';
-  const first = script.findIndex((l) => !empty(l));
   const last = script.findLastIndex((l) => !empty(l));
-  return script.filter((l, i) => !empty(l) || i < first || i > last);
+  return script.filter((l, i) => !empty(l) || (last >= 0 && i > last));
 }
 
 /**
