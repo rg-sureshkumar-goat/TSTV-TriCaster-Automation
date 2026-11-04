@@ -41,11 +41,11 @@ describe('prompter', () => {
     setLines(scriptBody(doc, a2)!, ['NOT TONIGHT.']);
     const timing = computeRundown(readRows(doc), 1800, undefined, 60);
     const lines = prompterLines(doc, timing, 'Camera 1');
-    expect(lines.map((l) => l.kind)).toEqual(['block', 'section', 'speaker', 'text', 'speaker', 'text', 'break', 'block', 'section', 'crossTalk', 'end']);
+    expect(lines.map((l) => l.kind)).toEqual(['block', 'section', 'speaker', 'text', 'speaker', 'text', 'text', 'break', 'block', 'section', 'crossTalk', 'text', 'end']);
     expect(lines[1]).toMatchObject({ kind: 'section', label: 'A1', slug: 'Cold Open', readers: ['Jordan', 'Riley Park'], camera: 'Camera 2' });
     expect(lines[2]).toMatchObject({ kind: 'speaker', name: 'JORDAN', cues: [{ kind: 'cue', sectionId: a1, element: { type: 'L3', name: 'Score' } }] });
-    expect(lines[6]).toMatchObject({ kind: 'break', seconds: 60 });
-    expect(lines[8]).toMatchObject({ kind: 'section', sectionId: b1, readers: [], camera: 'Camera 1' });
+    expect(lines[7]).toMatchObject({ kind: 'break', seconds: 60 });
+    expect(lines[9]).toMatchObject({ kind: 'section', sectionId: b1, readers: [], camera: 'Camera 1' });
     // The floated section is skipped.
     expect(lines.some((l) => 'sectionId' in l && l.sectionId === a2)).toBe(false);
   });
@@ -88,7 +88,7 @@ describe('prompter', () => {
     const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
     const [top, later] = cameras.map((c) => ({ kind: 'camera', sectionId: id, cueId: c.id, camera: c.camera }));
     expect(lines.filter((l) => l.kind === 'camera')).toMatchObject([later]);
-    expect(lines.map((l) => l.kind)).toEqual(['section', 'speaker', 'text', 'camera', 'text', 'end']);
+    expect(lines.map((l) => l.kind)).toEqual(['section', 'speaker', 'text', 'camera', 'text', 'text', 'end']);
     expect(lines[1]).toMatchObject({ kind: 'speaker', name: 'JORDAN', cues: [top] });
     // The one at the very top fires with the section.
     expect(topCues(doc, id)).toEqual([cameras[0].id]);
@@ -104,21 +104,32 @@ describe('prompter', () => {
     setLines(scriptBody(doc, id)!, ['[cue:' + fsg + ']', '{JORDAN}', '', '[camera:Camera 2]', '[cue:' + l3 + ']', 'GOOD EVENING.', '[cue:' + mid + ']', 'MORE.', '[camera:Camera 3]', '{RILEY}', '[camera:Camera 1]', 'THANKS.']);
     const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
     const cueNames = (l: (typeof lines)[number]) => (l.kind === 'speaker' ? l.cues.map((c) => (c.kind === 'cue' ? c.element.name : c.camera)) : []);
-    expect(lines.map((l) => l.kind)).toEqual(['section', 'speaker', 'text', 'cue', 'text', 'camera', 'speaker', 'text', 'end']);
+    expect(lines.map((l) => l.kind)).toEqual(['section', 'speaker', 'text', 'cue', 'text', 'camera', 'speaker', 'text', 'text', 'end']);
     expect(cueNames(lines[1])).toEqual(['Map', 'Camera 2', 'Name']);
     // A cue above a later reader's name belongs to the words before it, so it stays on its own line.
     expect(lines[5]).toMatchObject({ kind: 'camera', camera: 'Camera 3' });
     expect(cueNames(lines[6])).toEqual(['Camera 1']);
   });
 
-  it('takes out completely empty lines at the start and in the middle of a section, and keeps indents', () => {
+  it('takes out completely empty lines, keeps indents, and ends each section with one blank line', () => {
     const doc = new Y.Doc();
     const id = insertSection(doc, alex, { talent: ['Jordan'] });
     ensureScripts(doc);
-    setLines(scriptBody(doc, id)!, ['', '{JORDAN}', '', 'GOOD EVENING.', '', '\tINDENTED.', '', '\t', '   ', 'MORE.', '']);
+    setLines(scriptBody(doc, id)!, ['', '{JORDAN}', '', 'GOOD EVENING.', '', '\tINDENTED.', '', '\t', '   ', 'MORE.', '', '\t', '', '  ', '']);
     const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
-    // An empty line at the very end stays, as do lines with just an indent or spaces.
+    // Among the words, lines with just an indent or spaces stay. After them, there's just the one blank line.
     expect(lines.flatMap((l) => (l.kind === 'text' ? [l.text] : []))).toEqual(['GOOD EVENING.', '\tINDENTED.', '\t', '   ', 'MORE.', '']);
+  });
+
+  it('gives a section with no script, or no blank line, its one blank line too', () => {
+    const doc = new Y.Doc();
+    const empty = insertSection(doc, alex, { talent: ['Jordan'] });
+    const full = insertSection(doc, alex, { talent: ['Jordan'] });
+    ensureScripts(doc);
+    setLines(scriptBody(doc, empty)!, ['', '', '']);
+    setLines(scriptBody(doc, full)!, ['GOOD EVENING.']);
+    const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
+    expect(lines.map((l) => (l.kind === 'text' ? l.text : l.kind))).toEqual(['section', '', 'section', 'GOOD EVENING.', '', 'end']);
   });
 
   it('leaves cues on their own lines when the script has no reader’s name', () => {
@@ -127,6 +138,6 @@ describe('prompter', () => {
     ensureScripts(doc);
     setLines(scriptBody(doc, id)!, ['[camera:Camera 2]', 'GOOD EVENING.']);
     const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
-    expect(lines.map((l) => l.kind)).toEqual(['section', 'camera', 'text', 'end']);
+    expect(lines.map((l) => l.kind)).toEqual(['section', 'camera', 'text', 'text', 'end']);
   });
 });

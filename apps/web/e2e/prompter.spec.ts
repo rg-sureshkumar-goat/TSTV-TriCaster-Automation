@@ -193,5 +193,5 @@ test('a cue at the top of a reader’s part sits on the line with their name, bu
     return box.y + box.height / 2;
   };
   expect(Math.abs((await middle('.p-speaker')) - (await middle('.p-cue')))).toBeLessThan(30);
-  await expect(prompter.locator('.p-text')).toHaveText(['GOOD EVENING.', 'NEXT LINE.']);
+  await expect(prompter.locator('.p-text')).toHaveText(['GOOD EVENING.', 'NEXT LINE.', '']);
 });
