@@ -58,7 +58,7 @@ You need: the laptop on the TC1's cable, NDI Tools on the laptop (already instal
 4. **Set up the TC1** (see "What the TC1 needs" above). Check the red bar then says input 4 is taking the laptop's graphics.
 5. **Try it by hand** (before going live on the website, the app does only what you do):
    - click each camera box: the TC1 takes that camera
-   - **Fire next** (Space): the graphic plays on the TC1 through DSK 2, with its see-through parts over the camera, and its sound; the Sound meter moves
+   - **Fire next** (→): the graphic plays on the TC1 through DSK 2, with its see-through parts over the camera, and its sound; the Sound meter moves
    - fire two teases one after the other: they cut straight from one to the next
    - **Pause automation**, then **↓**: the graphic comes off
 6. **Run the show from the prompter:** press **Start live broadcast** on the website, then run the prompter. Check the cameras switch by section and at each camera cue, the graphics fire at their cues, the music plays with each tease (stopping before the Show Intro at the top of the show, and when the teases end later on), and the Commercial Break holds through the break.

@@ -1489,6 +1489,12 @@ button.danger {
 }
 
 /* Open On Manual Mode (RG, Nov 2, 2026): below the shows on the Select A Show Profile page. */
+.paused-tag {
+  margin-left: 8px;
+  font-weight: 800;
+  color: #d97706;
+}
+
 .picker-manual {
   display: flex;
   flex-direction: column;

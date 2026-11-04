@@ -1442,6 +1442,15 @@ export class Runtime extends EventEmitter {
         const label = next ? this.view(next.id) : undefined;
         return this.run(engine.fireNext(), label ? `${label.label} (${label.sectionLabel}) fired by hand` : 'Nothing left to fire');
       }
+      case 'pauseGraphic': {
+        // Manual mode only, and only a clip: a still has nowhere to pause.
+        const up = engine?.state.manual ? this.view(engine.state.onAir) : undefined;
+        if (!up?.seconds) return;
+        const paused = !this.switcher.snapshot.ddrPaused;
+        await this.switcher.pauseClip(paused);
+        this.note(`${up.label} ${paused ? 'paused' : 'playing again'}`);
+        return this.changed();
+      }
       case 'fireBack': {
         if (!engine) return;
         const back = this.view(engine.previous()?.id ?? null);
@@ -1466,6 +1475,8 @@ export class Runtime extends EventEmitter {
       case 'setManual':
         // Manual Mode has no automation to go back to.
         if (this.manualSession) return;
+        // Back to automation, a graphic the producer paused carries on.
+        if (!action.manual && this.switcher.snapshot.ddrPaused) await this.switcher.pauseClip(false);
         engine?.setManual(action.manual, { dskOn: this.switcher.snapshot.dskOn, camera: this.switcher.snapshot.programInput, layoutOn: this.switcher.snapshot.layoutOn });
         this.note(action.manual ? 'Manual mode: the producer fires the graphics' : 'Automation continued from the prompter’s place');
         this.reportStatus();

@@ -104,6 +104,33 @@ describe('Open On Manual Mode', () => {
     expect(runtime.state().automation.upNext[0]?.label).toBe('Lower Third');
   });
 
+  it('pauses a graphic where it is with Space, and starts it again', async () => {
+    await waitFor(() => runtime.state().automation.upNext[0]?.label === 'Lower Third');
+    await runtime.act({ kind: 'fireNext' });
+    await waitFor(() => clipOnAir() === 'Lower Third' && ddr2().playing);
+    await new Promise((r) => setTimeout(r, 200));
+    await runtime.act({ kind: 'pauseGraphic' });
+    expect(runtime.state().switcher.ddrPaused).toBe(true);
+    await waitFor(() => !ddr2().playing);
+    // Still up, and it stays where it is for longer than the clip has left.
+    const place = ddr2().positionMs;
+    await new Promise((r) => setTimeout(r, 300));
+    expect(ddr2().positionMs).toBe(place);
+    expect(dskOn()).toBe(true);
+    expect(runtime.state().automation.onAir?.label).toBe('Lower Third');
+    await runtime.act({ kind: 'pauseGraphic' });
+    expect(runtime.state().switcher.ddrPaused).toBe(false);
+    await waitFor(() => ddr2().playing);
+    // Pausing again, then taking it off, leaves nothing paused for the next one.
+    await runtime.act({ kind: 'pauseGraphic' });
+    await runtime.act({ kind: 'takeOff' });
+    await waitFor(() => !dskOn());
+    expect(runtime.state().switcher.ddrPaused).toBe(false);
+    // With nothing on air, there's nothing to pause.
+    await runtime.act({ kind: 'pauseGraphic' });
+    expect(runtime.state().switcher.ddrPaused).toBe(false);
+  });
+
   it('uses a show’s green screen, as its own', async () => {
     expect(runtime.state().greenScreen).toBeNull();
     await runtime.act({ kind: 'useShowGreenScreen', showId: 'show1' });

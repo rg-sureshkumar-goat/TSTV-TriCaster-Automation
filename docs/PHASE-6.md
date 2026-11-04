@@ -132,7 +132,7 @@ RG: no simulator mode, and no **Run the real TC1…** button or warning page.
 For recordings that use the TC1's cameras and graphics without a show (RG):
 
 - **Open On Manual Mode** is below the shows on the Select A Show Profile page (and at the bottom of the Show profile menu at the top left). No RiGster key, rundown or prompter.
-- RiGster stays in manual mode: click a camera to take it; **Space** or **→** fires the next graphic, **←** goes back one, **↓** takes it off. **Record** works as in a show.
+- RiGster stays in manual mode: click a camera to take it; **→** fires the next graphic, **Space** pauses it where it is and starts it again, **←** goes back one, **↓** takes it off. **Record** works as in a show.
 - **Graphics stay up until you take them off** (a clip holds its last frame).
 - **Playlist:** **Import graphics** (or drop files on the list) adds them to the end, in the order imported. Drag a graphic by the **⠿** at its left to move it up or down; **Play next** makes it the next one; **✕** takes it out; **Clear** empties the list. The list is kept for next time.
 - **Green screen:** a menu of the shows' green screens. Picking one uses it for Manual Mode only; the show's own stays as it was. You can still drop or choose a file.
@@ -144,7 +144,7 @@ For recordings that use the TC1's cameras and graphics without a show (RG):
 1. Open RiGster. Below the shows, click **Open On Manual Mode**. The top says **Manual Mode**, with no **Episode key** button, and the Pause button reads **Manual Mode**.
 2. Click **Import graphics** and pick two or three files. They appear in the Playlist in that order. Drag the last one to the top by its **⠿**.
 3. In the Green screen box, pick a show from the menu. Its green screen appears.
-4. At the studio, with the TC1 connected: click cameras, fire graphics with Space, take them off with ↓, and record.
+4. At the studio, with the TC1 connected: click cameras, fire graphics with →, pause one with Space, take them off with ↓, and record.
 5. Close RiGster and open Manual Mode again: the graphics are still there. Click **Clear** to empty the list.
 
 ## Still to come in Phase 6

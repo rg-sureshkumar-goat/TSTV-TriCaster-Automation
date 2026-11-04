@@ -2,11 +2,11 @@
 //   top:    Program with the cameras under it · the Playlist (on air, up next) · Pause/Continue, section, elapsed, time left
 //   bottom: Up next preview · Permanent graphics drop box · Green screen drop box · Music
 // The episode key is at the top right. Import graphics opens a window that matches files to cues.
-// Keys: Space fires the next cue, and P switches between manual mode and automation. In manual mode only,
-// → fires the next graphic too, ← goes back one, and ↓ takes it off (RG, Oct 29, 2026).
+// Keys: see shared/keys.ts.
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
+import { keyAction } from '../shared/keys.ts';
 import { connectSound, programSound, setFader, soundLevel } from './audio.ts';
 import { useTheme } from './theme.ts';
 
@@ -56,23 +56,13 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest('input, textarea') || !(state?.episode || state?.manualSession) || graphicsOpen) return;
-      // The arrows work only in manual mode, so a stray press can't upset the automation.
-      const manual = state.automation.manual;
-      const action: Action | null =
-        e.key === ' ' || (manual && e.key === 'ArrowRight')
-          ? { kind: 'fireNext' }
-          : manual && e.key === 'ArrowLeft'
-            ? { kind: 'fireBack' }
-            : manual && e.key === 'ArrowDown'
-              ? { kind: 'takeOff' }
-              : (e.key === 'p' || e.key === 'P') && !state.manualSession
-                ? { kind: 'setManual', manual: !state.automation.manual }
-                : null;
-      if (!action) return;
+      const action = keyAction(e.key, state.automation.manual, state.manualSession);
+      // Space does nothing in automation, and mustn't press the button or menu that has the keyboard either.
+      if (!action && e.key !== ' ') return;
       e.preventDefault();
       // The button clicked last still has the keyboard; let go of it, so Space doesn't press it as well.
       if (document.activeElement instanceof HTMLButtonElement || document.activeElement instanceof HTMLSelectElement) document.activeElement.blur();
-      void act(action);
+      if (action) void act(action);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -483,12 +473,12 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
       )}
       {state.manualSession ? (
         <div className="banner manual-banner" role="status">
-          Manual Mode: no rundown or prompter. <kbd>Space</kbd> or <kbd>→</kbd> fires the next graphic, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off; each stays up until
+          Manual Mode: no rundown or prompter. <kbd>→</kbd> fires the next graphic, <kbd>Space</kbd> pauses it where it is, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off; each stays up until
           it’s taken off. Click a camera to take it. Drag a graphic by its <strong>⠿</strong> to change the order.
         </div>
       ) : automation.manual ? (
         <div className="banner manual-banner" role="alert">
-          Manual mode: the prompter fires nothing. <kbd>Space</kbd> or <kbd>→</kbd> fires the next graphic, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off. Click a camera to take it.{' '}
+          Manual mode: the prompter fires nothing. <kbd>→</kbd> fires the next graphic, <kbd>Space</kbd> pauses it where it is, <kbd>←</kbd> goes back one, and <kbd>↓</kbd> takes it off. Click a camera to take it.{' '}
           <strong>Continue automation</strong> (<kbd>P</kbd>) lets the prompter’s cues fire them again.
         </div>
       ) : !live.on ? (
@@ -499,7 +489,7 @@ function Show({ state, onImport, onEdit, onMissing }: { state: AppState; onImpor
         website.status === 'connected' &&
         !prompter.connected && (
           <div className="banner" role="alert">
-            The prompter isn’t connected. Keep the show going by firing each cue with the <kbd>Space</kbd> bar.
+            The prompter isn’t connected. Keep the show going by firing each cue with the <kbd>→</kbd> key.
           </div>
         )
       )}
@@ -810,6 +800,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
     >
       <h3>
         On air
+        {state.switcher.ddrPaused && <span className="paused-tag">⏸ Paused</span>}
         {manual && (
           <button className="fire" onClick={() => act({ kind: 'takeOff' })} disabled={!automation.onAir}>
             Take off <kbd>↓</kbd>
@@ -831,7 +822,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
             </button>
           )}
           <button className="fire" onClick={() => act({ kind: 'fireNext' })} disabled={automation.upNext.length === 0}>
-            Fire next <kbd>{manual ? 'Space / →' : 'Space'}</kbd>
+            Fire next <kbd>→</kbd>
           </button>
         </span>
       </h3>
@@ -859,7 +850,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
 
 /**
  * Manual Mode's Playlist (RG, Nov 2, 2026): every graphic, in the order imported, each with a handle at
- * its left to drag it up or down. Space fires the one marked next.
+ * its left to drag it up or down. → fires the one marked next.
  */
 function ManualQueue({ state }: { state: AppState }) {
   const [dragging, setDragging] = useState<string | null>(null);

@@ -105,6 +105,26 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     expect(playout.state.item).toBe(0);
   }, 20_000);
 
+  it('pauses a clip where it is, picture and sound, and carries on from there', async () => {
+    playout.select(1);
+    playout.play();
+    receive(800);
+    expect(playout.state.playing).toBe(true);
+    playout.pause(true);
+    await new Promise((r) => setTimeout(r, 200));
+    const left = playout.state.remaining;
+    expect(playout.state.paused).toBe(true);
+    // A frame already on its way may still arrive; after that, nothing.
+    receive(300);
+    expect(receive(1000).frames).toBe(0);
+    expect(playout.state.remaining).toBe(left);
+    playout.pause(false);
+    expect(receive(500).frames).toBeGreaterThan(5);
+    playout.stop();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(playout.state.paused).toBe(false);
+  }, 20_000);
+
   it('cuts straight to the next clip with its sound, through the fader', async () => {
     playout.select(1);
     playout.play();

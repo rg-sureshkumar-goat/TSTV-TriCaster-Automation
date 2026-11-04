@@ -9,6 +9,7 @@ import { startWorker } from './workers.ts';
 export interface PlayoutState {
   item: number | null;
   playing: boolean;
+  paused: boolean;
   remaining: number | null;
   musicPlaying: boolean;
   /** How many receivers (the TC1's input 4, its multiview) take the source. */
@@ -20,7 +21,7 @@ export interface PlayoutState {
 
 export class Playout extends EventEmitter {
   private worker: Worker;
-  state: PlayoutState = { item: null, playing: false, remaining: null, musicPlaying: false, connections: 0, level: -60, error: null };
+  state: PlayoutState = { item: null, playing: false, paused: false, remaining: null, musicPlaying: false, connections: 0, level: -60, error: null };
 
   /** The NDI sources' names, as the TC1 lists them after the machine's name (RIGSTER). */
   constructor(name = 'Graphics', backgroundName = 'Green Screen', transitionName = 'Transition') {
@@ -33,7 +34,7 @@ export class Playout extends EventEmitter {
         return void this.emit('level', report.db);
       }
       if (report.type === 'error') this.state.error = report.message;
-      else this.state = { ...this.state, item: report.item, playing: report.playing, remaining: report.remaining, musicPlaying: report.musicPlaying, connections: report.connections };
+      else this.state = { ...this.state, item: report.item, playing: report.playing, paused: report.paused, remaining: report.remaining, musicPlaying: report.musicPlaying, connections: report.connections };
       this.emit('change');
     });
     this.worker.on('error', (e: Error) => {
@@ -61,6 +62,10 @@ export class Playout extends EventEmitter {
 
   stop(): void {
     this.send({ type: 'stop' });
+  }
+
+  pause(paused: boolean): void {
+    this.send({ type: 'pause', paused });
   }
 
   music(play: boolean, path?: string): void {

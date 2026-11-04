@@ -61,6 +61,8 @@ export interface SwitcherSnapshot {
   ddrItem: number | null;
   ddrPlaying: boolean;
   ddrRemaining: number | null;
+  /** The producer paused the graphic on air where it is (RG, Nov 4, 2026). */
+  ddrPaused: boolean;
   musicPlaying: boolean;
   /** DSK 2's source as the TC1 names it, like "input4" or "ddr2" (live mode checks it's input 4). */
   dskSource: string | null;
@@ -118,10 +120,10 @@ export class Switcher extends EventEmitter {
     private localAddress?: string,
   ) {
     super();
-    this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, musicPlaying: false, dskSource: null, layoutOn: false, layoutCamera: null, transition: null, playlist: [], soundTracks: [] };
+    this.snapshot = { status: 'off', error: null, address, programInput: null, dskOn: false, ddrItem: null, ddrPlaying: false, ddrRemaining: null, ddrPaused: false, musicPlaying: false, dskSource: null, layoutOn: false, layoutCamera: null, transition: null, playlist: [], soundTracks: [] };
     if (playout) {
       // The playout stands in for DDR 2 and the Sound player.
-      const follow = () => this.set({ ddrItem: playout.state.item, ddrPlaying: playout.state.playing, ddrRemaining: playout.state.remaining, musicPlaying: playout.state.musicPlaying });
+      const follow = () => this.set({ ddrItem: playout.state.item, ddrPlaying: playout.state.playing, ddrRemaining: playout.state.remaining, ddrPaused: playout.state.paused, musicPlaying: playout.state.musicPlaying });
       playout.on('change', follow);
       playout.on('ended', (item: number) => {
         if (this.snapshot.dskOn || this.snapshot.layoutOn) this.emit('clipEnded', item);
@@ -310,8 +312,17 @@ export class Switcher extends EventEmitter {
 
   private sending: Promise<void> = Promise.resolve();
 
+  /** Pauses the clip on air where it is, or starts it again. On the simulator, DDR 2 keeps its place when stopped. */
+  async pauseClip(paused: boolean): Promise<void> {
+    if (this.live && this.playout) return this.playout.pause(paused);
+    await this.send(paused ? 'ddr2_stop' : 'ddr2_play');
+    this.set({ ddrPaused: paused });
+  }
+
   private async sendAll(commands: SwitcherCommand[]): Promise<void> {
     for (const c of commands) {
+      // Anything else done to the clip on air ends the pause; the playout sees to that itself.
+      if (!this.live && this.snapshot.ddrPaused && c.kind !== 'camera' && c.kind !== 'music') this.set({ ddrPaused: false });
       if (c.kind === 'transition') {
         await this.transition(c.which, c.then);
         continue;

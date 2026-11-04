@@ -124,6 +124,8 @@ export interface AppState {
     ddrItem: number | null;
     ddrPlaying: boolean;
     ddrRemaining: number | null;
+    /** The producer paused the graphic on air where it is (RG, Nov 4, 2026). */
+    ddrPaused: boolean;
     musicPlaying: boolean;
     dskSource: string | null;
     /** The LITES layout is on program (M/E 4), with this camera in its left box. */
@@ -189,6 +191,8 @@ export type Action =
   | { kind: 'fireNext' }
   | { kind: 'fireBack' }
   | { kind: 'takeOff' }
+  /** Manual mode: pauses the graphic on air where it is, or starts it again (RG, Nov 4, 2026). */
+  | { kind: 'pauseGraphic' }
   | { kind: 'skip'; elementId: string; skipped: boolean }
   | { kind: 'chooseNext'; elementId: string | null }
   | { kind: 'takeCamera'; input: number }

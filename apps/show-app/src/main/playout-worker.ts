@@ -28,6 +28,8 @@ export type PlayoutMessage =
   | { type: 'playlist'; clips: { name: string; path: string; fallback?: string; seconds: number | null }[] }
   | { type: 'select'; item: number }
   | { type: 'play' }
+  /** Holds the clip on air where it is, picture and sound, or starts it again (RG, Nov 4, 2026). */
+  | { type: 'pause'; paused: boolean }
   | { type: 'stop' }
   | { type: 'music'; play: boolean; path?: string }
   | { type: 'fader'; level: number }
@@ -38,7 +40,7 @@ export type PlayoutMessage =
   | { type: 'close' };
 
 export type PlayoutReport =
-  | { type: 'state'; item: number | null; playing: boolean; remaining: number | null; musicPlaying: boolean; connections: number }
+  | { type: 'state'; item: number | null; playing: boolean; paused: boolean; remaining: number | null; musicPlaying: boolean; connections: number }
   | { type: 'ended'; item: number }
   | { type: 'level'; db: number }
   | { type: 'error'; message: string };
@@ -264,6 +266,7 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
   let current: Clip | null = null;
   let next: Clip | null = null;
   let playing = false;
+  let paused = false;
   let switchWhenReady = false;
   // The clip being selected, while FFmpeg is asked about it.
   let selecting: number | null = null;
@@ -289,7 +292,7 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
     });
 
   const state = (force = false) => {
-    const report = { type: 'state' as const, item: current?.item ?? null, playing, remaining: current?.remaining ?? null, musicPlaying: !!music, connections: ndi.sendConnections(sender, 0) };
+    const report = { type: 'state' as const, item: current?.item ?? null, playing, paused, remaining: current?.remaining ?? null, musicPlaying: !!music, connections: ndi.sendConnections(sender, 0) };
     const key = JSON.stringify({ ...report, remaining: report.remaining === null ? null : Math.round(report.remaining) });
     if (force || key !== lastState) post(report);
     lastState = key;
@@ -333,8 +336,10 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
       next = null;
       switchWhenReady = false;
       playing = true;
+      paused = false;
     }
-    if (current && playing) {
+    // Paused, nothing goes out: the TC1 holds the last picture, as it does when a clip ends.
+    if (current && playing && !paused) {
       const frame = current.take();
       if (frame) {
         sendPicture(frame);
@@ -396,14 +401,20 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
         void select(message.item);
         return;
       case 'play':
+        paused = false;
         if (next || selecting !== null) switchWhenReady = true;
         else if (current) playing = true;
+        return;
+      case 'pause':
+        paused = message.paused && playing;
+        state(true);
         return;
       case 'stop':
         // DSK 2 off: the clip stops, and input 4 is cleared for the next one.
         current?.close();
         current = null;
         playing = false;
+        paused = false;
         switchWhenReady = false;
         clearPicture();
         state(true);
