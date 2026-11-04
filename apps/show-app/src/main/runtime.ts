@@ -255,6 +255,7 @@ export class Runtime extends EventEmitter {
   private async run(commands: SwitcherCommand[], why: string): Promise<void> {
     if (commands.length) this.note(why);
     await this.switcher.run(commands);
+    if (commands.length && this.plan?.sections.flatMap((s) => s.elements).find((e) => e.id === this.engine?.state.onAir)?.type !== 'LITES') await this.switcher.leaveStrayLayout();
     this.changed();
   }
 

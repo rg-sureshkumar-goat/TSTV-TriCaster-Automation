@@ -336,6 +336,14 @@ export class Switcher extends EventEmitter {
       .catch(() => undefined);
   }
 
+  /**
+   * Program left on the LITES layout, with no LITES up (an earlier run of RiGster, or by hand at the TC1,
+   * Nov 4, 2026): back to M/E 1, so a graphic or a camera doesn't go up over the layout.
+   */
+  async leaveStrayLayout(): Promise<void> {
+    if (this.snapshot.layoutOn) await this.send('main_a_row_named_input', PROGRAM_ME.toUpperCase());
+  }
+
   /** Pauses the clip on air where it is, or starts it again. On the simulator, DDR 2 keeps its place when stopped. */
   async pauseClip(paused: boolean): Promise<void> {
     if (this.live && this.playout) return this.playout.pause(paused);

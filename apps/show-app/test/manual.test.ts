@@ -163,6 +163,22 @@ describe('Open On Manual Mode', () => {
     expect(new Set(played).size).toBe(played.length);
   });
 
+  it('brings Program back from M/E 4 when a graphic fires or a camera is taken with no LITES up', async () => {
+    const programOn = async (me: string) => {
+      await fetch(`http://127.0.0.1:${sim.httpPort}/v1/shortcut?name=main_a_row_named_input&value=${me}`);
+      await waitFor(() => runtime.switcher.snapshot.layoutOn === (me === 'V4'));
+    };
+    await programOn('V4');
+    await runtime.act({ kind: 'takeCamera', input: 3 });
+    await waitFor(() => !runtime.switcher.snapshot.layoutOn);
+    await programOn('V4');
+    const [title] = runtime.state().sections[0].elements.map((e) => e.id);
+    await runtime.act({ kind: 'fireNow', elementId: title });
+    await waitFor(() => !runtime.switcher.snapshot.layoutOn && dskOn());
+    await runtime.act({ kind: 'takeOff' });
+    await waitFor(() => !dskOn());
+  });
+
   it('uses a show’s green screen, as its own', async () => {
     expect(runtime.state().greenScreen).toBeNull();
     await runtime.act({ kind: 'useShowGreenScreen', showId: 'show1' });
