@@ -71,8 +71,8 @@ export const DEFAULT_PROMPTER_SETTINGS: PrompterSettings = {
   leftMargin: 75,
   rightMargin: 30,
   readingLine: 31,
-  // The same size as before the text grew to 81 points (70 pixels).
-  markerSize: 65,
+  // As wide as Rundown Creator's arrow, 48 pixels, at this text size.
+  markerSize: 50,
 };
 
 const SETTINGS_KEY = 'tstv-prompter-settings';
