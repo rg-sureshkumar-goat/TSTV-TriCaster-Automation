@@ -6,7 +6,9 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import http from 'node:http';
 import { parentPort } from 'node:worker_threads';
+import path from 'node:path';
 import { ffmpegPath } from './ffmpeg.ts';
+import { finishRecording, silenceDue } from './record-file.ts';
 import { BANDWIDTH, COLOR, FRAME, audioBuffer, copyBytes, copySound, listSources, loadNdi, videoBuffer } from './ndi.ts';
 
 const ffmpeg = ffmpegPath!;
@@ -15,7 +17,8 @@ export type FeedsMessage = { type: 'record'; file: string } | { type: 'stopRecor
 export type FeedsReport =
   | { type: 'ready'; port: number }
   | { type: 'recording'; file: string | null; seconds: number; error: string | null }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'closed' };
 
 const post = (report: FeedsReport) => parentPort?.postMessage(report);
 
@@ -92,12 +95,13 @@ function startFeeds(): void {
 
   // ---- Recording the program feed to the laptop ----
 
-  let recording: { stop: () => void } | null = null;
+  let recording: { stop: () => Promise<void> } | null = null;
 
   /**
    * Saves the TC1's program feed (MIX 1), picture and sound, as an MP4 on the laptop: H.264 (the Mac's own
    * encoder, or x264 on Windows) and AAC. The file is written in pieces, so it plays even if the laptop
-   * stops partway.
+   * stops partway, and made a plain MP4 when it stops (record-file.ts). Silence fills any gap in the TC1's
+   * sound, so the file always has a sound track (RG, Nov 4, 2026).
    */
   const record = (file: string) => {
     const source = sourceFor('program');
@@ -134,6 +138,8 @@ function startFeeds(): void {
       started = Date.now();
     };
     let stopping = false;
+    let samplesSent = 0;
+    let heardTc1 = false;
     const timer = setInterval(() => {
       for (let kind = ndi.recvCapture(receiver, video.buffer, audio.buffer, null, 0); kind !== FRAME.none; kind = ndi.recvCapture(receiver, video.buffer, audio.buffer, null, 0)) {
         if (kind === FRAME.video) {
@@ -149,39 +155,61 @@ function startFeeds(): void {
             const out = copySound(ndi, a);
             const pipe = (encoder as ChildProcess).stdio[3] as NodeJS.WritableStream & { writable: boolean };
             if (pipe.writable) pipe.write(Buffer.from(out.buffer));
+            samplesSent += a.no_samples;
+            heardTc1 = true;
           }
           ndi.recvFreeAudio(receiver, audio.buffer);
+        }
+      }
+      if (encoder) {
+        const silence = silenceDue(Date.now() - started, samplesSent);
+        const pipe = (encoder as ChildProcess).stdio[3] as NodeJS.WritableStream & { writable: boolean };
+        if (silence && pipe.writable) {
+          pipe.write(Buffer.alloc(silence * 2 * 4));
+          samplesSent += silence;
         }
       }
     }, 1000 / 120);
     const report = setInterval(() => post({ type: 'recording', file, seconds: started ? (Date.now() - started) / 1000 : 0, error }), 1000);
     post({ type: 'recording', file, seconds: 0, error: null });
     recording = {
-      stop: () => {
+      stop: async () => {
         stopping = true;
         clearInterval(timer);
         clearInterval(report);
         ndi.recvDestroy(receiver);
         const e = encoder as ChildProcess | null;
+        const stopped = e && e.exitCode === null ? new Promise((resolve) => e.once('exit', resolve)) : null;
         e?.stdin?.end();
         (e?.stdio[3] as NodeJS.WritableStream | undefined)?.end();
         post({ type: 'recording', file: null, seconds: 0, error: null });
+        await stopped;
+        if (!e) return;
+        // An error already said (FFmpeg quit) stays on screen, and so does this one.
+        const silent = !heardTc1 ? 'The recording saved, but the TC1’s program feed had no sound.' : null;
+        await finishRecording(ffmpeg, file).then(
+          () => silent && post({ type: 'recording', file: null, seconds: 0, error: silent }),
+          () => post({ type: 'recording', file: null, seconds: 0, error: `The recording saved, but QuickTime may not open it. Try VLC: ${path.basename(file)}` }),
+        );
       },
     };
   };
 
   parentPort?.on('message', (message: FeedsMessage) => {
     if (message.type === 'record') {
-      recording?.stop();
+      void recording?.stop();
       record(message.file);
     } else if (message.type === 'stopRecording') {
-      recording?.stop();
+      void recording?.stop();
       recording = null;
     } else if (message.type === 'close') {
-      recording?.stop();
-      server.close();
-      ndi.findDestroy(finder);
-      process.exit(0);
+      // A recording under way finishes first.
+      void Promise.resolve(recording?.stop()).finally(() => {
+        server.close();
+        ndi.findDestroy(finder);
+        post({ type: 'closed' });
+        process.exit(0);
+      });
     }
   });
 }

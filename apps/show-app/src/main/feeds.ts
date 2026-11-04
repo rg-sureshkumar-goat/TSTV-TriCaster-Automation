@@ -17,7 +17,7 @@ export class Feeds extends EventEmitter {
     this.worker.on('message', (report: FeedsReport) => {
       if (report.type === 'ready') this.port = report.port;
       else if (report.type === 'recording') this.recording = { file: report.file, seconds: report.seconds, error: report.error };
-      else this.error = report.message;
+      else if (report.type === 'error') this.error = report.message;
       this.emit('change');
     });
     this.worker.on('error', (e: Error) => {
@@ -44,8 +44,13 @@ export class Feeds extends EventEmitter {
   }
 
   async close(): Promise<void> {
+    // A recording under way finishes first, however long it takes to make a plain MP4, within reason.
+    const closed = new Promise<void>((resolve) => {
+      this.worker.on('message', (report: FeedsReport) => report.type === 'closed' && resolve());
+      this.worker.once('exit', () => resolve());
+    });
     this.send({ type: 'close' });
-    await new Promise((r) => setTimeout(r, 300));
+    await Promise.race([closed, new Promise((r) => setTimeout(r, 10 * 60_000))]);
     await this.worker.terminate();
   }
 }

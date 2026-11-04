@@ -87,6 +87,5 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   win = null;
-  runtime.close();
-  app.quit();
+  void runtime.close().finally(() => app.quit());
 });

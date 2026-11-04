@@ -1657,7 +1657,8 @@ export class Runtime extends EventEmitter {
     this.changed();
   }
 
-  close(): void {
+  /** Resolves once a recording under way is finished and safely in its file. */
+  async close(): Promise<void> {
     this.liveSearch++;
     if (this.retryTimer) clearInterval(this.retryTimer);
     if (this.cableTimer) clearInterval(this.cableTimer);
@@ -1665,8 +1666,7 @@ export class Runtime extends EventEmitter {
     this.website.close();
     this.switcher.close();
     void this.playout?.close();
-    this.feeds?.stopRecording();
-    void this.feeds?.close();
+    await this.feeds?.close();
   }
 }
 
