@@ -1822,6 +1822,13 @@ button.danger {
   content: '▸ ';
 }
 
+.p-speaker-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.4em;
+}
+
 .p-cue span {
   display: inline-block;
   padding: 0 0.35em;

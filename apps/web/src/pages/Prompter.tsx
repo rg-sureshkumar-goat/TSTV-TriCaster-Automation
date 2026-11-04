@@ -19,6 +19,7 @@ import {
   rowsOf,
   scriptBodiesOf,
   talentColors,
+  type PrompterCue,
   type PrompterLine,
   type ShowSettings,
 } from '@tstv/shared';
@@ -472,6 +473,19 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
   );
 }
 
+function Cue({ line }: { line: PrompterCue }) {
+  // A camera cue fires like a graphic's: the show app takes the camera (RG, Oct 30, 2026).
+  return line.kind === 'camera' ? (
+    <span className="p-cue camera" data-marker="cue" data-section={line.sectionId} data-element={line.cueId}>
+      <span>TAKE {line.camera.toUpperCase()}</span>
+    </span>
+  ) : (
+    <span className={`p-cue ${elementKind(line.element.type)}`} data-marker="cue" data-section={line.sectionId} data-element={line.element.id}>
+      <span>{cueLabel(line.element).toUpperCase()}</span>
+    </span>
+  );
+}
+
 function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof talentColors> }) {
   switch (line.kind) {
     case 'block':
@@ -505,21 +519,21 @@ function Line({ line, colors }: { line: PrompterLine; colors: ReturnType<typeof 
       );
     case 'speaker':
       return (
-        <div className="p-speaker" data-key={line.key} style={{ color: colorForTalent(line.name, colors) }}>
-          {line.name}
+        <div className="p-speaker-line" data-key={line.key}>
+          <span className="p-speaker" style={{ color: colorForTalent(line.name, colors) }}>
+            {line.name}
+          </span>
+          {/* The cues at the top of this reader's part, on the line with their name (RG, Nov 4, 2026). */}
+          {line.cues.map((cue) => (
+            <Cue key={cue.key} line={cue} />
+          ))}
         </div>
       );
     case 'cue':
-      return (
-        <div className={`p-cue ${elementKind(line.element.type)}`} data-key={line.key} data-marker="cue" data-section={line.sectionId} data-element={line.element.id}>
-          <span>{cueLabel(line.element).toUpperCase()}</span>
-        </div>
-      );
     case 'camera':
       return (
-        // A camera cue fires like a graphic's: the show app takes the camera (RG, Oct 30, 2026).
-        <div className="p-cue camera" data-key={line.key} data-marker="cue" data-section={line.sectionId} data-element={line.cueId}>
-          <span>TAKE {line.camera.toUpperCase()}</span>
+        <div data-key={line.key}>
+          <Cue line={line} />
         </div>
       );
     case 'text':

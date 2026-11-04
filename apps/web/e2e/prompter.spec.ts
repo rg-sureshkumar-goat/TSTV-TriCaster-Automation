@@ -149,3 +149,44 @@ test('the prompter scrolls the scripts, fires cues and keeps its place during ed
   // It keeps a copy of the episode on this computer, for when the internet drops.
   await expect.poll(() => prompter.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith('tstv-prompter-copy-')))).toBe(true);
 });
+
+test('a cue at the top of a reader’s part sits on the line with their name, but on its own line in the script', async ({ browser }) => {
+  const rg = await signIn(browser, 'RG (TD)');
+  await rg.getByPlaceholder('Show name').fill('Top Cue Show');
+  await rg.getByRole('button', { name: 'Add show' }).click();
+  await rg.getByPlaceholder('Title, e.g.').fill('Top Cue Episode');
+  await rg.getByRole('button', { name: 'Create episode' }).click();
+  await rg.getByLabel('Add an anchor').fill('Jordan');
+  await rg.getByLabel('Add an anchor').press('Enter');
+  await rg.getByLabel('A1 slug').fill('Open');
+  await rg.getByLabel('A1 slug').press('Enter');
+  await rg.getByRole('button', { name: 'A1 talent' }).click();
+  await rg.getByRole('checkbox', { name: 'Jordan' }).check();
+  await rg.getByRole('button', { name: 'Done' }).click();
+  const episodeUrl = rg.url();
+
+  await rg.getByRole('link', { name: 'Open the script for A1 Open' }).click();
+  const script = rg.getByRole('textbox', { name: 'Script for A1' });
+  await expect(script.locator('p').first()).toHaveText('{JORDAN}');
+  await script.locator('p').last().click();
+  await rg.getByRole('button', { name: '+ New graphic' }).click();
+  await rg.getByRole('menuitem', { name: /^FSG/ }).click();
+  await expect(script.locator('.cue-chip')).toHaveText('Take FSG');
+  await script.locator('p').last().click();
+  await rg.keyboard.type('Good evening.');
+  // In the script, the cue is still on a line of its own.
+  await expect(script.locator('p').first().locator('.cue-chip')).toHaveCount(0);
+  await expect(script.locator('p', { hasText: 'GOOD EVENING.' }).locator('.cue-chip')).toHaveCount(0);
+
+  const prompter = await rg.context().newPage();
+  await prompter.goto(episodeUrl.replace('/episodes/', '/prompter/'));
+  const row = prompter.locator('.p-speaker-line');
+  await expect(row.locator('.p-speaker')).toHaveText('JORDAN');
+  await expect(row.locator('.p-cue')).toHaveText('TAKE FSG');
+  const middle = async (name: string) => {
+    const box = (await row.locator(name).boundingBox())!;
+    return box.y + box.height / 2;
+  };
+  expect(Math.abs((await middle('.p-speaker')) - (await middle('.p-cue')))).toBeLessThan(30);
+  await expect(prompter.locator('.p-text', { hasText: 'GOOD EVENING.' })).toBeVisible();
+});

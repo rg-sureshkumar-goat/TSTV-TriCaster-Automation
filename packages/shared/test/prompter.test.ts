@@ -41,12 +41,11 @@ describe('prompter', () => {
     setLines(scriptBody(doc, a2)!, ['NOT TONIGHT.']);
     const timing = computeRundown(readRows(doc), 1800, undefined, 60);
     const lines = prompterLines(doc, timing, 'Camera 1');
-    expect(lines.map((l) => l.kind)).toEqual(['block', 'section', 'speaker', 'cue', 'text', 'text', 'speaker', 'text', 'break', 'block', 'section', 'crossTalk', 'text', 'end']);
+    expect(lines.map((l) => l.kind)).toEqual(['block', 'section', 'speaker', 'text', 'text', 'speaker', 'text', 'break', 'block', 'section', 'crossTalk', 'text', 'end']);
     expect(lines[1]).toMatchObject({ kind: 'section', label: 'A1', slug: 'Cold Open', readers: ['Jordan', 'Riley Park'], camera: 'Camera 2' });
-    expect(lines[2]).toMatchObject({ kind: 'speaker', name: 'JORDAN' });
-    expect(lines[3]).toMatchObject({ kind: 'cue', sectionId: a1, element: { type: 'L3', name: 'Score' } });
-    expect(lines[8]).toMatchObject({ kind: 'break', seconds: 60 });
-    expect(lines[10]).toMatchObject({ kind: 'section', sectionId: b1, readers: [], camera: 'Camera 1' });
+    expect(lines[2]).toMatchObject({ kind: 'speaker', name: 'JORDAN', cues: [{ kind: 'cue', sectionId: a1, element: { type: 'L3', name: 'Score' } }] });
+    expect(lines[7]).toMatchObject({ kind: 'break', seconds: 60 });
+    expect(lines[9]).toMatchObject({ kind: 'section', sectionId: b1, readers: [], camera: 'Camera 1' });
     // The floated section is skipped.
     expect(lines.some((l) => 'sectionId' in l && l.sectionId === a2)).toBe(false);
   });
@@ -87,9 +86,37 @@ describe('prompter', () => {
     expect(cameras.map((c) => c.camera)).toEqual(['Camera 3', 'Camera 2']);
     expect(new Set(cameras.map((c) => c.id)).size).toBe(2);
     const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
-    expect(lines.filter((l) => l.kind === 'camera')).toMatchObject(cameras.map((c) => ({ kind: 'camera', sectionId: id, cueId: c.id, camera: c.camera })));
-    expect(lines.map((l) => l.kind)).toEqual(['section', 'camera', 'speaker', 'text', 'camera', 'text', 'end']);
+    const [top, later] = cameras.map((c) => ({ kind: 'camera', sectionId: id, cueId: c.id, camera: c.camera }));
+    expect(lines.filter((l) => l.kind === 'camera')).toMatchObject([later]);
+    expect(lines.map((l) => l.kind)).toEqual(['section', 'speaker', 'text', 'camera', 'text', 'end']);
+    expect(lines[1]).toMatchObject({ kind: 'speaker', name: 'JORDAN', cues: [top] });
     // The one at the very top fires with the section.
     expect(topCues(doc, id)).toEqual([cameras[0].id]);
+  });
+
+  it('puts the cues at the top of each reader’s part on the line with their name, and leaves the others', () => {
+    const doc = new Y.Doc();
+    const id = insertSection(doc, alex, { talent: ['Jordan', 'Riley'] });
+    ensureScripts(doc);
+    const fsg = addElement(doc, id, 'FSG', alex, 'Map')!;
+    const l3 = addElement(doc, id, 'L3', alex, 'Name')!;
+    const mid = addElement(doc, id, 'FSG', alex, 'Later')!;
+    setLines(scriptBody(doc, id)!, ['[cue:' + fsg + ']', '{JORDAN}', '', '[camera:Camera 2]', '[cue:' + l3 + ']', 'GOOD EVENING.', '[cue:' + mid + ']', 'MORE.', '[camera:Camera 3]', '{RILEY}', '[camera:Camera 1]', 'THANKS.']);
+    const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
+    const cueNames = (l: (typeof lines)[number]) => (l.kind === 'speaker' ? l.cues.map((c) => (c.kind === 'cue' ? c.element.name : c.camera)) : []);
+    expect(lines.map((l) => l.kind)).toEqual(['section', 'speaker', 'text', 'text', 'cue', 'text', 'camera', 'speaker', 'text', 'end']);
+    expect(cueNames(lines[1])).toEqual(['Map', 'Camera 2', 'Name']);
+    // A cue above a later reader's name belongs to the words before it, so it stays on its own line.
+    expect(lines[6]).toMatchObject({ kind: 'camera', camera: 'Camera 3' });
+    expect(cueNames(lines[7])).toEqual(['Camera 1']);
+  });
+
+  it('leaves cues on their own lines when the script has no reader’s name', () => {
+    const doc = new Y.Doc();
+    const id = insertSection(doc, alex, { talent: ['Jordan'] });
+    ensureScripts(doc);
+    setLines(scriptBody(doc, id)!, ['[camera:Camera 2]', 'GOOD EVENING.']);
+    const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
+    expect(lines.map((l) => l.kind)).toEqual(['section', 'camera', 'text', 'end']);
   });
 });
