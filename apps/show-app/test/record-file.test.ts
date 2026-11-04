@@ -1,13 +1,13 @@
 // Finishing a recording (RG, Nov 4, 2026): QuickTime refused a recording with an empty sound track, and a last
 // piece cut short. Finishing leaves a plain MP4 with what was recorded, whatever state it was in.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat, truncate } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
-import { finishRecording, silenceDue } from '../src/main/record-file.ts';
+import { finishRecording, recordingArgs, silenceDue } from '../src/main/record-file.ts';
 
 const run = promisify(execFile);
 const ffmpeg = ffmpegStatic as unknown as string;
@@ -54,6 +54,30 @@ describe('finishing a recording', () => {
     await expect(finishRecording(path.join(folder, 'no-ffmpeg'), file)).rejects.toThrow();
     expect((await stat(file)).size).toBe(before);
   });
+
+  it('records sound that lasts as long as the picture', async () => {
+    const file = path.join(folder, 'recorded.mp4');
+    const encoder = spawn(ffmpeg, recordingArgs('320x180', '30', file), { stdio: ['pipe', 'ignore', 'ignore', 'pipe'] });
+    const sound = encoder.stdio[3] as NodeJS.WritableStream;
+    const frame = Buffer.alloc(320 * 180 * 4, 0x80);
+    const chunk = Buffer.alloc(1600 * 2 * 4);
+    for (let i = 0; i < 90; i++) {
+      encoder.stdin!.write(frame);
+      sound.write(chunk);
+      await new Promise((r) => setTimeout(r, 33));
+    }
+    const stopped = new Promise((resolve) => encoder.once('exit', resolve));
+    encoder.stdin!.end();
+    sound.end();
+    await stopped;
+    await finishRecording(ffmpeg, file);
+    expect(await look(file)).toEqual({ pieces: false, indexFirst: true, video: true, audio: true });
+    const list = (await run(ffmpeg, ['-v', 'error', '-i', file, '-map', '0:a', '-c', 'copy', '-f', 'framecrc', '-'])).stdout;
+    const lines = list.split('\n').filter((l) => l && !l.startsWith('#'));
+    const lastAt = Number(lines.at(-1)!.split(',')[2]) / 48_000;
+    expect(lastAt).toBeGreaterThan(2.5);
+    expect(lastAt).toBeLessThan(3.5);
+  }, 30_000);
 
   it('fills silence only when the sound has fallen behind', () => {
     expect(silenceDue(100, 0)).toBe(0);

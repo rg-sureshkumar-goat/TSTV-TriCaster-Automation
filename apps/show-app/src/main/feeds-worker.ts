@@ -8,7 +8,7 @@ import http from 'node:http';
 import { parentPort } from 'node:worker_threads';
 import path from 'node:path';
 import { ffmpegPath } from './ffmpeg.ts';
-import { finishRecording, silenceDue } from './record-file.ts';
+import { finishRecording, recordingArgs, silenceDue } from './record-file.ts';
 import { BANDWIDTH, COLOR, FRAME, audioBuffer, copyBytes, copySound, listSources, loadNdi, videoBuffer } from './ndi.ts';
 
 const ffmpeg = ffmpegPath!;
@@ -113,18 +113,7 @@ function startFeeds(): void {
     let started = 0;
     let error: string | null = null;
     const encode = (size: string, rate: string) => {
-      const picture = process.platform === 'darwin' ? ['-c:v', 'h264_videotoolbox', '-b:v', '12M'] : ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20'];
-      encoder = spawn(
-        ffmpeg,
-        [
-          '-v', 'error', '-y',
-          '-use_wallclock_as_timestamps', '1', '-f', 'rawvideo', '-pix_fmt', 'bgra', '-s', size, '-r', rate, '-i', 'pipe:0',
-          '-use_wallclock_as_timestamps', '1', '-f', 'f32le', '-ar', '48000', '-ac', '2', '-i', 'pipe:3',
-          '-map', '0:v', '-map', '1:a', ...picture, '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k',
-          '-fps_mode', 'cfr', '-r', rate, '-movflags', '+frag_keyframe+empty_moov', file,
-        ],
-        { stdio: ['pipe', 'ignore', 'pipe', 'pipe'] },
-      );
+      encoder = spawn(ffmpeg, recordingArgs(size, rate, file), { stdio: ['pipe', 'ignore', 'pipe', 'pipe'] });
       let said = '';
       encoder.stderr!.on('data', (chunk: Buffer) => (said += chunk.toString()));
       encoder.on('exit', (code) => {
