@@ -174,6 +174,11 @@ test('a cue at the top of a reader’s part sits on the line with their name, bu
   await expect(script.locator('.cue-chip')).toHaveText('Take FSG');
   await script.locator('p').last().click();
   await rg.keyboard.type('Good evening.');
+  // A blank line left by the writer stays in the script, but not on the prompter.
+  await rg.keyboard.press('Enter');
+  await rg.keyboard.press('Enter');
+  await rg.keyboard.type('Next line.');
+  await expect(script.locator('p').filter({ hasText: /^$/ })).not.toHaveCount(0);
   // In the script, the cue is still on a line of its own.
   await expect(script.locator('p').first().locator('.cue-chip')).toHaveCount(0);
   await expect(script.locator('p', { hasText: 'GOOD EVENING.' }).locator('.cue-chip')).toHaveCount(0);
@@ -188,5 +193,5 @@ test('a cue at the top of a reader’s part sits on the line with their name, bu
     return box.y + box.height / 2;
   };
   expect(Math.abs((await middle('.p-speaker')) - (await middle('.p-cue')))).toBeLessThan(30);
-  await expect(prompter.locator('.p-text', { hasText: 'GOOD EVENING.' })).toBeVisible();
+  await expect(prompter.locator('.p-text')).toHaveText(['GOOD EVENING.', 'NEXT LINE.']);
 });

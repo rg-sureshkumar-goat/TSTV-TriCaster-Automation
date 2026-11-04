@@ -46,7 +46,8 @@ export function prompterLines(doc: Y.Doc, timing: RundownTiming, defaultCamera: 
         const element = p.kind === 'cue' ? elements.get(p.elementId) : undefined;
         if (element) script.push({ kind: 'cue', key: `${key}-${i}`, sectionId, element });
       });
-      if (pieces.some((p) => p.kind !== 'text') && !text.trim()) continue;
+      // No blank lines on the prompter, even ones the writer left in the script (RG, Nov 4, 2026).
+      if (!text.trim()) continue;
       const speaker = speakerTagLine(text);
       script.push(speaker ? { kind: 'speaker', key, sectionId, name: speaker, cues: [] } : { kind: 'text', key, sectionId, text });
     }
@@ -57,12 +58,11 @@ export function prompterLines(doc: Y.Doc, timing: RundownTiming, defaultCamera: 
 }
 
 const isCue = (line: PrompterLine): line is PrompterCue => line.kind === 'cue' || line.kind === 'camera';
-const isBlank = (line: PrompterLine) => line.kind === 'text' && !line.text.trim();
 
 /**
  * Moves the cues at the top of a reader's part onto the line with their name (RG, Nov 4, 2026): the cues
- * right after a speaker marker, and those above the first marker when no words come before them. Empty
- * lines between them don't count. Cues among the words stay on their own lines.
+ * right after a speaker marker, and those above the first marker when no words come before them. Cues
+ * among the words stay on their own lines.
  */
 function cuesOnSpeakerLines(script: PrompterLine[]): PrompterLine[] {
   let lines: PrompterLine[] = [];
@@ -81,7 +81,7 @@ function cuesOnSpeakerLines(script: PrompterLine[]): PrompterLine[] {
       speaker.cues.push(line);
     } else {
       if (isCue(line)) waiting.push(line);
-      else if (!isBlank(line)) {
+      else {
         wordsYet = true;
         speaker = null;
       }
