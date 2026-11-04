@@ -15,14 +15,12 @@ import {
   elementKind,
   formatDuration,
   prompterLines,
-  scriptRuns,
   talentColors,
   readRows,
   rowsOf,
   scriptBodiesOf,
   type PrompterCue,
   type PrompterLine,
-  type PrompterTextStyle,
   type ShowSettings,
 } from '@tstv/shared';
 import { useLoad, type User } from '../lib/api.ts';
@@ -34,20 +32,16 @@ interface EpisodeData {
   show: { id: string; name: string; settings: ShowSettings };
 }
 
-/** How one kind of text looks: regular words, or words in a kind of bracket. */
-interface TextLook {
-  /** In points, as in Rundown Creator. */
+/** Saved on the prompter computer. */
+export interface PrompterSettings {
+  /** The script's words. Their size is in points, as in Rundown Creator. */
   fontSize: number;
-  color: string;
+  textColor: string;
   background: string;
   bold: boolean;
   italic: boolean;
-  hide: boolean;
-}
-
-/** Saved on the prompter computer. */
-export interface PrompterSettings {
-  styles: Record<PrompterTextStyle, TextLook>;
+  /** Set once this computer's look is in Rundown Creator's terms. */
+  lookVersion: number;
   showPageNumbers: boolean;
   showStorySlugs: boolean;
   flipText: boolean;
@@ -65,13 +59,12 @@ export interface PrompterSettings {
 
 /** TSTV's settings in Rundown Creator, read from its prompter (RG, Nov 4, 2026). */
 export const DEFAULT_PROMPTER_SETTINGS: PrompterSettings = {
-  styles: {
-    regular: { fontSize: 81, color: 'White', background: 'Black', bold: true, italic: false, hide: false },
-    curly: { fontSize: 35, color: 'Red', background: 'Yellow', bold: true, italic: false, hide: false },
-    square: { fontSize: 24, color: 'White', background: 'Black', bold: false, italic: false, hide: true },
-    parentheses: { fontSize: 30, color: 'Green', background: 'Black', bold: true, italic: true, hide: false },
-    carets: { fontSize: 24, color: 'White', background: 'Black', bold: false, italic: false, hide: true },
-  },
+  fontSize: 81,
+  textColor: 'White',
+  background: 'Black',
+  bold: true,
+  italic: false,
+  lookVersion: 1,
   showPageNumbers: true,
   showStorySlugs: false,
   flipText: false,
@@ -88,30 +81,17 @@ const copyKey = (episodeId: string) => `tstv-prompter-copy-${episodeId}`;
 /** Arrow presses from stopped to the top speed, either way (20 until RG raised it, Nov 2, 2026). */
 const MAX_SPEED = 40;
 
-const TEXT_STYLES: { style: PrompterTextStyle; label: string }[] = [
-  { style: 'regular', label: 'Regular Text' },
-  { style: 'curly', label: '{Curly Brackets}' },
-  { style: 'square', label: '[Square Brackets]' },
-  { style: 'parentheses', label: '(Parentheses)' },
-  { style: 'carets', label: '<Carets>' },
-];
 const COLORS = ['Black', 'White', 'Maroon', 'Green', 'Olive', 'Navy', 'Purple', 'Teal', 'Gray', 'Silver', 'Red', 'Lime', 'Yellow', 'Blue', 'Fuchsia', 'Aqua'];
-
-function textLook(look: TextLook, showBackground = true): CSSProperties {
-  return { fontSize: `${look.fontSize}pt`, color: look.color, background: showBackground ? look.background : undefined, fontWeight: look.bold ? 700 : 400, fontStyle: look.italic ? 'italic' : 'normal' };
-}
-
-/** Whether a line has anything to show: a line of only hidden text takes up no room. */
-function lineShows(line: PrompterLine, settings: PrompterSettings): boolean {
-  if (line.kind === 'speaker') return !settings.styles.curly.hide || line.cues.length > 0;
-  if (line.kind !== 'text' || !line.text.trim()) return true;
-  return scriptRuns(line.text).some((run) => !settings.styles[run.style].hide && run.text.trim());
-}
 
 function loadSettings(): PrompterSettings {
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<PrompterSettings>;
-    return { ...DEFAULT_PROMPTER_SETTINGS, ...saved, styles: { ...DEFAULT_PROMPTER_SETTINGS.styles, ...saved.styles } };
+    const settings = { ...DEFAULT_PROMPTER_SETTINGS, ...saved };
+    if (saved.lookVersion) return settings;
+    // Saved before Nov 4, 2026: a text size in pixels, and picked colors. The look starts over from the
+    // defaults, and the margins and reading line set for the hood stay.
+    const { fontSize, textColor, background, bold, italic, lookVersion } = DEFAULT_PROMPTER_SETTINGS;
+    return { ...settings, fontSize, textColor, background, bold, italic, lookVersion };
   } catch {
     return DEFAULT_PROMPTER_SETTINGS;
   }
@@ -415,11 +395,11 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
   };
 
   const style = {
-    '--p-size': `${settings.styles.regular.fontSize}pt`,
+    '--p-size': `${settings.fontSize}pt`,
     '--p-spacing': settings.lineSpacing,
     '--p-margin': `${settings.margin}vw`,
-    '--p-text': settings.styles.regular.color,
-    '--p-bg': settings.styles.regular.background,
+    '--p-text': settings.textColor,
+    '--p-bg': settings.background,
     '--p-line': `${settings.readingLine}vh`,
     '--p-marker': settings.markerSize / 100,
   } as CSSProperties;
@@ -434,7 +414,7 @@ function PrompterView({ data, user, reload }: { data: EpisodeData; user: User; r
         }}
       >
         <div className="prompter-content" ref={content}>
-          {lines.filter((line) => lineShows(line, settings)).map((line) => (
+          {lines.map((line) => (
             <Line key={line.key} line={line} settings={settings} colors={colors} />
           ))}
         </div>
@@ -556,11 +536,9 @@ function Line({ line, settings, colors }: { line: PrompterLine; settings: Prompt
     case 'speaker':
       return (
         <div className="p-speaker-line" data-key={line.key}>
-          {!settings.styles.curly.hide && (
-            <span className="p-speaker" style={{ color: colorForTalent(line.name, colors) }}>
-              {line.name}
-            </span>
-          )}
+          <span className="p-speaker" style={{ color: colorForTalent(line.name, colors) }}>
+            {line.name}
+          </span>
           {/* The cues at the top of this reader's part, on the line with their name (RG, Nov 4, 2026). */}
           {line.cues.map((cue) => (
             <Cue key={cue.key} line={cue} />
@@ -576,16 +554,8 @@ function Line({ line, settings, colors }: { line: PrompterLine; settings: Prompt
       );
     case 'text':
       return (
-        <p className="p-text" data-key={line.key}>
-          {line.text.trim()
-            ? scriptRuns(line.text)
-                .filter((run) => !settings.styles[run.style].hide)
-                .map((run, i) => (
-                  <span key={i} style={textLook(settings.styles[run.style], run.style !== 'regular')}>
-                    {run.text}
-                  </span>
-                ))
-            : line.text || ' '}
+        <p className="p-text" data-key={line.key} style={{ fontWeight: settings.bold ? 700 : 400, fontStyle: settings.italic ? 'italic' : 'normal' }}>
+          {line.text || ' '}
         </p>
       );
     case 'end':
@@ -619,51 +589,34 @@ function SettingsPanel({ settings, onChange, onClose }: { settings: PrompterSett
     <div className="prompter-panel settings-panel" role="dialog" aria-label="Prompter settings">
       <h2>Prompter settings</h2>
       <p className="small">Saved on this computer.</p>
-      <table className="prompter-looks">
-        <thead>
-          <tr>
-            <th />
-            <th>Font Size</th>
-            <th>Text Color</th>
-            <th>Background Color</th>
-            <th>Bold</th>
-            <th>Italic</th>
-            <th>Hide</th>
-          </tr>
-        </thead>
-        <tbody>
-          {TEXT_STYLES.map(({ style, label }) => {
-            const look = settings.styles[style];
-            const change = (patch: Partial<TextLook>) => onChange({ ...settings, styles: { ...settings.styles, [style]: { ...look, ...patch } } });
-            const colorMenu = (name: string, value: string, key: 'color' | 'background') => (
-              <select aria-label={`${label} ${name}`} value={value} onChange={(e) => change({ [key]: e.target.value })}>
-                {COLORS.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            );
-            return (
-              <tr key={style}>
-                <th scope="row">{label}</th>
-                <td>
-                  <input aria-label={`${label} font size`} type="number" min={8} max={200} value={look.fontSize} onChange={(e) => e.target.value && change({ fontSize: Number(e.target.value) })} />
-                </td>
-                <td>{colorMenu('text color', look.color, 'color')}</td>
-                <td>{colorMenu('background color', look.background, 'background')}</td>
-                <td>
-                  <input aria-label={`${label} bold`} type="checkbox" checked={look.bold} onChange={(e) => change({ bold: e.target.checked })} />
-                </td>
-                <td>
-                  <input aria-label={`${label} italic`} type="checkbox" checked={look.italic} onChange={(e) => change({ italic: e.target.checked })} />
-                </td>
-                <td>
-                  <input aria-label={`${label} hide`} type="checkbox" checked={look.hide} disabled={style === 'regular'} onChange={(e) => change({ hide: e.target.checked })} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <label>
+        Font size
+        <input type="number" min={8} max={200} value={settings.fontSize} onChange={(e) => e.target.value && onChange({ ...settings, fontSize: Number(e.target.value) })} />
+      </label>
+      <label>
+        Text color
+        <select value={settings.textColor} onChange={(e) => onChange({ ...settings, textColor: e.target.value })}>
+          {COLORS.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Background color
+        <select value={settings.background} onChange={(e) => onChange({ ...settings, background: e.target.value })}>
+          {COLORS.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </label>
+      <label className="row">
+        <input type="checkbox" checked={settings.bold} onChange={(e) => onChange({ ...settings, bold: e.target.checked })} />
+        Bold
+      </label>
+      <label className="row">
+        <input type="checkbox" checked={settings.italic} onChange={(e) => onChange({ ...settings, italic: e.target.checked })} />
+        Italic
+      </label>
       <label className="row">
         <input type="checkbox" checked={settings.showPageNumbers} onChange={(e) => onChange({ ...settings, showPageNumbers: e.target.checked })} />
         Show page numbers

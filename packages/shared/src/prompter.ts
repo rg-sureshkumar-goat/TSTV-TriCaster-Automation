@@ -20,40 +20,6 @@ export type PrompterLine =
   | PrompterCue
   | { kind: 'end'; key: string };
 
-/** How the prompter styles a script's text, by the brackets around it, as Rundown Creator's does (RG, Nov 4, 2026). */
-export type PrompterTextStyle = 'regular' | 'curly' | 'square' | 'parentheses' | 'carets';
-
-const OPENERS: Record<string, PrompterTextStyle> = { '{': 'curly', '[': 'square', '(': 'parentheses', '<': 'carets' };
-
-/**
- * A line of words split by the brackets in it. Curly brackets, square brackets and parentheses don't show;
- * carets do. An opener with no closer runs to the end of the line.
- */
-export function scriptRuns(text: string): { style: PrompterTextStyle; text: string }[] {
-  const runs: { style: PrompterTextStyle; text: string }[] = [];
-  let style: PrompterTextStyle = 'regular';
-  let current = '';
-  const flush = () => {
-    if (current) runs.push({ style, text: current });
-    current = '';
-  };
-  for (const char of text) {
-    if (char in OPENERS) {
-      flush();
-      style = OPENERS[char];
-      if (char === '<') current = char;
-    } else if (char === '}' || char === ']' || char === ')' || char === '>') {
-      if (char === '>') current += char;
-      flush();
-      style = 'regular';
-    } else {
-      current += char;
-    }
-  }
-  flush();
-  return runs;
-}
-
 /** The prompter's lines for an episode. Keys stay the same while scripts are edited around them. */
 export function prompterLines(doc: Y.Doc, timing: RundownTiming, defaultCamera: string): PrompterLine[] {
   const lines: PrompterLine[] = [];

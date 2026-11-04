@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { addElement, computeRundown, CROSS_TALK, insertBlock, insertSection, readRows, updateRow } from '../src/rundown.ts';
 import { CAMERA_CUE_NODE, CUE_NODE, ensureScripts, PARAGRAPH_NODE, scriptBody } from '../src/script.ts';
-import { cameraCues, prompterLines, scriptRuns, topCues } from '../src/prompter.ts';
+import { cameraCues, prompterLines, topCues } from '../src/prompter.ts';
 
 const alex = { id: 'u1', name: 'Alex Producer' };
 
@@ -119,22 +119,6 @@ describe('prompter', () => {
     const lines = prompterLines(doc, computeRundown(readRows(doc), 600), 'Camera 1');
     // Among the words, lines with just an indent or spaces stay. After them, there's just the one blank line.
     expect(lines.flatMap((l) => (l.kind === 'text' ? [l.text] : []))).toEqual(['GOOD EVENING.', '\tINDENTED.', '\t', '   ', 'MORE.', '']);
-  });
-
-  it('splits a line by its brackets, as Rundown Creator’s prompter does', () => {
-    expect(scriptRuns('GOOD EVENING.')).toEqual([{ style: 'regular', text: 'GOOD EVENING.' }]);
-    expect(scriptRuns('{CAM 1} HI [NOTE] THERE (SAY IT) <TAG> END')).toEqual([
-      { style: 'curly', text: 'CAM 1' },
-      { style: 'regular', text: ' HI ' },
-      { style: 'square', text: 'NOTE' },
-      { style: 'regular', text: ' THERE ' },
-      { style: 'parentheses', text: 'SAY IT' },
-      { style: 'regular', text: ' ' },
-      { style: 'carets', text: '<TAG>' },
-      { style: 'regular', text: ' END' },
-    ]);
-    // With no closer, it runs to the end of the line.
-    expect(scriptRuns('HI (STILL')).toEqual([{ style: 'regular', text: 'HI ' }, { style: 'parentheses', text: 'STILL' }]);
   });
 
   it('gives a section with no script, or no blank line, its one blank line too', () => {
