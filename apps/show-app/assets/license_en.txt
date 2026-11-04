@@ -16,4 +16,4 @@ RiGster is free software made for Texas Student Television (TSTV). By installing
 
 5. DEVELOPERS. If you use RiGster to develop another product, that product must comply with the NDI SDK license (https://ndi.link/ndisdk_license), including keeping current and complete NDI compatibility, and its own end user license agreement must include the terms of this agreement that concern NDI.
 
-6. OTHER SOFTWARE. RiGster also includes other software under its own licenses, listed in the notices that come with RiGster.
+6. OTHER SOFTWARE. RiGster also includes other software under its own licenses, including FFmpeg under the GNU General Public License. See the notices in RiGster's legal folder. Nothing in this agreement limits your rights under those licenses.

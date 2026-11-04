@@ -1,0 +1,8 @@
+RiGster includes FFmpeg 9.0.2 (https://ffmpeg.org/), a separate program that RiGster runs. The build in RiGster is licensed under the GNU General Public License, version 3 or later: https://www.gnu.org/licenses/gpl-3.0.html
+
+You can get its complete source code, and how it was built, from:
+- FFmpeg: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
+- The Mac builds: https://ffmpeg.martin-riedl.de/
+- The Windows build: https://github.com/BtbN/FFmpeg-Builds
+
+Texas Student Television will also send you the source code on request. This offer is valid for three years from the date you got RiGster. Ask through the page you downloaded RiGster from.

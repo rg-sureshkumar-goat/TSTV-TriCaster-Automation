@@ -10,7 +10,7 @@
 // 3. Asks electron-builder to make the installer from that folder.
 //
 // Options: --dir makes just the app, without the installer (quicker, for trying it); --arch=x64 or
-// --arch=arm64 makes it for that kind of computer (default: this one's; FFmpeg must be that kind too).
+// --arch=arm64 makes it for that kind of computer (default: this one's).
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -18,6 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build as bundle } from 'esbuild';
 import { build as makeInstaller } from 'electron-builder';
+import { fetchFfmpeg } from './fetch-ffmpeg.mjs';
 import { fetchNdi } from './fetch-ndi.mjs';
 
 const require = createRequire(import.meta.url);
@@ -60,13 +61,15 @@ await bundle({
 cpSync(path.join(root, 'dist/renderer'), path.join(app, 'dist/renderer'), { recursive: true });
 cpSync(path.join(root, 'preload.cjs'), path.join(app, 'preload.cjs'));
 mkdirSync(path.join(app, 'bin'));
-cpSync(require('ffmpeg-static'), path.join(app, 'bin', windows ? 'ffmpeg.exe' : 'ffmpeg'));
+// A build that may be shared (scripts/fetch-ffmpeg.mjs), not ffmpeg-static's.
+cpSync((await fetchFfmpeg(arch)).file, path.join(app, 'bin', windows ? 'ffmpeg.exe' : 'ffmpeg'));
 // NDI, inside the app's own folder as NDI's SDK manual asks, with its notices and RiGster's license.
 const ndi = await fetchNdi();
 cpSync(ndi, path.join(app, 'bin/ndi'), { recursive: true });
 mkdirSync(path.join(app, 'legal'));
 cpSync(path.join(root, 'assets/license_en.txt'), path.join(app, 'legal/RiGster License.txt'));
 cpSync(path.join(ndi, 'libndi_licenses.txt'), path.join(app, 'legal/NDI notices.txt'));
+cpSync(path.join(root, 'assets/ffmpeg-notice.txt'), path.join(app, 'legal/FFmpeg notice.txt'));
 const koffi = path.dirname(require.resolve('koffi/package.json'));
 const koffiBuild = `${process.platform}_${arch}`;
 cpSync(koffi, path.join(app, 'node_modules/koffi'), {
