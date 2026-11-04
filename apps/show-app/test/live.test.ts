@@ -28,6 +28,9 @@ class FakePlayout extends EventEmitter {
   transition(path: string) {
     this.calls.push(`transition ${path}`);
   }
+  upNext(path: string | null) {
+    this.calls.push(`upNext ${path}`);
+  }
 }
 
 let sim: RunningSimulator;
@@ -66,6 +69,34 @@ describe('live mode’s driver', () => {
     await switcher.connect();
     expect(switcher.snapshot.status).toBe('refused');
     expect(switcher.snapshot.error).toContain('TriCaster TC1');
+    switcher.close();
+  });
+
+  it('shows what’s up next in the TC1’s Preview box, sending only what changes', async () => {
+    pretendToBeTc1();
+    const playout = new FakePlayout();
+    const switcher = new Switcher(`127.0.0.1:${sim.httpPort}`, sim.statePort, 'live', playout as unknown as Playout);
+    await switcher.connect();
+    const before = commands().length;
+    switcher.showUpNext({ path: '/g/Map.mov' }, 2);
+    switcher.showUpNext({ path: '/g/Map.mov' }, 2);
+    await waitFor(() => commands().length >= before + 2);
+    expect(commands().slice(before)).toEqual(['v3_a_row_named_input INPUT2', 'main_b_row_named_input V3']);
+    expect(playout.calls).toEqual(['upNext /g/Map.mov']);
+    await waitFor(() => sim.switcher.snapshot().mes.v3.a === 'input2');
+    // Nothing up next: M/E 3 keeps its camera, with no graphic over it.
+    switcher.showUpNext(null, 2);
+    expect(playout.calls).toEqual(['upNext /g/Map.mov', 'upNext null']);
+    switcher.close();
+  });
+
+  it('sends nothing for Preview on the simulator', async () => {
+    const switcher = new Switcher(`127.0.0.1:${sim.httpPort}`, sim.statePort);
+    await switcher.connect();
+    const before = commands().length;
+    switcher.showUpNext({ path: '/g/Map.mov' }, 2);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(commands().length).toBe(before);
     switcher.close();
   });
 

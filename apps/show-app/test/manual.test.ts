@@ -1,7 +1,7 @@
 // Open On Manual Mode (RG, Nov 2, 2026): RiGster runs the TC1 by hand, with no rundown, prompter or key.
 // Graphics fire in the order imported (or dragged into), stay up until taken off, and are kept for next
 // time; the green screen can be one of the shows'. The simulator stands in for the TC1.
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -102,6 +102,13 @@ describe('Open On Manual Mode', () => {
     await runtime.act({ kind: 'takeOff' });
     await waitFor(() => !dskOn());
     expect(runtime.state().automation.upNext[0]?.label).toBe('Lower Third');
+  });
+
+  it('asks for the TC1’s Preview box to show what’s up next, over its section’s camera', async () => {
+    const preview = vi.spyOn(runtime.switcher, 'showUpNext');
+    await runtime.act({ kind: 'chooseNext', elementId: null });
+    expect(preview).toHaveBeenLastCalledWith(expect.objectContaining({ path: path.join(folder, 'usb', 'Lower Third.mp4') }), 1);
+    preview.mockRestore();
   });
 
   it('pauses a graphic where it is with Space, and starts it again', async () => {

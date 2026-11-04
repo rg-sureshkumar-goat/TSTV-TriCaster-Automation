@@ -328,7 +328,7 @@ function LiveSwitch({ state }: { state: AppState }) {
               Once live mode is on, the TC1 needs (if its RiGster session doesn’t have it saved yet): <strong>input 4</strong> set to the laptop’s source,{' '}
               <strong>RIGSTER (Graphics)</strong>; <strong>DSK 2’s source</strong> set to input 4; input 4’s sound on in the AUDIO MIXER; and, for the green screen,
               input 5 set to <strong>RIGSTER (Green Screen)</strong>, used as M/E 1’s background; and for transitions, input 6 set to{' '}
-              <strong>RIGSTER (Transition)</strong>, shown by DSK 4. Save it in the TC1’s RiGster session once, and it works with any laptop.
+              <strong>RIGSTER (Transition)</strong>, shown by DSK 4; and for the Preview box, input 7 set to <strong>RIGSTER (Up Next)</strong>, keyed on M/E 3. Save it in the TC1’s RiGster session once, and it works with any laptop.
             </p>
             {state.liveError && <p className="error">{state.liveError}</p>}
             <div className="row">

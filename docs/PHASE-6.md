@@ -147,6 +147,24 @@ For recordings that use the TC1's cameras and graphics without a show (RG):
 4. At the studio, with the TC1 connected: click cameras, fire graphics with →, pause one with Space, take them off with ↓, and record.
 5. Close RiGster and open Manual Mode again: the graphics are still there. Click **Clear** to empty the list.
 
+## Part 7: The TC1's Preview box shows what's up next (built Nov 4, 2026)
+
+The TC1's **Preview** box now matches RiGster's **Up next preview** (RG): the next graphic over its section's camera.
+
+- **RiGster sends** the next graphic as a fourth source, **RIGSTER (Up Next)**: one picture, from the same moment as its thumbnail, with its see-through parts.
+- **When the next graphic changes,** RiGster sets M/E 3's A row to the section's camera and puts M/E 3 on the Preview row. Music or a cue with no file shows just the camera.
+- **Watch out:** **Take** or **Auto** on the TC1's panel would send that picture to Program, and moves the Preview row. With RiGster running, nobody uses them.
+- **Not yet confirmed on the TC1:** the Preview row command (`main_b_row_named_input`), and that M/E 3 keys the graphic as expected.
+
+**What the TC1 needs (RiGster session):** steps 8 and 9 of the setup (docs/PHASE-5.md, "What the TC1 needs").
+
+### Test for Part 7
+
+1. With RiGster connected, set input 7 to **RIGSTER (Up Next)**. On M/E 3, turn on Key 1 with its source on input 7. Save the session.
+2. Import graphics. The TC1's **Preview** box should show the same as RiGster's **Up next preview**: the next graphic over the section's camera.
+3. Press **→**. The graphic goes to Program, and Preview changes to the one after it.
+4. Fire to the end of the list. Preview shows just the camera, with no graphic.
+
 ## Still to come in Phase 6
 
 - A one-page producer guide

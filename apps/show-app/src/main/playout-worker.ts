@@ -37,6 +37,8 @@ export type PlayoutMessage =
   | { type: 'background'; path: string | null; fallback?: string }
   /** A transition wipe (RG, Nov 2, 2026), played once on its own source, over everything on the TC1 (DSK 4). */
   | { type: 'transition'; path: string; fallback?: string }
+  /** The graphic up next (RG, Nov 4, 2026), as one picture with its see-through parts, or none. */
+  | { type: 'upNext'; path: string | null; fallback?: string }
   | { type: 'close' };
 
 export type PlayoutReport =
@@ -179,9 +181,10 @@ class Background {
   constructor(
     file: string,
     readonly still: boolean,
+    at = 0,
   ) {
     const picture = `scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},format=bgra`;
-    const args = ['-v', 'error', ...(still ? [] : ['-stream_loop', '-1']), '-i', file, '-map', '0:v:0', '-vf', picture, ...(still ? ['-frames:v', '1'] : ['-r', `${FPS_N}/${FPS_D}`]), '-f', 'rawvideo', 'pipe:1'];
+    const args = ['-v', 'error', ...(still ? [] : ['-stream_loop', '-1']), ...(at > 0 ? ['-ss', String(at)] : []), '-i', file, '-map', '0:v:0', '-vf', picture, ...(still ? ['-frames:v', '1'] : ['-r', `${FPS_N}/${FPS_D}`]), '-f', 'rawvideo', 'pipe:1'];
     this.process = spawn(ffmpeg, args, { stdio: ['ignore', 'pipe', 'ignore'] });
     this.process.stdout!.on('data', (chunk: Buffer) => {
       this.pending.push(chunk);
@@ -240,11 +243,15 @@ class Music {
   }
 }
 
-function startPlayout(name: string, backgroundName: string, transitionName: string): void {
+function startPlayout(name: string, backgroundName: string, transitionName: string, upNextName: string): void {
   const ndi = loadNdi();
   const sender = ndi.sendCreate({ p_ndi_name: name, p_groups: null, clock_video: false, clock_audio: false });
   const backgroundSender = ndi.sendCreate({ p_ndi_name: backgroundName, p_groups: null, clock_video: false, clock_audio: false });
   const transitionSender = ndi.sendCreate({ p_ndi_name: transitionName, p_groups: null, clock_video: false, clock_audio: false });
+  const upNextSender = ndi.sendCreate({ p_ndi_name: upNextName, p_groups: null, clock_video: false, clock_audio: false });
+  // The up-next graphic's picture; see-through when there isn't one, so M/E 3 shows just the camera.
+  let upNext: Background | null = null;
+  let upNextAsked = 0;
   // The transition playing, if one is (see-through when none is, so DSK 4 shows nothing).
   let transition: Clip | null = null;
   let background: Background | null = null;
@@ -369,6 +376,7 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
       const frame = background.take();
       if (frame) sendPicture(frame, backgroundSender);
     }
+    if (tick % 15 === 0) sendPicture(upNext?.take() ?? clear, upNextSender);
     if (music) {
       music.sound.mixInto(sound, samples);
       music.topUp();
@@ -442,6 +450,22 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
           if (asked === backgroundAsked) background = new Background(file, info.still);
         })();
         return;
+      case 'upNext':
+        void (async () => {
+          const asked = ++upNextAsked;
+          upNext?.close();
+          upNext = null;
+          if (!message.path) return;
+          let file = message.path;
+          let info = await probeOf(file);
+          if (!info.readable && message.fallback) {
+            file = message.fallback;
+            info = await probeOf(file);
+          }
+          // The same moment as the graphic's thumbnail in the Up next box.
+          if (asked === upNextAsked) upNext = new Background(file, true, info.seconds ? Math.min(5, info.seconds / 2) : 0);
+        })();
+        return;
       case 'transition':
         void (async () => {
           let file = message.path;
@@ -460,6 +484,8 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
         next?.close();
         music?.close();
         background?.close();
+        upNext?.close();
+        ndi.sendDestroy(upNextSender);
         ndi.sendDestroy(sender);
         ndi.sendDestroy(backgroundSender);
         ndi.sendDestroy(transitionSender);
@@ -469,8 +495,8 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
 }
 
 try {
-  const names = (workerData ?? {}) as { name?: string; backgroundName?: string; transitionName?: string };
-  startPlayout(names.name ?? 'Graphics', names.backgroundName ?? 'Green Screen', names.transitionName ?? 'Transition');
+  const names = (workerData ?? {}) as { name?: string; backgroundName?: string; transitionName?: string; upNextName?: string };
+  startPlayout(names.name ?? 'Graphics', names.backgroundName ?? 'Green Screen', names.transitionName ?? 'Transition', names.upNextName ?? 'Up Next');
 } catch (e) {
   post({ type: 'error', message: e instanceof Error ? e.message : String(e) });
 }

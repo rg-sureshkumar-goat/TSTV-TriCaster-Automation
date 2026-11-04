@@ -1112,6 +1112,15 @@ export class Runtime extends EventEmitter {
 
   private changed(): void {
     this.emit('state', this.state());
+    this.sendUpNext();
+  }
+
+  /** The TC1's Preview box shows what the Up next box shows: the next graphic over its section's camera. */
+  private sendUpNext(): void {
+    const next = this.engine?.upNext()[0];
+    const file = next && next.behavior !== 'music' ? this.fileFor(next) : undefined;
+    const camera = this.plan?.sections.find((s) => s.id === next?.sectionId)?.input ?? this.switcher.snapshot.programInput;
+    this.switcher.showUpNext(file ? { path: file.path, fallback: file.playable } : null, camera);
   }
 
   // ---- The producer's actions ----

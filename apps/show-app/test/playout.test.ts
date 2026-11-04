@@ -105,6 +105,30 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     expect(playout.state.item).toBe(0);
   }, 20_000);
 
+  it('sends the graphic up next on its own source, see-through around it, and nothing when there’s none', async () => {
+    const finder = ndi.findCreate({ show_local_sources: true, p_groups: null, p_extra_ips: null });
+    let source = null;
+    for (let i = 0; i < 20 && !source; i++) {
+      ndi.findWait(finder, 500);
+      source = listSources(ndi, finder).find((s) => s.p_ndi_name.endsWith('(Up Next)')) ?? null;
+    }
+    expect(source).not.toBeNull();
+    const graphics = receiver;
+    receiver = ndi.recvCreate({ source_to_connect_to: source, color_format: COLOR.BGRX_BGRA, bandwidth: BANDWIDTH.highest, allow_video_fields: false, p_ndi_recv_name: 'TSTV test up next' });
+    try {
+      playout.upNext(path.join(folder, 'A1_L3_Bar.mov'));
+      const up = receive(6000, (got) => got.bar[3] === 255);
+      expect(up.bar[3]).toBe(255);
+      expect(up.bar[0]).toBeGreaterThan(200);
+      expect(up.corner[3]).toBe(0);
+      playout.upNext(null);
+      expect(receive(4000, (got) => got.bar[3] === 0).bar[3]).toBe(0);
+    } finally {
+      ndi.recvDestroy(receiver);
+      receiver = graphics;
+    }
+  }, 30_000);
+
   it('pauses a clip where it is, picture and sound, and carries on from there', async () => {
     playout.select(1);
     playout.play();

@@ -77,6 +77,8 @@ export interface SwitcherSnapshot {
 
 /** Program runs through M/E 1; the LITES layout is M/E 4 (TSTV's session, and RG, Nov 2, 2026). */
 const PROGRAM_ME = 'v1';
+/** What's up next, for the TC1's Preview box (RG, Nov 4, 2026). */
+const UP_NEXT_ME = 'v3';
 const LAYOUT_ME = 'v4';
 
 const attr = (text: string, name: string): string | undefined => new RegExp(`\\b${name}="([^"]*)"`).exec(text)?.[1];
@@ -311,6 +313,28 @@ export class Switcher extends EventEmitter {
   }
 
   private sending: Promise<void> = Promise.resolve();
+
+  private upNextShown: string | null = null;
+
+  /**
+   * Shows what's up next in the TC1's Preview box, live mode only (RG, Nov 4, 2026): the graphic goes to the
+   * playout's Up Next source (input 7, keyed on M/E 3 in the RiGster session), the section's camera to
+   * M/E 3's A row, and M/E 3 to the Preview row. Nothing is sent until it changes.
+   */
+  showUpNext(file: { path: string; fallback?: string } | null, camera: number | null): void {
+    if (!this.live || !this.playout || this.snapshot.status !== 'connected') return;
+    const shown = JSON.stringify([file?.path ?? null, camera]);
+    if (shown === this.upNextShown) return;
+    this.upNextShown = shown;
+    this.playout.upNext(file?.path ?? null, file?.fallback);
+    if (camera === null) return;
+    this.sending = this.sending
+      .then(async () => {
+        await this.send(`${UP_NEXT_ME}_a_row_named_input`, `INPUT${camera}`);
+        await this.send('main_b_row_named_input', UP_NEXT_ME.toUpperCase());
+      })
+      .catch(() => undefined);
+  }
 
   /** Pauses the clip on air where it is, or starts it again. On the simulator, DDR 2 keeps its place when stopped. */
   async pauseClip(paused: boolean): Promise<void> {
