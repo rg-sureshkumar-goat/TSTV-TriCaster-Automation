@@ -1462,10 +1462,14 @@ export class Runtime extends EventEmitter {
       }
       case 'fireBack': {
         if (!engine) return;
-        // The first graphic, paused, has nothing to go back to: it starts again from its beginning (RG, Nov 4, 2026).
-        if (!engine.previous() && engine.state.manual && this.switcher.snapshot.ddrPaused) {
-          const up = this.view(engine.state.onAir);
-          return this.run(engine.restartOnAir(), `${up?.label ?? 'The graphic'} started again from its beginning`);
+        // The first graphic has nothing to go back to: it goes back to its beginning, and keeps playing, or
+        // stays paused until Space (RG, Nov 4, 2026).
+        const first = !engine.previous() && engine.state.manual ? this.view(engine.state.onAir) : undefined;
+        if (first?.seconds) {
+          const paused = this.switcher.snapshot.ddrPaused;
+          await this.run(engine.restartOnAir(), `${first.label} back to its beginning`);
+          if (paused) await this.switcher.pauseClip(true);
+          return this.changed();
         }
         const back = this.view(engine.previous()?.id ?? null);
         return this.run(engine.fireBack(), back ? `Back to ${back.label} (${back.sectionLabel}) by hand` : 'Nothing to go back to');

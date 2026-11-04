@@ -274,6 +274,8 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
   let next: Clip | null = null;
   let playing = false;
   let paused = false;
+  // Paused while the next clip is on its way: it shows its first picture, then holds there.
+  let holdAtStart = false;
   let switchWhenReady = false;
   // The clip being selected, while FFmpeg is asked about it.
   let selecting: number | null = null;
@@ -299,7 +301,7 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
     });
 
   const state = (force = false) => {
-    const report = { type: 'state' as const, item: current?.item ?? null, playing, paused, remaining: current?.remaining ?? null, musicPlaying: !!music, connections: ndi.sendConnections(sender, 0) };
+    const report = { type: 'state' as const, item: current?.item ?? null, playing, paused: paused || holdAtStart, remaining: current?.remaining ?? null, musicPlaying: !!music, connections: ndi.sendConnections(sender, 0) };
     const key = JSON.stringify({ ...report, remaining: report.remaining === null ? null : Math.round(report.remaining) });
     if (force || key !== lastState) post(report);
     lastState = key;
@@ -352,6 +354,10 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
         sendPicture(frame);
         current.sent++;
         current.sound.mixInto(sound, samples);
+        if (holdAtStart && !switchWhenReady) {
+          holdAtStart = false;
+          paused = true;
+        }
       } else if (current.done) {
         // The clip ended: its last picture stays on input 4, as DDR 2 holds it.
         playing = false;
@@ -409,12 +415,17 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
         void select(message.item);
         return;
       case 'play':
-        paused = false;
+        holdAtStart = false;
+        // The clip on air stays as it is, paused or not, until the next one is ready to take over.
         if (next || selecting !== null) switchWhenReady = true;
-        else if (current) playing = true;
+        else if (current) {
+          paused = false;
+          playing = true;
+        }
         return;
       case 'pause':
-        paused = message.paused && playing;
+        if (next || selecting !== null || switchWhenReady) holdAtStart = message.paused;
+        else paused = message.paused && playing;
         state(true);
         return;
       case 'stop':
@@ -423,6 +434,7 @@ function startPlayout(name: string, backgroundName: string, transitionName: stri
         current = null;
         playing = false;
         paused = false;
+        holdAtStart = false;
         switchWhenReady = false;
         clearPicture();
         state(true);

@@ -165,26 +165,50 @@ describe('Open On Manual Mode', () => {
     expect(labels()).toEqual([]);
   });
 
-  it('starts the first graphic again from its beginning with ←, when it’s paused', async () => {
+  it('takes the first graphic back to its beginning with ←: playing, it keeps playing; paused, it waits for Space', async () => {
     await runtime.act({ kind: 'addFiles', paths: [path.join(folder, 'usb', 'Lower Third.mp4')] });
     await waitFor(() => ddr2().playlist.map((c) => c.name).join() === 'Lower Third');
     await waitFor(() => runtime.state().automation.upNext[0]?.ddrItem !== null);
     await runtime.act({ kind: 'fireNext' });
     await waitFor(() => clipOnAir() === 'Lower Third' && ddr2().playing);
-    // Playing, ← does nothing: there's nothing to go back to.
-    await new Promise((r) => setTimeout(r, 600));
+    const playedFor = async () => {
+      await new Promise((r) => setTimeout(r, 600));
+      await runtime.act({ kind: 'pauseGraphic' });
+      await waitFor(() => !ddr2().playing);
+      const place = ddr2().positionMs;
+      await runtime.act({ kind: 'pauseGraphic' });
+      await waitFor(() => ddr2().playing);
+      return place;
+    };
+    expect(await playedFor()).toBeGreaterThan(400);
+
+    // Playing: back to the start, still playing.
     await runtime.act({ kind: 'fireBack' });
+    await waitFor(() => ddr2().playing);
+    expect(runtime.state().switcher.ddrPaused).toBe(false);
+    expect(ddr2().positionMs).toBeLessThan(400);
+    await new Promise((r) => setTimeout(r, 300));
     expect(ddr2().playing).toBe(true);
+
+    // Paused: back to the start, and it waits.
+    await new Promise((r) => setTimeout(r, 400));
     await runtime.act({ kind: 'pauseGraphic' });
     await waitFor(() => !ddr2().playing);
     const place = ddr2().positionMs;
     expect(place).toBeGreaterThan(400);
     await runtime.act({ kind: 'fireBack' });
-    await waitFor(() => ddr2().playing);
-    expect(ddr2().positionMs).toBeLessThan(place);
-    expect(runtime.state().switcher.ddrPaused).toBe(false);
+    await waitFor(() => !ddr2().playing);
+    expect(runtime.state().switcher.ddrPaused).toBe(true);
+    expect(ddr2().positionMs).toBeLessThan(100);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(ddr2().playing).toBe(false);
     expect(dskOn()).toBe(true);
     expect(runtime.state().automation.onAir?.label).toBe('Lower Third');
+
+    // Space plays it.
+    await runtime.act({ kind: 'pauseGraphic' });
+    await waitFor(() => ddr2().playing);
+    expect(runtime.state().switcher.ddrPaused).toBe(false);
     await runtime.act({ kind: 'takeOff' });
     await runtime.act({ kind: 'clearManual' });
   });

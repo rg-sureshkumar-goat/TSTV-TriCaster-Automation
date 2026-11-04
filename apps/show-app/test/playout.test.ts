@@ -144,16 +144,28 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     expect(playout.state.remaining).toBe(left);
     playout.pause(false);
     expect(receive(500).frames).toBeGreaterThan(5);
-    // Paused again, selecting the same clip and playing it starts it over, from the beginning.
+    // Back to the beginning while playing: it plays from there.
     const before = playout.state.remaining as number;
-    playout.pause(true);
-    await new Promise((r) => setTimeout(r, 200));
     playout.select(1);
     playout.play();
     expect(receive(500).frames).toBeGreaterThan(5);
     await new Promise((r) => setTimeout(r, 300));
-    expect(playout.state.paused).toBe(false);
     expect(playout.state.remaining as number).toBeGreaterThan(before);
+    // Back to the beginning while paused: its first picture shows, and it waits.
+    playout.pause(true);
+    // Frames from before the pause may still be arriving.
+    receive(400);
+    playout.select(1);
+    playout.play();
+    playout.pause(true);
+    expect(receive(1200).frames).toBeLessThanOrEqual(2);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(playout.state.paused).toBe(true);
+    expect(playout.state.remaining as number).toBeGreaterThan(3.8);
+    expect(receive(500).frames).toBe(0);
+    // Space plays it.
+    playout.pause(false);
+    expect(receive(500).frames).toBeGreaterThan(5);
     playout.stop();
     await new Promise((r) => setTimeout(r, 200));
     expect(playout.state.paused).toBe(false);

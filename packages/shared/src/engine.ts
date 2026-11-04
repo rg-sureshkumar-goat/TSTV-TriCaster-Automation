@@ -525,7 +525,7 @@ export class CueEngine {
     return previous ? this.fire(previous) : [];
   }
 
-  /** The clip on air starts again from its beginning, still on DSK 2 (RG, Nov 4, 2026). */
+  /** The clip on air goes back to its beginning and plays, still on DSK 2 (RG, Nov 4, 2026). */
   restartOnAir(): SwitcherCommand[] {
     const onAir = this.element(this.state.onAir);
     return onAir && onAir.ddrItem !== null ? [{ kind: 'cueClip', item: onAir.ddrItem }, { kind: 'play' }] : [];
