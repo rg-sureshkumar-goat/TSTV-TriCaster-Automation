@@ -553,6 +553,8 @@ function Line({ line, settings, colors }: { line: PrompterLine; settings: Prompt
           {line.text || ' '}
         </p>
       );
+    case 'gap':
+      return <div className="p-gap" data-key={line.key} />;
     case 'end':
       return (
         <div className="p-end" data-key={line.key}>

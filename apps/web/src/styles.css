@@ -1784,13 +1784,18 @@ button.danger {
   overflow-wrap: break-word;
 }
 
+.p-gap {
+  height: 50px;
+}
+
 .p-section {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 0 0.5em;
-  margin-top: 1em !important;
-  padding: 0.15em 0;
+  /* As tall as a line of the script, Rundown Creator's header (RG, Nov 4, 2026). */
+  box-sizing: border-box;
+  min-height: calc(var(--p-size) * var(--p-spacing));
   border-top: 3px solid currentColor;
   font-size: 0.7em;
   font-weight: 800;

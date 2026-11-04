@@ -191,7 +191,7 @@ test('a cue at the top of a reader’s part sits on the line with their name, bu
     return box.y + box.height / 2;
   };
   expect(Math.abs((await middle('.p-speaker')) - (await middle('.p-cue')))).toBeLessThan(30);
-  await expect(prompter.locator('.p-text')).toHaveText(['GOOD EVENING.', 'NEXT LINE.', '']);
+  await expect(prompter.locator('.p-text')).toHaveText(['GOOD EVENING.', 'NEXT LINE.']);
 });
 
 test('speeds and settings match Rundown Creator’s', async ({ browser }) => {
@@ -234,6 +234,10 @@ test('speeds and settings match Rundown Creator’s', async ({ browser }) => {
     return { size: Math.round(parseFloat(c.fontSize)), background: c.backgroundColor };
   });
   expect(name).toEqual({ size: 86, background: 'rgba(0, 0, 0, 0)' });
+
+  // Rundown Creator's spacing: a header as tall as a line of the script, and 50 pixels between sections.
+  expect(Math.round((await prompter.locator('.p-section').first().boundingBox())!.height)).toBe(124);
+  expect((await prompter.locator('.p-gap').first().boundingBox())!.height).toBe(50);
 
   // Three presses of the up arrow: three pixels per screen refresh.
   for (let i = 0; i < 3; i++) await prompter.keyboard.press('ArrowUp');

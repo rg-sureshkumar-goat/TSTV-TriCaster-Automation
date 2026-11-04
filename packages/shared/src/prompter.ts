@@ -17,6 +17,8 @@ export type PrompterLine =
   /** cues: the ones at the top of this reader's part, shown on the line with their name (RG, Nov 4, 2026). */
   | { kind: 'speaker'; key: string; sectionId: string; name: string; cues: PrompterCue[] }
   | { kind: 'text'; key: string; sectionId: string; text: string }
+  /** The gap at the end of a section, as in Rundown Creator (RG, Nov 4, 2026). */
+  | { kind: 'gap'; key: string; sectionId: string }
   | PrompterCue
   | { kind: 'end'; key: string };
 
@@ -51,8 +53,8 @@ export function prompterLines(doc: Y.Doc, timing: RundownTiming, defaultCamera: 
       script.push(speaker ? { kind: 'speaker', key, sectionId, name: speaker, cues: [] } : { kind: 'text', key, sectionId, text });
     }
     lines.push(...withoutEmptyLines(cuesOnSpeakerLines(script)));
-    // Every section ends with one blank line, however many the script has (RG, Nov 4, 2026).
-    lines.push({ kind: 'text', key: `${sectionId}-end`, sectionId, text: '' });
+    // Every section ends with the same gap, however many blank lines the script has (RG, Nov 4, 2026).
+    lines.push({ kind: 'gap', key: `${sectionId}-end`, sectionId });
   }
   lines.push({ kind: 'end', key: 'end' });
   return lines;
