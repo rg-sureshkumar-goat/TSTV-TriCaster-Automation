@@ -156,6 +156,13 @@ describe('Open On Manual Mode', () => {
     await waitFor(() => !dskOn());
   });
 
+  it('remembers which graphics have played, for the Playlist to mark', async () => {
+    const { played } = runtime.state().automation;
+    const ids = runtime.state().sections[0].elements.map((e) => e.id);
+    expect(ids.every((id) => played.includes(id))).toBe(true);
+    expect(new Set(played).size).toBe(played.length);
+  });
+
   it('uses a show’s green screen, as its own', async () => {
     expect(runtime.state().greenScreen).toBeNull();
     await runtime.act({ kind: 'useShowGreenScreen', showId: 'show1' });

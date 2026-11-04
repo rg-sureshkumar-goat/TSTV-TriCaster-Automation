@@ -3,7 +3,7 @@
 //   bottom: Up next preview · Permanent graphics drop box · Green screen drop box · Music
 // The episode key is at the top right. Import graphics opens a window that matches files to cues.
 // Keys: see shared/keys.ts.
-import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { elementKind } from '@tstv/shared';
 import type { Action, AppState, ElementView } from '../shared/api.ts';
 import { keyAction } from '../shared/keys.ts';
@@ -827,24 +827,7 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
           </button>
         </span>
       </h3>
-      {state.manualSession ? (
-        <ManualQueue state={state} />
-      ) : (
-      <ol className="queue">
-        {automation.upNext.map((e, i) => (
-          <li key={e.id} className={i === 0 ? 'first' : ''} onDoubleClick={manual ? (ev) => fireOnDoubleClick(ev, e.id) : undefined}>
-            <Item element={e} musicTrack={state.musicTrack?.file} />
-            <span className="actions">
-              {i > 0 && <button onClick={() => act({ kind: 'chooseNext', elementId: e.id })}>Play next</button>}
-              {automation.nextChoice === e.id && <button onClick={() => act({ kind: 'chooseNext', elementId: null })}>Back in order</button>}
-              <button onClick={() => act({ kind: 'skip', elementId: e.id, skipped: true })}>Skip</button>
-            </span>
-          </li>
-        ))}
-        {automation.upNext.length === 0 && <li className="muted">Nothing left to fire.</li>}
-      </ol>
-      )}
-      {!state.manualSession && <Skipped state={state} />}
+      {state.manualSession ? <ManualQueue state={state} /> : <ShowQueue state={state} />}
     </Panel>
   );
 }
@@ -853,6 +836,95 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
  * Manual Mode's Playlist (RG, Nov 2, 2026): every graphic, in the order imported, each with a handle at
  * its left to drag it up or down. → fires the one marked next.
  */
+/**
+ * The Playlist follows along as graphics fire (RG, Nov 4, 2026): the next graphic stays in view, with up to
+ * two played ones above it. Scrolling by hand holds that off for a few seconds, then it comes back.
+ */
+function useFollowNext(target: string | null, hold: boolean) {
+  const list = useRef<HTMLOListElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const touched = useRef(false);
+  const follow = useRef(() => {});
+  follow.current = () => {
+    const box = list.current;
+    const item = box?.querySelector('[data-follow="true"]');
+    if (!box || !item || hold) return;
+    // As many played ones above it as leave the next graphic itself fully in view.
+    const before = item.previousElementSibling;
+    const bottom = item.getBoundingClientRect().bottom;
+    const top = [before?.previousElementSibling, before, item].find((row) => row && bottom - row.getBoundingClientRect().top <= box.clientHeight) ?? item;
+    box.scrollTop += top.getBoundingClientRect().top - box.getBoundingClientRect().top;
+  };
+  useEffect(() => {
+    if (!touched.current) follow.current();
+  }, [target]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const onTouch = () => {
+    touched.current = true;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      touched.current = false;
+      follow.current();
+    }, 5000);
+  };
+  // The wheel, or the list's scrollbar; clicking a graphic in the list isn't scrolling.
+  return { ref: list, onWheel: onTouch, onPointerDown: (e: PointerEvent) => e.target === e.currentTarget && onTouch() };
+}
+
+/** How a graphic in the Playlist stands: on air, next, played (✓), passed by the prompter, skipped, or to come. */
+function queueClass(element: ElementView, state: AppState): string {
+  const { onAir, upNext, played } = state.automation;
+  if (element.id === onAir?.id) return 'on-air-item';
+  if (element.skipped) return 'skipped';
+  if (element.id === upNext[0]?.id) return 'first';
+  if (played.includes(element.id)) return 'played';
+  // In Manual Mode there's no prompter to pass them: a graphic jumped over is simply still to be played.
+  return state.manualSession || upNext.some((e) => e.id === element.id) ? '' : 'passed';
+}
+
+function PlayedTick({ state, element }: { state: AppState; element: ElementView }) {
+  if (element.id === state.automation.onAir?.id || !state.automation.played.includes(element.id)) return null;
+  return (
+    <span className="played-tick" role="img" aria-label="Played" title="Already played">
+      ✓
+    </span>
+  );
+}
+
+/** A show's Playlist (RG, Nov 4, 2026): the whole rundown in order, with what's played marked. */
+function ShowQueue({ state }: { state: AppState }) {
+  const { automation } = state;
+  const all = state.sections.flatMap((s) => s.elements);
+  const next = automation.upNext[0]?.id ?? null;
+  const follow = useFollowNext(next ?? automation.onAir?.id ?? null, false);
+  return (
+    <ol className="queue" {...follow}>
+      {all.map((e) => {
+        const standing = queueClass(e, state);
+        const done = standing === 'played' || standing === 'passed';
+        return (
+          <li key={e.id} className={standing} data-follow={e.id === (next ?? automation.onAir?.id)} onDoubleClick={automation.manual ? (ev) => fireOnDoubleClick(ev, e.id) : undefined}>
+            <PlayedTick state={state} element={e} />
+            <Item element={e} musicTrack={state.musicTrack?.file} />
+            <span className="actions">
+              {e.skipped ? (
+                <button onClick={() => act({ kind: 'skip', elementId: e.id, skipped: false })}>Bring back</button>
+              ) : (
+                <>
+                  {e.id !== next && standing !== 'on-air-item' && (!done || automation.manual) && <button onClick={() => act({ kind: 'chooseNext', elementId: e.id })}>Play next</button>}
+                  {automation.nextChoice === e.id && <button onClick={() => act({ kind: 'chooseNext', elementId: null })}>Back in order</button>}
+                  {!done && standing !== 'on-air-item' && <button onClick={() => act({ kind: 'skip', elementId: e.id, skipped: true })}>Skip</button>}
+                </>
+              )}
+            </span>
+          </li>
+        );
+      })}
+      {all.length === 0 && <li className="muted">Nothing left to fire.</li>}
+    </ol>
+  );
+}
+
 /** In manual mode, double clicking a graphic in the Playlist fires it (RG, Nov 4, 2026); its buttons don't count. */
 function fireOnDoubleClick(e: MouseEvent, elementId: string) {
   if (!(e.target as HTMLElement).closest('button, .drag-handle')) void act({ kind: 'fireNow', elementId });
@@ -863,6 +935,7 @@ function ManualQueue({ state }: { state: AppState }) {
   const [over, setOver] = useState<string | null>(null);
   const all = state.sections.flatMap((s) => s.elements);
   const next = state.automation.upNext[0]?.id;
+  const follow = useFollowNext(next ?? state.automation.onAir?.id ?? null, dragging !== null);
   const drop = (before: string | null) => {
     if (dragging) void act({ kind: 'moveManual', elementId: dragging, before });
     setDragging(null);
@@ -883,12 +956,13 @@ function ManualQueue({ state }: { state: AppState }) {
     );
   }
   return (
-    <ol className="queue manual-queue" onDragOver={(e) => e.preventDefault()} onDrop={dropFiles}>
+    <ol className="queue manual-queue" {...follow} onDragOver={(e) => e.preventDefault()} onDrop={dropFiles}>
       {all.map((e, i) => (
         <li
           key={e.id}
           onDoubleClick={(ev) => fireOnDoubleClick(ev, e.id)}
-          className={`${e.id === next ? 'first' : ''}${e.id === state.automation.onAir?.id ? ' on-air-item' : ''}${over === e.id ? ' drop-before' : ''}${dragging === e.id ? ' dragging' : ''}`}
+          data-follow={e.id === (next ?? state.automation.onAir?.id)}
+          className={`${queueClass(e, state)}${over === e.id ? ' drop-before' : ''}${dragging === e.id ? ' dragging' : ''}`}
           onDragOver={(ev) => {
             if (!dragging) return;
             ev.preventDefault();
@@ -921,6 +995,7 @@ function ManualQueue({ state }: { state: AppState }) {
             ⠿
           </span>
           <span className="manual-number">{i + 1}</span>
+          <PlayedTick state={state} element={e} />
           <Item element={e} />
           <span className="actions">
             {e.id !== next && <button onClick={() => act({ kind: 'chooseNext', elementId: e.id })}>Play next</button>}
@@ -996,21 +1071,6 @@ function Item({ element, musicTrack }: { element: ElementView; musicTrack?: stri
         </span>
       )}
     </span>
-  );
-}
-
-function Skipped({ state }: { state: AppState }) {
-  const skipped = state.sections.flatMap((s) => s.elements).filter((e) => e.skipped);
-  if (skipped.length === 0) return null;
-  return (
-    <p className="muted small">
-      Skipped:{' '}
-      {skipped.map((e) => (
-        <button key={e.id} className="link" onClick={() => act({ kind: 'skip', elementId: e.id, skipped: false })} title="Put it back">
-          {e.label} ({e.sectionLabel}) ↺
-        </button>
-      ))}
-    </p>
   );
 }
 

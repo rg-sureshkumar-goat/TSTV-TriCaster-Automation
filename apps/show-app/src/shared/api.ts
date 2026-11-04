@@ -147,6 +147,8 @@ export interface AppState {
     onAir: ElementView | null;
     upNext: ElementView[];
     nextChoice: string | null;
+    /** The graphics fired so far, which the Playlist marks. */
+    played: string[];
     /** What going back (the left arrow) puts up again. */
     previous: ElementView | null;
   };

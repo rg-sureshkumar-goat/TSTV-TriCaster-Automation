@@ -1591,8 +1591,24 @@ button.danger {
 .manual-queue li.drop-before {
   box-shadow: inset 0 3px 0 var(--blue);
 }
-.manual-queue li.on-air-item {
-  opacity: 0.6;
+.queue li.on-air-item {
+  outline: 2px solid var(--red);
+}
+.queue li.played,
+.queue li.passed {
+  opacity: 0.55;
+}
+.queue li.skipped {
+  opacity: 0.55;
+}
+.queue li.skipped .chip,
+.queue li.skipped .file-name {
+  text-decoration: line-through;
+}
+.played-tick {
+  flex: none;
+  font-weight: 800;
+  color: var(--green);
 }
 .queue-empty {
   padding: 16px;

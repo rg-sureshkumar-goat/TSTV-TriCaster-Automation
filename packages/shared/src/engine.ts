@@ -208,6 +208,8 @@ export interface EngineState {
   nextChoice: string | null;
   /** The last element fired, by the prompter or the producer. */
   lastFired: string | null;
+  /** Every element fired so far, for the Playlist to mark (RG, Nov 4, 2026). */
+  played: string[];
   /**
    * Manual mode (Pause Automation; RG, Oct 29, 2026): the prompter fires nothing and takes no cameras. The
    * producer fires the graphics from the keyboard and takes the cameras by clicking them.
@@ -235,6 +237,7 @@ export class CueEngine {
     skipped: [],
     nextChoice: null,
     lastFired: null,
+    played: [],
     manual: false,
     camerasByHand: false,
     prompterSection: null,
@@ -410,6 +413,7 @@ export class CueEngine {
     const elementId = element.id;
     if (this.state.nextChoice === elementId) this.state.nextChoice = null;
     this.state.lastFired = elementId;
+    if (!this.state.played.includes(elementId)) this.state.played.push(elementId);
     // Already up (the producer fired it ahead of the prompter): it isn't restarted.
     if (this.state.onAir === elementId) return [];
     // Fired ahead of (or behind) the prompter: the engine follows along.
