@@ -1896,7 +1896,8 @@ button.danger {
   left: calc(var(--p-left) - var(--p-arrow-space));
   display: flex;
   align-items: center;
-  height: calc(var(--p-size) * var(--p-spacing));
+  /* The arrow's middle is where Rundown Creator's is: 53 pixels tall, with its top on the reading line. */
+  height: 53px;
   /* Set in the prompter's settings (markerSize). */
   font-size: var(--p-arrow);
   line-height: 1;
