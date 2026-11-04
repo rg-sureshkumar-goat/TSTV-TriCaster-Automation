@@ -1,14 +1,23 @@
 // NDI, the network video the TC1 already uses (Phase 5, decided Oct 30, 2026): the show app sends its
 // graphics and music to the TC1's input 4 over the cable, and receives the TC1's camera and program feeds.
-// It calls the free NDI runtime through koffi, so nothing is compiled. The runtime comes with NDI Tools
-// (Mac and Windows), or the NDI runtime installer. Tested at the studio on Oct 30, 2026: docs/TC1-FINDINGS.md.
+// It calls the free NDI runtime through koffi, so nothing is compiled. The installed app has its own copy
+// (RG, Nov 4, 2026: scripts/fetch-ndi.mjs); run from the source, it uses NDI Tools' or the NDI runtime
+// installer's. Tested at the studio on Oct 30, 2026: docs/TC1-FINDINGS.md.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import koffi from 'koffi';
+
+/** Set to true when the app is bundled for installing (scripts/package.mjs). */
+declare const BUNDLED: boolean | undefined;
 
 /** Where the NDI runtime can be, in order. */
 function runtimeCandidates(): string[] {
+  // The installed app's own copy, in its bin folder; the bundle is in dist/main, two folders down.
+  if (typeof BUNDLED !== 'undefined' && BUNDLED) {
+    return [path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'ndi', process.platform === 'win32' ? 'Processing.NDI.Lib.x64.dll' : 'libndi.dylib')];
+  }
   if (process.platform === 'win32') {
     const dirs = [process.env.NDI_RUNTIME_DIR_V6, process.env.NDI_RUNTIME_DIR_V5, 'C:\\Program Files\\NDI\\NDI 6 Runtime\\v6', 'C:\\Program Files\\NDI\\NDI 5 Runtime\\v5'];
     return dirs.filter((d): d is string => !!d).map((d) => path.join(d, 'Processing.NDI.Lib.x64.dll'));

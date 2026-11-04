@@ -10,7 +10,9 @@ Phase 6 turns RiGster into a normal Mac and Windows app that anyone can install,
 - **Installers:** a .dmg for Macs with an Apple chip (M1 or newer), one for Intel Macs, and a Setup .exe for Windows. The app is called RiGster everywhere, including the Dock and the taskbar, with its own blue icon.
 - **No terminal:** RiGster opens from Applications (Mac) or the Start menu (Windows) like any app.
 - **Everything RiGster remembers carries over** from the version run from the terminal (the same folder on the laptop): the episode key, the graphics, the music, the green screen and the light or dark choice.
-- **Still needed on each laptop: NDI Tools** (free, from ndi.video), for live mode. RiGster doesn't include NDI.
+- **NDI comes with RiGster (RG, Nov 4, 2026):** nobody has to install NDI Tools. Each build fetches the latest NDI® SDK from NDI's own download (`scripts/fetch-ndi.mjs`) and puts just its library and notices inside the app, as NDI's SDK manual allows. The SDK is never put in this repository. RG accepted NDI's SDK License Agreement for this on Nov 4, 2026. NDI® is a registered trademark of Vizrt NDI AB; more at https://ndi.video/.
+- **RiGster's license (`apps/show-app/assets/license_en.txt`):** shown by the installers, and it carries the terms NDI requires. It's a draft for TSTV to review before any release.
+- **Don't build or release yet:** the FFmpeg RiGster packs (`ffmpeg-static`) is built with `--enable-nonfree`, which FFmpeg says can't be shared. It has to be replaced first. GitHub's build artifacts on this public repository count as sharing.
 - **Where installers come from:** GitHub's free machines build all three (`.github/workflows/release.yml`).
   - Run it by hand to just build them and download them from the run's page, without publishing anything.
   - To publish a version, push a tag like `v1.0.1` (matching `apps/show-app/package.json`). The installers go up as a GitHub Release, which is where RiGster looks for updates. Publishing makes them public, so it only happens when RG says so.

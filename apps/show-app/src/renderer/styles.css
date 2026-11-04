@@ -1302,6 +1302,10 @@ button.danger {
 }
 
 /* RiGster isn't connected to the TC1 yet (RG, Nov 2, 2026). */
+.ndi-note a {
+  color: inherit;
+}
+
 .tc1-banner {
   display: flex;
   flex-wrap: wrap;

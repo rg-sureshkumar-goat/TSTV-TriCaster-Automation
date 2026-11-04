@@ -1,6 +1,6 @@
 // The show app (RiGster)'s window. Everything the app does happens in Runtime; this file opens the window, hands
 // the producer's actions to it, and sends its state back to the window.
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Action } from '../shared/api.ts';
@@ -17,7 +17,7 @@ const APP_NAME = 'RiGster';
 // The app keeps what it remembers in the folder it used before it was renamed, so nothing is lost.
 app.setPath('userData', path.join(app.getPath('appData'), '@tstv', 'show-app'));
 app.setName(APP_NAME);
-app.setAboutPanelOptions({ applicationName: APP_NAME });
+app.setAboutPanelOptions({ applicationName: APP_NAME, credits: 'NDI® is a registered trademark of Vizrt NDI AB. https://ndi.video/' });
 
 const runtime = new Runtime({
   // Tests keep their own memory (TSTV_SHOW_APP_DATA), so they never change yours.
@@ -74,6 +74,11 @@ app.whenReady().then(async () => {
     backgroundColor: '#14161a',
     // The Program box plays clips with their sound as they go on air, without a click first.
     webPreferences: { preload: path.join(root, 'preload.cjs'), contextIsolation: true, sandbox: true, autoplayPolicy: 'no-user-gesture-required' },
+  });
+  // Links (ndi.video) open in the computer's browser, never in RiGster.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://')) void shell.openExternal(url);
+    return { action: 'deny' };
   });
   await win.loadFile(path.join(root, 'dist/renderer/index.html'));
   await runtime.start();

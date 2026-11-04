@@ -1,0 +1,19 @@
+RiGster License Agreement
+
+RiGster is free software made for Texas Student Television (TSTV). By installing or using RiGster, you agree to these terms.
+
+1. NO WARRANTY. RiGster is provided "as is", without warranty of any kind, express or implied, including any warranty of merchantability, fitness for a particular purpose or non-infringement. This disclaimer is also made on behalf of Vizrt NDI AB and each of its licensors.
+
+2. NO LIABILITY. To the extent permitted by law, neither TSTV, nor Vizrt NDI AB, nor any of its licensors is liable for any damages, whether direct, indirect, incidental or consequential, arising from the use of RiGster.
+
+3. NDI. RiGster includes software from Vizrt NDI AB's NDI(R) SDK. NDI(R) is a registered trademark of Vizrt NDI AB. RiGster is not a product of Vizrt NDI AB, and Vizrt NDI AB does not sponsor it. To learn about NDI, visit https://ndi.video/. The NDI software is copyrighted by Vizrt NDI AB (Copyright (C) 2023-2026 Vizrt NDI AB; earlier portions by NDI, Inc.), all rights reserved. You may not:
+   (a) modify the NDI SDK, any NDI product or any part of them;
+   (b) reverse engineer, disassemble or recompile them, or any protocols they use, whether transmitted or received over a network or used inside or outside the machine they run on, or try to do so;
+   (c) get around any technical limitation in them; or
+   (d) remove, obscure or change any proprietary notice or label on or in them.
+
+4. EXPORT. You must comply with all relevant export laws and regulations of the United States, and must not export RiGster or any part of it, directly or indirectly, in violation of them.
+
+5. DEVELOPERS. If you use RiGster to develop another product, that product must comply with the NDI SDK license (https://ndi.link/ndisdk_license), including keeping current and complete NDI compatibility, and its own end user license agreement must include the terms of this agreement that concern NDI.
+
+6. OTHER SOFTWARE. RiGster also includes other software under its own licenses, listed in the notices that come with RiGster.

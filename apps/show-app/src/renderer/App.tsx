@@ -375,6 +375,13 @@ function LiveBar({ state }: { state: AppState }) {
           DSK 2’s source on the TC1 is {dskSource.toUpperCase()}, not input 4, so the graphics won’t show. Set DSK 2’s source to input 4.
         </span>
       )}
+      <span className="small ndi-note">
+        Over{' '}
+        <a href="https://ndi.video/" target="_blank" rel="noreferrer">
+          NDI®
+        </a>
+        . NDI® is a registered trademark of Vizrt NDI AB.
+      </span>
       <span className="small">
         {state.playout?.error ?? (connections > 0 ? `Input 4 is taking the laptop’s graphics (${connections} connection${connections === 1 ? '' : 's'}).` : 'Waiting for the TC1’s input 4 to take the laptop’s graphics…')}
       </span>

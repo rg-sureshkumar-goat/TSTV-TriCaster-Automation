@@ -4,8 +4,9 @@
 //
 // 1. Builds the producer screen (Vite), and bundles the rest of the app's code (esbuild) into
 //    dist/main, so it runs without the terminal.
-// 2. Puts together the app's folder in release/app: the bundles, the screen, FFmpeg in bin, and koffi
-//    (which calls NDI) for this computer only.
+// 2. Puts together the app's folder in release/app: the bundles, the screen, FFmpeg and NDI in bin (NDI's
+//    latest from its own download: scripts/fetch-ndi.mjs), the notices in legal, and koffi (which calls
+//    NDI) for this computer only.
 // 3. Asks electron-builder to make the installer from that folder.
 //
 // Options: --dir makes just the app, without the installer (quicker, for trying it); --arch=x64 or
@@ -17,6 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build as bundle } from 'esbuild';
 import { build as makeInstaller } from 'electron-builder';
+import { fetchNdi } from './fetch-ndi.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -59,6 +61,12 @@ cpSync(path.join(root, 'dist/renderer'), path.join(app, 'dist/renderer'), { recu
 cpSync(path.join(root, 'preload.cjs'), path.join(app, 'preload.cjs'));
 mkdirSync(path.join(app, 'bin'));
 cpSync(require('ffmpeg-static'), path.join(app, 'bin', windows ? 'ffmpeg.exe' : 'ffmpeg'));
+// NDI, inside the app's own folder as NDI's SDK manual asks, with its notices and RiGster's license.
+const ndi = await fetchNdi();
+cpSync(ndi, path.join(app, 'bin/ndi'), { recursive: true });
+mkdirSync(path.join(app, 'legal'));
+cpSync(path.join(root, 'assets/license_en.txt'), path.join(app, 'legal/RiGster License.txt'));
+cpSync(path.join(ndi, 'libndi_licenses.txt'), path.join(app, 'legal/NDI notices.txt'));
 const koffi = path.dirname(require.resolve('koffi/package.json'));
 const koffiBuild = `${process.platform}_${arch}`;
 cpSync(koffi, path.join(app, 'node_modules/koffi'), {
@@ -106,12 +114,12 @@ await makeInstaller({
     // Free, so not signed with a paid certificate (RG, Oct 30, 2026): the Mac app is signed only by this
     // computer, so macOS asks once before it opens; Windows says "Windows protected your PC" until you
     // click More info, then Run anyway.
-    // The app loads NDI's library from NDI Tools, so macOS's stricter "hardened runtime" (which only
-    // allows libraries signed by the app's own developer) stays off.
+    // Until RiGster has a paid signature, macOS's stricter "hardened runtime" stays off.
+    // The Mac's installer shows assets/license_en.txt by itself; Windows' is named below.
     mac: { target: [{ target: onlyTheApp ? 'dir' : 'dmg', arch: [arch] }], category: 'public.app-category.video', identity: '-', hardenedRuntime: false },
     dmg: { title: 'RiGster ${version}' },
     win: { target: [{ target: onlyTheApp ? 'dir' : 'nsis', arch: [arch] }] },
-    nsis: { artifactName: 'RiGster-Setup-${version}.${ext}', oneClick: false, allowToChangeInstallationDirectory: true, perMachine: false, shortcutName: 'RiGster' },
+    nsis: { artifactName: 'RiGster-Setup-${version}.${ext}', license: path.join(root, 'assets/license_en.txt'), oneClick: false, allowToChangeInstallationDirectory: true, perMachine: false, shortcutName: 'RiGster' },
     // Where updates come from: this repository's GitHub Releases (the app also says so itself, in updates.ts).
     publish: [{ provider: 'github', owner: 'rg-sureshkumar-goat', repo: 'TSTV-TriCaster-Automation', releaseType: 'release' }],
   },
