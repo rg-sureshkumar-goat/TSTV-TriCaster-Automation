@@ -381,7 +381,12 @@ export class Switcher extends EventEmitter {
     if (c.kind === 'cueClip') playout.select(c.item);
     else if (c.kind === 'play') playout.play();
     else if (c.kind === 'music') playout.music(c.play, this.musicPath ?? undefined);
-    else if (c.kind === 'layout') await this.layout(c.on, c.camera, 'INPUT4', 'INPUT5', async () => playout.stop());
+    else if (c.kind === 'layout') {
+      // DSK 2 shows the same input 4 full screen, so it mustn't be on over the layout, even if it was left on
+      // at the TC1 without RiGster knowing (RG, Nov 4, 2026).
+      if (c.on) await this.send('main_dsk2_value', '0');
+      await this.layout(c.on, c.camera, 'INPUT4', 'INPUT5', async () => playout.stop());
+    }
     else if (c.kind === 'dsk') {
       if (c.on) {
         playout.play();

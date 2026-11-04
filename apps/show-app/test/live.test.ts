@@ -100,6 +100,23 @@ describe('live mode’s driver', () => {
     switcher.close();
   });
 
+  it('turns DSK 2 off going into the LITES layout, even if it was left on at the TC1', async () => {
+    pretendToBeTc1();
+    const playout = new FakePlayout();
+    const switcher = new Switcher(`127.0.0.1:${sim.httpPort}`, sim.statePort, 'live', playout as unknown as Playout);
+    await switcher.connect();
+    await switcher.run([{ kind: 'dsk', on: true }]);
+    await waitFor(() => sim.switcher.snapshot().dsks.main_dsk2.onAir);
+    playout.calls.length = 0;
+    await switcher.run([{ kind: 'cueClip', item: 1 }, { kind: 'layout', on: true, camera: 2 }, { kind: 'play' }]);
+    await waitFor(() => !sim.switcher.snapshot().dsks.main_dsk2.onAir);
+    // The clip is the same input 4, in the layout's box, and it isn't stopped.
+    expect(playout.calls).toEqual(['select 1', 'play']);
+    expect(sim.switcher.snapshot().mes.v4.b).toBe('input4');
+    await switcher.run([{ kind: 'layout', on: false }]);
+    switcher.close();
+  });
+
   it('sends cameras and DSK 2 to the TC1, and the clips and music to the playout', async () => {
     pretendToBeTc1();
     const playout = new FakePlayout();
