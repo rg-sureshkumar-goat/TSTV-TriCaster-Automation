@@ -144,6 +144,16 @@ describe.skipIf(!hasNdi)('the playout, over NDI on this laptop', () => {
     expect(playout.state.remaining).toBe(left);
     playout.pause(false);
     expect(receive(500).frames).toBeGreaterThan(5);
+    // Paused again, selecting the same clip and playing it starts it over, from the beginning.
+    const before = playout.state.remaining as number;
+    playout.pause(true);
+    await new Promise((r) => setTimeout(r, 200));
+    playout.select(1);
+    playout.play();
+    expect(receive(500).frames).toBeGreaterThan(5);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(playout.state.paused).toBe(false);
+    expect(playout.state.remaining as number).toBeGreaterThan(before);
     playout.stop();
     await new Promise((r) => setTimeout(r, 200));
     expect(playout.state.paused).toBe(false);

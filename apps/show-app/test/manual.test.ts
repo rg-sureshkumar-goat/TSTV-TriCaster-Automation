@@ -165,6 +165,30 @@ describe('Open On Manual Mode', () => {
     expect(labels()).toEqual([]);
   });
 
+  it('starts the first graphic again from its beginning with ←, when it’s paused', async () => {
+    await runtime.act({ kind: 'addFiles', paths: [path.join(folder, 'usb', 'Lower Third.mp4')] });
+    await waitFor(() => ddr2().playlist.map((c) => c.name).join() === 'Lower Third');
+    await waitFor(() => runtime.state().automation.upNext[0]?.ddrItem !== null);
+    await runtime.act({ kind: 'fireNext' });
+    await waitFor(() => clipOnAir() === 'Lower Third' && ddr2().playing);
+    // Playing, ← does nothing: there's nothing to go back to.
+    await new Promise((r) => setTimeout(r, 600));
+    await runtime.act({ kind: 'fireBack' });
+    expect(ddr2().playing).toBe(true);
+    await runtime.act({ kind: 'pauseGraphic' });
+    await waitFor(() => !ddr2().playing);
+    const place = ddr2().positionMs;
+    expect(place).toBeGreaterThan(400);
+    await runtime.act({ kind: 'fireBack' });
+    await waitFor(() => ddr2().playing);
+    expect(ddr2().positionMs).toBeLessThan(place);
+    expect(runtime.state().switcher.ddrPaused).toBe(false);
+    expect(dskOn()).toBe(true);
+    expect(runtime.state().automation.onAir?.label).toBe('Lower Third');
+    await runtime.act({ kind: 'takeOff' });
+    await runtime.act({ kind: 'clearManual' });
+  });
+
   it('leaves Manual Mode when a show profile is picked', async () => {
     await runtime.act({ kind: 'setProfile', showId: 'show1' });
     expect(runtime.state().manualSession).toBe(false);

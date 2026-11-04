@@ -816,8 +816,8 @@ function Playlist({ state, onImport, onEdit, onMissing }: { state: AppState; onI
             <button
               className="fire"
               onClick={() => act({ kind: 'fireBack' })}
-              disabled={!previous}
-              title={previous ? `Puts ${previous.label} (${previous.sectionLabel}) up again` : 'Nothing to go back to'}
+              disabled={!previous && !state.switcher.ddrPaused}
+              title={previous ? `Puts ${previous.label} (${previous.sectionLabel}) up again` : state.switcher.ddrPaused ? 'Starts this graphic again from its beginning' : 'Nothing to go back to'}
             >
               <kbd>←</kbd> Back
             </button>

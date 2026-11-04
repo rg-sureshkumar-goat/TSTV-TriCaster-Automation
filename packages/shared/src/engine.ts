@@ -525,6 +525,12 @@ export class CueEngine {
     return previous ? this.fire(previous) : [];
   }
 
+  /** The clip on air starts again from its beginning, still on DSK 2 (RG, Nov 4, 2026). */
+  restartOnAir(): SwitcherCommand[] {
+    const onAir = this.element(this.state.onAir);
+    return onAir && onAir.ddrItem !== null ? [{ kind: 'cueClip', item: onAir.ddrItem }, { kind: 'play' }] : [];
+  }
+
   /** The producer takes the graphic on DSK 2 off (the down arrow in manual mode). */
   takeOff(): SwitcherCommand[] {
     if (!this.state.onAir) return [];
