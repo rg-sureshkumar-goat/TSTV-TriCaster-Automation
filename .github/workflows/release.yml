@@ -33,6 +33,13 @@ jobs:
         shell: bash
         run: test "v$(node -p "require('./apps/show-app/package.json').version")" = "${GITHUB_REF_NAME}"
       - run: npm run package -w apps/show-app -- --arch=${{ matrix.arch }}
+        env:
+          # Set in the repository's secrets. Without them, the Macs' installers come out unsigned.
+          CSC_LINK: ${{ startsWith(matrix.os, 'macos') && secrets.MAC_CERTIFICATE || '' }}
+          CSC_KEY_PASSWORD: ${{ startsWith(matrix.os, 'macos') && secrets.MAC_CERTIFICATE_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       - uses: actions/upload-artifact@v4
         with:
           name: rigster-${{ matrix.name }}

@@ -101,6 +101,10 @@ writeFileSync(
 );
 
 // 3. The installer.
+// CSC_LINK (GitHub) or CSC_NAME (this computer) is the certificate; the APPLE_ ones are for Apple's approval.
+const signed = process.platform === 'darwin' && Boolean(process.env.CSC_LINK || process.env.CSC_NAME);
+const approved = Boolean(process.env.APPLE_ID && process.env.APPLE_APP_SPECIFIC_PASSWORD && process.env.APPLE_TEAM_ID);
+const macEntitlements = path.join(root, 'assets/entitlements.mac.plist');
 // Publishing is done by .github/workflows/release.yml, once the Mac and Windows installers are all made.
 await makeInstaller({
   publish: 'never',
@@ -114,12 +118,19 @@ await makeInstaller({
     directories: { app, output: path.join(release, 'out'), buildResources: path.join(root, 'assets') },
     icon: path.join(root, 'assets/icon.png'),
     artifactName: 'RiGster-${version}-${os}-${arch}.${ext}',
-    // Free, so not signed with a paid certificate (RG, Oct 30, 2026): the Mac app is signed only by this
-    // computer, so macOS asks once before it opens; Windows says "Windows protected your PC" until you
-    // click More info, then Run anyway.
-    // Until RiGster has a paid signature, macOS's stricter "hardened runtime" stays off.
+    // Macs: signed with TSTV's Developer ID and approved by Apple when the build has them (RG, Nov 7, 2026), so
+    // it opens with no warning. Without them, it's signed only by this computer, and macOS asks once.
+    // Windows says "Windows protected your PC" until you click More info, then Run anyway.
     // The Mac's installer shows assets/license_en.txt by itself; Windows' is named below.
-    mac: { target: [{ target: onlyTheApp ? 'dir' : 'dmg', arch: [arch] }], category: 'public.app-category.video', identity: '-', hardenedRuntime: false },
+    mac: {
+      target: [{ target: onlyTheApp ? 'dir' : 'dmg', arch: [arch] }],
+      category: 'public.app-category.video',
+      ...(signed
+        ? { hardenedRuntime: true, entitlements: macEntitlements, entitlementsInherit: macEntitlements, notarize: approved }
+        : { identity: '-', hardenedRuntime: false }),
+      // macOS asks before an app uses the local network, which is how RiGster reaches the TC1.
+      extendInfo: { NSLocalNetworkUsageDescription: 'RiGster runs the TriCaster and exchanges video with it over the TC1’s cable.', NSBonjourServices: ['_ndi._tcp'] },
+    },
     dmg: { title: 'RiGster ${version}' },
     win: { target: [{ target: onlyTheApp ? 'dir' : 'nsis', arch: [arch] }] },
     nsis: { artifactName: 'RiGster-Setup-${version}.${ext}', license: path.join(root, 'assets/license_en.txt'), oneClick: false, allowToChangeInstallationDirectory: true, perMachine: false, shortcutName: 'RiGster' },
