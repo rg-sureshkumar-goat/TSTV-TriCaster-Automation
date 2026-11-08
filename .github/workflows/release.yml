@@ -65,6 +65,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # The Apple-chip Mac's latest-mac.yml tells Macs the new version's number (they download by hand).
+          # Copies under names that never change, for the website's RiGster tab: …/releases/latest/download/<name>.
+          mkdir fixed
+          cp out/rigster-mac-apple-chip/*.dmg fixed/RiGster-Mac-Apple-chip.dmg
+          cp out/rigster-mac-intel/*.dmg fixed/RiGster-Mac-Intel.dmg
+          cp out/rigster-windows/*.exe fixed/RiGster-Windows-Setup.exe
           gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --title "RiGster ${GITHUB_REF_NAME#v}" \
-            --notes "Download RiGster: Mac with an Apple chip (M1 or newer): RiGster-${GITHUB_REF_NAME#v}-mac-arm64.dmg. Intel Mac: RiGster-${GITHUB_REF_NAME#v}-mac-x64.dmg. Windows: RiGster-Setup-${GITHUB_REF_NAME#v}.exe." \
-            out/rigster-mac-apple-chip/* out/rigster-mac-intel/*.dmg out/rigster-windows/*
+            --notes "Download RiGster: Mac with an Apple chip (M1 or newer): RiGster-Mac-Apple-chip.dmg. Intel Mac: RiGster-Mac-Intel.dmg. Windows: RiGster-Windows-Setup.exe. The other files are the same downloads under this version's name, and the files RiGster checks for updates." \
+            out/rigster-mac-apple-chip/* out/rigster-mac-intel/*.dmg out/rigster-windows/* fixed/*

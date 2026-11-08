@@ -12,6 +12,7 @@ import { UsagePage } from './pages/Usage.tsx';
 import { PrivacyPage } from './pages/Privacy.tsx';
 import { WelcomePage } from './pages/Welcome.tsx';
 import { PrompterPage } from './pages/Prompter.tsx';
+import { RiGsterPage } from './pages/RiGster.tsx';
 import { applyStoredTheme, useTheme } from './lib/theme.ts';
 import './styles.css';
 
@@ -53,6 +54,7 @@ function App() {
   // A section's script opens in a window over its episode's rundown.
   else if ((m = path.match(/^\/episodes\/([\w-]+)(?:\/sections\/([\w-]+))?$/))) page = <EpisodePage episodeId={m[1]} sectionId={m[2]} user={user} />;
   else if (path === '/search') page = <SearchPage />;
+  else if (path === '/rigster') page = <RiGsterPage />;
   else if (path === '/people' && user.isAdmin) page = <PeoplePage me={user} />;
   else if (path === '/usage' && user.isAdmin) page = <UsagePage />;
   else page = <div className="empty">That page doesn’t exist. <Link to="/">Go to Shows</Link></div>;
@@ -75,6 +77,7 @@ function App() {
           <Link to="/" className={path === '/' || path.startsWith('/shows') ? 'active' : ''}>Shows</Link>
           {user.isAdmin && <Link to="/people" className={path === '/people' ? 'active' : ''}>People</Link>}
           <Link to="/search" className={path === '/search' ? 'active' : ''}>Search</Link>
+          <Link to="/rigster" className={path === '/rigster' ? 'active' : ''}>RiGster</Link>
         </nav>
         <div className="me">
           <span title={user.email}>

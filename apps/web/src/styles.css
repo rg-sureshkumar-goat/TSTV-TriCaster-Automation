@@ -1570,6 +1570,47 @@ tr.dragging td {
   line-height: 1.55;
 }
 
+/* RiGster's download page (Nov 8, 2026) */
+
+.rigster {
+  max-width: 760px;
+  line-height: 1.55;
+}
+
+.rigster-downloads {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.rigster-downloads a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  text-decoration: none;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.rigster-downloads a span {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.rigster-downloads a[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rigster .small {
+  font-size: 13px;
+}
+
 /* Shows: logos, the list or cards switch, and admin actions (Oct 29, 2026) */
 
 .page-head {

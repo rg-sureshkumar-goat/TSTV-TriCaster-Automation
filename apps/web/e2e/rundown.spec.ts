@@ -319,6 +319,23 @@ test('only signed-in people get in, and only the admin manages people', async ({
   await expect(rg.getByRole('cell', { name: 'Sam Writer', exact: true })).toBeVisible();
 });
 
+test('admins and contributors both get RiGster’s three downloads from its tab', async ({ browser }) => {
+  const latest = 'https://github.com/rg-sureshkumar-goat/TSTV-TriCaster-Automation/releases/latest/download';
+  for (const name of ['Sam Writer', 'RG (TD)']) {
+    const page = await signIn(browser, name);
+    // GitHub's answer, made up here, so the test doesn't depend on a real release.
+    await page.route('https://api.github.com/**', (route) =>
+      route.fulfill({ json: { tag_name: 'v1.2.0', published_at: '2026-11-08T12:00:00Z' } }),
+    );
+    await page.getByRole('link', { name: 'RiGster', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'RiGster' })).toBeVisible();
+    await expect(page.locator('.rigster-version')).toContainText('Version 1.2.0');
+    await expect(page.getByRole('link', { name: 'Download RiGster for Mac with an Apple chip' })).toHaveAttribute('href', `${latest}/RiGster-Mac-Apple-chip.dmg`);
+    await expect(page.getByRole('link', { name: 'Download RiGster for Mac with an Intel chip' })).toHaveAttribute('href', `${latest}/RiGster-Mac-Intel.dmg`);
+    await expect(page.getByRole('link', { name: 'Download RiGster for Windows' })).toHaveAttribute('href', `${latest}/RiGster-Windows-Setup.exe`);
+  }
+});
+
 // A 2×2 red square, as a PNG, for the show logo.
 const LOGO_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGP4z8DwH4QZYAwAR8oH+WdZbrcAAAAASUVORK5CYII=', 'base64');
 

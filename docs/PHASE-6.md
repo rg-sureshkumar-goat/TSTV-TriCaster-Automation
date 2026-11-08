@@ -3,6 +3,7 @@
 Phase 6 turns RiGster into a normal Mac and Windows app that anyone can install, and adds the producer guide, the pre-show checklist and the TD fallback sheet. Decisions (RG, Oct 30, 2026):
 
 - **Staying free:** RiGster isn't signed with a paid certificate, so Mac and Windows each ask once before opening it (steps below).
+- **Where people get it (RG, Nov 8, 2026):** the website's **RiGster** tab, for admins and contributors, with a button for each of the three versions. It always gives the newest release.
 - **Updates:** Windows updates itself. The Mac shows a **Get RiGster …** button that opens the download page.
 
 ## Part 1: installers and updates (built)
