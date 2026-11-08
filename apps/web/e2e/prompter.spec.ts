@@ -200,6 +200,8 @@ test('a cue at the top of a reader’s part sits on the line with their name, bu
 });
 
 test('speeds and settings match Rundown Creator’s', async ({ browser }) => {
+  // Long: it types a script and times the scroll. GitHub's Macs run Safari's engine slowly, so it gets 3 minutes.
+  test.setTimeout(180_000);
   const rg = await signIn(browser, 'RG (TD)');
   await rg.getByPlaceholder('Show name').fill('Settings Show');
   await rg.getByRole('button', { name: 'Add show' }).click();

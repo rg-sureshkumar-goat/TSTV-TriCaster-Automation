@@ -21,6 +21,9 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm ci
+      # Electron fetches its program on first use; fetch it here so a failed download shows its own error.
+      - name: Download Electron
+        run: node node_modules/electron/install.js
       - run: npm run typecheck
       - run: npm test
       - name: Build the website

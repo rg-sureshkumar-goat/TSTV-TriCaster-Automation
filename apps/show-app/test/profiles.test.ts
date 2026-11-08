@@ -148,7 +148,9 @@ describe('show profiles shared through Google Drive', () => {
     await new Store(path.join(folder, 'laptop-b')).saveMusicTrack('show2', { path: unplugged, seconds: 30, thumbnail: null });
     await b.act({ kind: 'setProfile', showId: 'show2' });
     await waitFor(() => b.state().profileSync.waiting === 1 && idle(b));
-    expect(b.state().profileSync.waitingOn).toEqual([path.join(folder, 'USB DRIVE')]);
+    // On Windows a missing file is named by its drive letter; on a Mac, outside /Volumes, by its folder.
+    const place = process.platform === 'win32' ? `drive ${folder[0].toUpperCase()}:` : path.join(folder, 'USB DRIVE');
+    expect(b.state().profileSync.waitingOn).toEqual([place]);
     expect(profiles.show2.music).toBeUndefined();
     // Plugged in: it goes up.
     await (await import('node:fs/promises')).mkdir(path.dirname(unplugged), { recursive: true });
