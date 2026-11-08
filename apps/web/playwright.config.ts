@@ -13,8 +13,11 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
-    // The prompter computer is a Mac running Safari, so the prompter is also tested in Safari's engine.
-    { name: 'safari', testMatch: /prompter\.spec\.ts/, use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } },
+    // The prompter computer is a Mac running Safari, so on a Mac the prompter is also tested in Safari's engine.
+    // Not on Windows: Safari doesn't run there, and Windows' copy of its engine draws frames too slowly to scroll.
+    ...(process.platform === 'win32'
+      ? []
+      : [{ name: 'safari', testMatch: /prompter\.spec\.ts/, use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } }]),
   ],
   webServer: {
     command: 'node e2e/start-server.mjs',
