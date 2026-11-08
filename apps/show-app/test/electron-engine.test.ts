@@ -6,7 +6,7 @@ import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
@@ -44,5 +44,6 @@ console.log(JSON.stringify({ bytes: [...bytes.subarray(0, 4)], interleaved: [...
 });
 
 function fileURLToDir(url: string): string {
-  return path.dirname(new URL(url).pathname.replace(/%20/g, ' '));
+  // fileURLToPath, not .pathname: on Windows .pathname is “/D:/…”, a folder that doesn't exist.
+  return path.dirname(fileURLToPath(url));
 }

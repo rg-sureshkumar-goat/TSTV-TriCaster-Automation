@@ -1,9 +1,16 @@
 // In a real browser: the prompter scrolls an episode's scripts, fires cues at the reading line, and keeps
 // the line being read in place while someone edits the script.
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+
+// Each test closes the windows it opened, so earlier prompters don't keep scrolling and slow later tests down.
+const opened: BrowserContext[] = [];
+test.afterEach(async () => {
+  await Promise.all(opened.splice(0).map((c) => c.close()));
+});
 
 async function signIn(browser: Browser, name: string): Promise<Page> {
   const context = await browser.newContext();
+  opened.push(context);
   const page = await context.newPage();
   await page.goto('/');
   await page.getByRole('button', { name }).click();
@@ -200,8 +207,6 @@ test('a cue at the top of a reader’s part sits on the line with their name, bu
 });
 
 test('speeds and settings match Rundown Creator’s', async ({ browser }) => {
-  // Long: it types a script and times the scroll. GitHub's Macs run Safari's engine slowly, so it gets 3 minutes.
-  test.setTimeout(180_000);
   const rg = await signIn(browser, 'RG (TD)');
   await rg.getByPlaceholder('Show name').fill('Settings Show');
   await rg.getByRole('button', { name: 'Add show' }).click();

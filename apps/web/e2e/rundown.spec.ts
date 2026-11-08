@@ -1,9 +1,16 @@
 // In real browsers: two people build one rundown and write its scripts at the same time.
-import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+
+// Each test closes the windows it opened, so earlier prompters don't keep scrolling and slow later tests down.
+const opened: BrowserContext[] = [];
+test.afterEach(async () => {
+  await Promise.all(opened.splice(0).map((c) => c.close()));
+});
 
 async function signIn(browser: Browser, name: string): Promise<Page> {
   const context = await browser.newContext();
+  opened.push(context);
   const page = await context.newPage();
   await page.goto('/');
   await page.getByRole('button', { name }).click();
@@ -318,6 +325,7 @@ const LOGO_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEU
 test('admins manage people, shows, episodes and commercial breaks', async ({ browser }) => {
   // A brand-new person types their first and last name before anything else, and sees they're a contributor.
   const caseyContext = await browser.newContext();
+  opened.push(caseyContext);
   const casey = await caseyContext.newPage();
   await casey.goto('/');
   await casey.getByRole('button', { name: 'casey.new123' }).click();

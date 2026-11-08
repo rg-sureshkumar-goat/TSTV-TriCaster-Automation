@@ -1,9 +1,16 @@
 // In a real browser: a show's rundown template (RG, Nov 2, 2026). New rundowns start as a copy of it,
 // with its sections, graphics, scripts and columns; changing it afterward leaves them as they were.
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+
+// Each test closes the windows it opened, so earlier prompters don't keep scrolling and slow later tests down.
+const opened: BrowserContext[] = [];
+test.afterEach(async () => {
+  await Promise.all(opened.splice(0).map((c) => c.close()));
+});
 
 async function signIn(browser: Browser, name: string): Promise<Page> {
   const context = await browser.newContext();
+  opened.push(context);
   const page = await context.newPage();
   await page.goto('/');
   await page.getByRole('button', { name }).click();
