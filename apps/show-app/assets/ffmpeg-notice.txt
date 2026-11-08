@@ -5,4 +5,4 @@ You can get its complete source code, and how it was built, from:
 - The Mac builds: https://ffmpeg.martin-riedl.de/
 - The Windows build: https://github.com/BtbN/FFmpeg-Builds
 
-Texas Student Television will also send you the source code on request. This offer is valid for three years from the date you got RiGster. Ask through the page you downloaded RiGster from.
+Texas Student Television will also send you the source code on request. This offer is valid for three years from the date you got RiGster. Email ks.ramganesh2005@gmail.com to ask.
