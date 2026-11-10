@@ -3,8 +3,10 @@
 // exported another way: as an .mp4 or ProRes 422, at another size or frame rate, as a still picture, or
 // with a solid background instead of see-through parts. RiGster makes a copy in the right format, in its
 // own folder, and plays that; the original on the drive isn't touched. A solid background is taken to be
-// black, and its black parts become see-through (RG's choice), so black inside a graphic does too.
-import { execFile } from 'node:child_process';
+// black: the black around the graphic, joined to the picture's edges, becomes see-through, and black inside
+// the graphic (text, a box with color around it) stays, as TSTV's graphics use black (RG, Nov 10, 2026).
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
+import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import { mkdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -19,10 +21,68 @@ export const CHECKED_GRAPHIC_TYPES = new Set(['L3', 'OTSL', 'OTSR']);
 /** How long a still picture's clip is. A graphic stays up after its clip ends, holding its last picture. */
 export const STILL_SECONDS = 5;
 
+const WIDTH = 1920;
+const HEIGHT = 1080;
+/** As dark as this (0 to 255) counts as background black; up to EDGE, a background's soft edge. */
+const BLACK = 24;
+const EDGE = 80;
+
+/**
+ * Makes the black around a graphic see-through, in one RGBA picture: every near-black or see-through pixel
+ * joined to the picture's edges, found by spreading in from them. The ring of pixels just inside, the
+ * graphic's soft edge against the black, becomes partly see-through, so no dark outline is left. Black
+ * with the graphic all around it isn't reached, and stays.
+ */
+export function clearOutsideBlack(rgba: Buffer, width = WIDTH, height = HEIGHT): void {
+  const count = width * height;
+  const luma = (i: number) => (rgba[i * 4] * 54 + rgba[i * 4 + 1] * 183 + rgba[i * 4 + 2] * 19) >> 8;
+  const background = (i: number) => rgba[i * 4 + 3] < 16 || luma(i) <= BLACK;
+  const seen = new Uint8Array(count);
+  const queue = new Int32Array(count);
+  let head = 0;
+  let tail = 0;
+  const visit = (i: number) => {
+    if (seen[i] || !background(i)) return;
+    seen[i] = 1;
+    queue[tail++] = i;
+  };
+  for (let x = 0; x < width; x++) {
+    visit(x);
+    visit((height - 1) * width + x);
+  }
+  for (let y = 0; y < height; y++) {
+    visit(y * width);
+    visit(y * width + width - 1);
+  }
+  while (head < tail) {
+    const i = queue[head++];
+    rgba[i * 4 + 3] = 0;
+    const x = i % width;
+    if (x > 0) visit(i - 1);
+    if (x < width - 1) visit(i + 1);
+    if (i >= width) visit(i - width);
+    if (i < count - width) visit(i + width);
+  }
+  // The soft edge: a dark pixel next to the cleared black is partly see-through, its color brightened back.
+  for (let i = 0; i < count; i++) {
+    if (seen[i]) continue;
+    const x = i % width;
+    const touches = (x > 0 && seen[i - 1]) || (x < width - 1 && seen[i + 1]) || (i >= width && seen[i - width]) || (i < count - width && seen[i + width]);
+    const l = luma(i);
+    if (!touches || l >= EDGE) continue;
+    const a = (l - BLACK) / (EDGE - BLACK);
+    rgba[i * 4 + 3] = Math.round(rgba[i * 4 + 3] * a);
+    for (let c = 0; c < 3; c++) rgba[i * 4 + c] = Math.min(255, Math.round(rgba[i * 4 + c] / a));
+  }
+}
+
+/** Copies made before this version are made again (2: only the black around the graphic is cleared). */
+const COPY_VERSION = 2;
+
 export interface FormatProblem {
   /** What's wrong, for the producer: “it’s an .mp4, not a QuickTime .mov”. */
   text: string;
-  /** It has no see-through parts: black is made see-through. */
+  /** It has no see-through parts: the black around the graphic is made see-through. */
   solid?: boolean;
 }
 
@@ -77,7 +137,7 @@ export async function checkGraphic(file: string): Promise<FormatProblem[]> {
     solid = true;
     for (const t of times) if ((await leastAlpha(file, t)) < 250) solid = false;
   }
-  if (solid) problems.push({ text: 'it has no see-through parts (its black is made see-through)', solid: true });
+  if (solid) problems.push({ text: 'it has no see-through parts (the black around the graphic is made see-through)', solid: true });
   return problems;
 }
 
@@ -88,15 +148,16 @@ export async function checkGraphic(file: string): Promise<FormatProblem[]> {
 export async function convertGraphic(file: string, folder: string, problems: FormatProblem[]): Promise<string> {
   if (!ffmpegPath) throw new Error('FFmpeg is missing.');
   const info = await stat(file);
-  const name = createHash('sha1').update(`${file}|${info.size}|${info.mtimeMs}`).digest('hex').slice(0, 20);
+  const name = createHash('sha1').update(`${file}|${info.size}|${info.mtimeMs}|${COPY_VERSION}`).digest('hex').slice(0, 20);
   const out = path.join(folder, name, `${path.basename(file, path.extname(file))}.mov`);
   if (await stat(out).catch(() => null)) return out;
   await mkdir(path.dirname(out), { recursive: true });
   const still = problems.some((p) => p.text.startsWith('it’s a still'));
   const key = problems.some((p) => p.solid);
+  // Without a solid background, one FFmpeg does it all. With one, RiGster clears the black around the
+  // graphic itself, frame by frame, between an FFmpeg reading the file and one writing the copy.
   const picture = [
     'format=rgba',
-    ...(key ? ['colorkey=0x000000:0.1:0.08'] : []),
     'scale=1920:1080:force_original_aspect_ratio=decrease',
     'pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black@0',
     'fps=30000/1001',
@@ -106,14 +167,56 @@ export async function convertGraphic(file: string, folder: string, problems: For
   const sound = still ? [] : ['-map', '0:a:0?', '-c:a', 'pcm_s16le', '-ar', '48000'];
   // Written under another name first, so a half-made copy is never played.
   const partial = `${out}.part`;
+  const prores = ['-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le', '-vendor', 'apl0'];
   try {
-    await run(ffmpegPath, ['-v', 'error', '-y', ...input, '-map', '0:v:0', '-vf', picture, '-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le', '-vendor', 'apl0', ...sound, '-f', 'mov', partial], {
-      timeout: 10 * 60_000,
-    });
+    if (key) {
+      const reading = ['-v', 'error', ...input, '-map', '0:v:0', '-vf', picture.replace(/,format=yuva444p10le$/, ',format=rgba'), '-f', 'rawvideo', 'pipe:1'];
+      const fromFile = still ? [] : ['-i', file, '-map', '0:v', '-map', '1:a:0?', '-c:a', 'pcm_s16le', '-ar', '48000'];
+      const writing = ['-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${WIDTH}x${HEIGHT}`, '-framerate', '30000/1001', '-i', 'pipe:0', ...fromFile, ...(still ? ['-map', '0:v'] : []), ...prores, '-f', 'mov', partial];
+      await clearAndWrite(reading, writing);
+    } else {
+      await run(ffmpegPath, ['-v', 'error', '-y', ...input, '-map', '0:v:0', '-vf', picture, ...prores, ...sound, '-f', 'mov', partial], { timeout: 10 * 60_000 });
+    }
     await rename(partial, out);
     return out;
   } catch (e) {
     await rm(partial, { force: true });
     throw e;
+  }
+}
+
+/** Pipes each picture from one FFmpeg to the other, with the black around the graphic cleared. */
+async function clearAndWrite(reading: string[], writing: string[]): Promise<void> {
+  const reader = spawn(ffmpegPath!, reading, { stdio: ['ignore', 'pipe', 'ignore'] });
+  const writer = spawn(ffmpegPath!, writing, { stdio: ['pipe', 'ignore', 'ignore'] });
+  const finished = (p: ChildProcess) =>
+    new Promise<void>((resolve, reject) => {
+      p.on('error', reject);
+      p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`FFmpeg stopped (${code})`))));
+    });
+  const read = finished(reader);
+  const written = finished(writer);
+  // Ten minutes at most, as for any other copy.
+  const timer = setTimeout(() => (reader.kill('SIGKILL'), writer.kill('SIGKILL')), 10 * 60_000);
+  try {
+    const size = WIDTH * HEIGHT * 4;
+    let pending: Buffer = Buffer.alloc(0);
+    for await (const chunk of reader.stdout!) {
+      pending = pending.length ? Buffer.concat([pending, chunk as Buffer]) : (chunk as Buffer);
+      while (pending.length >= size) {
+        const frame = Buffer.from(pending.subarray(0, size));
+        pending = pending.subarray(size);
+        clearOutsideBlack(frame);
+        if (!writer.stdin!.write(frame)) await once(writer.stdin!, 'drain');
+      }
+    }
+    writer.stdin!.end();
+    await Promise.all([read, written]);
+  } catch (e) {
+    reader.kill('SIGKILL');
+    writer.kill('SIGKILL');
+    throw e;
+  } finally {
+    clearTimeout(timer);
   }
 }

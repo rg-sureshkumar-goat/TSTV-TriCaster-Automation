@@ -18,8 +18,8 @@ const ffmpeg = ffmpegStatic as unknown as string;
 let folder: string;
 const usb = (name: string) => path.join(folder, 'usb', name);
 
-/** A white bar, as a lower third, over black (no see-through parts) or over see-through. */
-const bar = 'drawbox=x=100:y=500:w=600:h=120:color=white:t=fill';
+/** A white bar with a black box in it (like black text), as a lower third, over black or over see-through. */
+const bar = 'drawbox=x=100:y=500:w=600:h=120:color=white:t=fill,drawbox=x=300:y=530:w=100:h=60:color=black:t=fill';
 const make = (args: string[]) => run(ffmpeg, ['-v', 'error', '-y', ...args]);
 
 /** How see-through one spot of a clip is, a second in: 0 clear to 255 solid. */
@@ -54,11 +54,11 @@ describe('the format check for L3, OTSL and OTSR graphics', () => {
       'it’s H264, not ProRes 4444',
       'it’s 1280×720, not 1920×1080',
       'it’s 59.94 frames a second, not 29.97',
-      'it has no see-through parts (its black is made see-through)',
+      'it has no see-through parts (the black around the graphic is made see-through)',
     ]);
     expect((await checkGraphic(usb('A2_OTSL_Map.png'))).map((p) => p.text)).toEqual(['it’s a still picture, not a clip']);
     // An alpha channel that's solid everywhere counts as no see-through parts.
-    expect((await checkGraphic(usb('A3_OTSR_Solid.mov'))).map((p) => p.text)).toEqual(['it has no see-through parts (its black is made see-through)']);
+    expect((await checkGraphic(usb('A3_OTSR_Solid.mov'))).map((p) => p.text)).toEqual(['it has no see-through parts (the black around the graphic is made see-through)']);
     expect(await checkGraphic(usb('A4_L3_Good.mov'))).toEqual([]);
   }, 60_000);
 
@@ -67,9 +67,11 @@ describe('the format check for L3, OTSL and OTSR graphics', () => {
     const copy = await convertGraphic(usb('A1_L3_Score.mp4'), path.join(folder, 'converted'), problems);
     expect(path.basename(copy)).toBe('A1_L3_Score.mov');
     expect(await checkGraphic(copy)).toEqual([]);
-    // The bar (made 1.5 times bigger, to 1080p) stays solid; the black around it is see-through.
+    // The bar (made 1.5 times bigger, to 1080p) stays solid; only the black around it is see-through.
     expect(await alphaAt(copy, 200, 780)).toBe(255);
     expect(await alphaAt(copy, 200, 200)).toBe(0);
+    // The black box inside the bar isn't joined to the black around it, so it stays solid (RG, Nov 10, 2026).
+    expect(await alphaAt(copy, 525, 840)).toBe(255);
     // A still becomes a 5-second clip.
     const still = await convertGraphic(usb('A2_OTSL_Map.png'), path.join(folder, 'converted'), await checkGraphic(usb('A2_OTSL_Map.png')));
     const { stderr } = await run(ffmpeg, ['-hide_banner', '-i', still]).catch((e: { stderr: string }) => e);
@@ -111,7 +113,7 @@ describe('importing graphics into RiGster', () => {
     expect(byId[ids.L31].fixes).toContain('it’s H264, not ProRes 4444');
     expect(byId[ids.OTSL2].file).toBe('A2_OTSL_Map.mov');
     expect(byId[ids.OTSL2].seconds).toBeCloseTo(5, 0);
-    expect(byId[ids.OTSR3].fixes).toEqual(['it has no see-through parts (its black is made see-through)']);
+    expect(byId[ids.OTSR3].fixes).toEqual(['it has no see-through parts (the black around the graphic is made see-through)']);
     // The right one is left as it is.
     expect(byId[ids.L34].file).toBe('A4_L3_Good.mov');
     expect(byId[ids.L34].fixes).toBeNull();
@@ -124,4 +126,28 @@ describe('importing graphics into RiGster', () => {
     expect(elements().find((e) => e.id === ids.L31)?.file).toBe('A1_L3_Score.mov');
     expect(elements().find((e) => e.id === ids.L31)?.fixes).not.toBeNull();
   }, 120_000);
+});
+
+describe('clearing the black around a graphic', () => {
+  it('clears black joined to the edges, keeps black inside, and softens the edge between', async () => {
+    const { clearOutsideBlack } = await import('../src/main/graphic-format.ts');
+    // 7×5: black all around a white box with a black middle, and one dark gray pixel at the box's edge.
+    const w = 7, h = 5;
+    const px = Buffer.alloc(w * h * 4);
+    for (let i = 0; i < w * h; i++) px[i * 4 + 3] = 255;
+    const set = (x: number, y: number, v: number) => px.fill(v, (y * w + x) * 4, (y * w + x) * 4 + 3);
+    for (let y = 1; y <= 3; y++) for (let x = 1; x <= 5; x++) set(x, y, 255);
+    set(3, 2, 0);
+    set(1, 1, 52);
+    clearOutsideBlack(px, w, h);
+    const alpha = (x: number, y: number) => px[(y * w + x) * 4 + 3];
+    expect(alpha(0, 0)).toBe(0);
+    expect(alpha(6, 4)).toBe(0);
+    expect(alpha(2, 2)).toBe(255);
+    // The black middle, with white all around it, stays solid.
+    expect(alpha(3, 2)).toBe(255);
+    // The dark gray edge pixel is half see-through, and brightened back.
+    expect(alpha(1, 1)).toBe(128);
+    expect(px[(1 * w + 1) * 4]).toBe(104);
+  });
 });
