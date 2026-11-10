@@ -8,7 +8,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import * as Y from 'yjs';
 import ffmpegStatic from 'ffmpeg-static';
-import { addElement, DEFAULT_SHOW_SETTINGS, insertBlock, insertSection, type ShowSettings } from '@tstv/shared';
+import { addElement, DEFAULT_SHOW_SETTINGS, insertBlock, insertSection, readBroadcast, setBroadcast, type ShowSettings } from '@tstv/shared';
 import { checkGraphic, convertGraphic } from '../src/main/graphic-format.ts';
 import { Runtime } from '../src/main/runtime.ts';
 import { Store } from '../src/main/store.ts';
@@ -82,13 +82,14 @@ describe('the format check for L3, OTSL and OTSR graphics', () => {
 
 describe('importing graphics into RiGster', () => {
   let runtime: Runtime;
+  let doc: Y.Doc;
   const ids: Record<string, string> = {};
 
   beforeAll(async () => {
     const alex = { id: 'u1', name: 'Alex Producer' };
-    const doc = new Y.Doc();
+    doc = new Y.Doc();
     insertBlock(doc, alex);
-    for (const [n, slug, type] of [['1', 'Score', 'L3'], ['2', 'Map', 'OTSL'], ['3', 'Solid', 'OTSR'], ['4', 'Good', 'L3']] as const) {
+    for (const [n, slug, type] of [['1', 'Score', 'L3'], ['2', 'Map', 'OTSL'], ['3', 'Solid', 'OTSR'], ['4', 'Good', 'L3'], ['5', 'Late', 'L3']] as const) {
       ids[`a${n}`] = insertSection(doc, alex, { slug, type: 'Reader' });
       ids[type + n] = addElement(doc, ids[`a${n}`], type, alex, slug)!;
     }
@@ -103,7 +104,7 @@ describe('importing graphics into RiGster', () => {
   });
 
   it('converts the ones in the wrong format, and plays its copies', async () => {
-    await runtime.act({ kind: 'addFiles', paths: [path.join(folder, 'usb')] });
+    await runtime.act({ kind: 'addFiles', paths: ['A1_L3_Score.mp4', 'A2_OTSL_Map.png', 'A3_OTSR_Solid.mov', 'A4_L3_Good.mov'].map(usb) });
     const elements = () => runtime.state().sections.flatMap((s) => s.elements);
     const end = Date.now() + 90_000;
     while (elements().filter((e) => e.fixes).length < 3 || elements().some((e) => e.converting)) {
@@ -124,9 +125,37 @@ describe('importing graphics into RiGster', () => {
     expect(runtime.state().log.some((l) => l.text.startsWith('A1_L3_Score.mp4 converted to 1080p ProRes 4444'))).toBe(true);
     // Importing the drive again keeps the copies on their cues, without converting again.
     // Straight away, not once a check in the background gets to it.
-    await runtime.act({ kind: 'addFiles', paths: [path.join(folder, 'usb')] });
+    await runtime.act({ kind: 'addFiles', paths: ['A1_L3_Score.mp4', 'A2_OTSL_Map.png', 'A3_OTSR_Solid.mov', 'A4_L3_Good.mov'].map(usb) });
     expect(elements().find((e) => e.id === ids.L31)?.file).toBe('A1_L3_Score.mov');
     expect(elements().find((e) => e.id === ids.L31)?.fixes).not.toBeNull();
+  }, 120_000);
+
+  it('doesn’t convert during the live broadcast, and converts as soon as it ends (RG, Nov 10, 2026)', async () => {
+    await make(['-f', 'lavfi', '-i', `color=c=black:s=1280x720:d=1:r=30000/1001,${bar}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', usb('A5_L3_Late.mp4')]);
+    const late = () => runtime.state().sections.flatMap((s) => s.elements).find((e) => e.id === ids.L35)!;
+    setBroadcast(doc, true, { id: 'u1', name: 'Alex Producer' });
+    runtime.website.emit('broadcast', readBroadcast(doc));
+    await runtime.act({ kind: 'addFiles', paths: [usb('A5_L3_Late.mp4')] });
+    const until = async (check: () => boolean) => {
+      const end = Date.now() + 60_000;
+      while (!check()) {
+        if (Date.now() > end) throw new Error('timed out waiting');
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    };
+    // Checked during the show and found wrong, but it plays as it is until the show ends.
+    await until(() => !!late().fixesAfterTheShow);
+    expect(late().fixesAfterTheShow).toContain('it’s H264, not ProRes 4444');
+    await new Promise((r) => setTimeout(r, 1000));
+    expect(late().file).toBe('A5_L3_Late.mp4');
+    expect(late().converting).toBe(false);
+    expect(late().fixes).toBeNull();
+    // The show ends: it's converted.
+    setBroadcast(doc, false, { id: 'u1', name: 'Alex Producer' });
+    runtime.website.emit('broadcast', readBroadcast(doc));
+    await until(() => late().file === 'A5_L3_Late.mov');
+    expect(late().fixes).toContain('it’s H264, not ProRes 4444');
+    expect(late().fixesAfterTheShow).toBeNull();
   }, 120_000);
 });
 

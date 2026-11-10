@@ -162,15 +162,25 @@ export async function checkGraphic(file: string): Promise<FormatProblem[]> {
   return problems;
 }
 
+/** Where a graphic's copy in the right format is, if it was made before (same file, size and time); else null. */
+export async function existingCopy(file: string, folder: string): Promise<string | null> {
+  const out = await copyPath(file, folder);
+  return (await stat(out).catch(() => null)) ? out : null;
+}
+
+async function copyPath(file: string, folder: string): Promise<string> {
+  const info = await stat(file);
+  const name = createHash('sha1').update(`${file}|${info.size}|${info.mtimeMs}|${COPY_VERSION}`).digest('hex').slice(0, 20);
+  return path.join(folder, name, `${path.basename(file, path.extname(file))}.mov`);
+}
+
 /**
  * Makes the graphic's copy in the right format, in folder, and returns where it is. A copy made before
  * from the same file (same place, size and time) is used again. It keeps the file's name, as a .mov.
  */
 export async function convertGraphic(file: string, folder: string, problems: FormatProblem[]): Promise<string> {
   if (!ffmpegPath) throw new Error('FFmpeg is missing.');
-  const info = await stat(file);
-  const name = createHash('sha1').update(`${file}|${info.size}|${info.mtimeMs}|${COPY_VERSION}`).digest('hex').slice(0, 20);
-  const out = path.join(folder, name, `${path.basename(file, path.extname(file))}.mov`);
+  const out = await copyPath(file, folder);
   if (await stat(out).catch(() => null)) return out;
   await mkdir(path.dirname(out), { recursive: true });
   const still = problems.some((p) => p.text.startsWith('it’s a still'));

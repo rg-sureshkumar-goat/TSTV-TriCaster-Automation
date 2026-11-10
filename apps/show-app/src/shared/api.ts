@@ -24,6 +24,8 @@ export interface ElementView {
   converting: boolean;
   /** What was wrong with its file's format, when RiGster made a copy in the right one; null otherwise. */
   fixes: string[] | null;
+  /** What's wrong with its file's format, found during the live broadcast: it's converted when the show ends. */
+  fixesAfterTheShow: string[] | null;
   /** Where its file sits in DDR 2, counting from 0; null when DDR 2 doesn't have it. */
   ddrItem: number | null;
   skipped: boolean;

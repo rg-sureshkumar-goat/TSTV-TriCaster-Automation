@@ -34,7 +34,7 @@ import {
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
 import { collectFiles, makePlayable, readable, readFile, thumbnail, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
-import { CHECKED_GRAPHIC_TYPES, checkGraphic, convertInBackground, stopConversions } from './graphic-format.ts';
+import { CHECKED_GRAPHIC_TYPES, checkGraphic, convertInBackground, existingCopy, stopConversions } from './graphic-format.ts';
 import { stopBackground } from './ffmpeg.ts';
 import type { ShowSettings } from '@tstv/shared';
 import { cableAddresses, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
@@ -135,6 +135,11 @@ export class Runtime extends EventEmitter {
   private unreachable = new Map<string, 'missing' | 'blocked'>();
   /** L3, OTSL and OTSR files already checked this time RiGster is open: in the right format, or not convertible. */
   private formatChecked = new Set<string>();
+  /**
+   * Graphics found in the wrong format while the broadcast was live, and what's wrong with each: RiGster
+   * doesn't convert during a show (RG, Nov 10, 2026), so they're converted as soon as it ends.
+   */
+  private afterTheShow = new Map<string, string[]>();
   /** The element whose graphic is being converted right now. */
   private converting: string | null = null;
   private fixing = false;
@@ -196,8 +201,13 @@ export class Runtime extends EventEmitter {
       }
       this.clock = { startedAt: broadcast.startedAt ?? Date.now(), sectionLabel: null, overUnderSeconds: null };
       this.note('Live: automation is following the prompter');
+      // No conversions during the show: the one under way stops, and is done again once it ends.
+      if (this.converting) this.note(`Converting ${this.view(this.converting)?.file ?? 'a graphic'} stopped for the show; it’s converted when the show ends`);
+      stopConversions();
     } else {
       this.note('Live broadcast ended: automation stopped');
+      // The graphics found in the wrong format during the show are converted now.
+      void this.fixGraphics();
     }
     this.reportStatus();
     this.changed();
@@ -468,9 +478,12 @@ export class Runtime extends EventEmitter {
       if (this.closed) return false;
       const type = this.element(id)?.type;
       if (!type || !CHECKED_GRAPHIC_TYPES.has(type) || info.original || this.formatChecked.has(info.path)) continue;
+      // Already found wrong during the show: it waits for the show to end.
+      if (this.afterTheShow.has(info.path) && this.isLive()) continue;
       if ((await readable(info.path)) !== 'yes') continue;
       const name = path.basename(info.path);
-      this.converting = id;
+      // During the show it's only checked, not converted.
+      this.converting = this.isLive() ? null : id;
       this.changed();
       try {
         const converted = await this.convertGraphic(info.path);
@@ -481,8 +494,12 @@ export class Runtime extends EventEmitter {
           fixed = true;
         }
       } catch {
-        this.formatChecked.add(info.path);
-        this.note(`${name} is in the wrong format and couldn’t be converted; it plays as it is`);
+        // Stopped as the live broadcast started, or as RiGster closed: it's converted later.
+        if (!this.isLive() && !this.closed) {
+          this.formatChecked.add(info.path);
+          this.afterTheShow.delete(info.path);
+          this.note(`${name} is in the wrong format and couldn’t be converted; it plays as it is`);
+        }
       } finally {
         this.converting = null;
       }
@@ -496,16 +513,38 @@ export class Runtime extends EventEmitter {
     return fixed;
   }
 
-  /** A graphic's copy in the right format, read and ready to go on its cue; null when it's right already. */
+  /**
+   * A graphic's copy in the right format, read and ready to go on its cue; null when it's right already, or
+   * when it's wrong but the broadcast is live: checking is quick, but converting waits until the show ends
+   * (RG, Nov 10, 2026), unless its copy was already made before.
+   */
   private async convertGraphic(file: string): Promise<FileInfo | null> {
-    try {
-      const problems = await checkGraphic(file);
-      if (!problems.length) return null;
-      const copy = await convertInBackground(file, this.deps.store.convertedFolder(), problems);
-      return { ...(await readFile(copy)), original: file, fixes: problems.map((p) => p.text) };
-    } finally {
+    const problems = await checkGraphic(file).catch((e: unknown) => {
       this.formatChecked.add(file);
+      throw e;
+    });
+    if (!problems.length) {
+      this.formatChecked.add(file);
+      this.afterTheShow.delete(file);
+      return null;
     }
+    const fixes = problems.map((p) => p.text);
+    const folder = this.deps.store.convertedFolder();
+    let copy = await existingCopy(file, folder);
+    if (!copy && this.isLive()) {
+      this.afterTheShow.set(file, fixes);
+      return null;
+    }
+    // Marked as waiting while it converts, so it's picked up again if the show starts first.
+    this.afterTheShow.set(file, fixes);
+    copy ??= await convertInBackground(file, folder, problems);
+    this.formatChecked.add(file);
+    this.afterTheShow.delete(file);
+    return { ...(await readFile(copy)), original: file, fixes };
+  }
+
+  private isLive(): boolean {
+    return this.website.broadcast().live;
   }
 
   /** Where the files that aren't on this laptop are: the drives' names (like “RG'S DRIVE”), or their folders. */
@@ -1101,6 +1140,7 @@ export class Runtime extends EventEmitter {
       fileFound: !file || !this.unreachable.has(file.path),
       converting: this.converting === e.id,
       fixes: file?.fixes ?? null,
+      fixesAfterTheShow: (file && this.afterTheShow.get(file.path)) ?? null,
       ddrItem: e.ddrItem,
       skipped: this.engine?.state.skipped.includes(e.id) ?? false,
     };
