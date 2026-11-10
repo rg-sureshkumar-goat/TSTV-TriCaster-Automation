@@ -296,6 +296,12 @@ test('only signed-in people get in, and only the admin manages people', async ({
   expect((await request.get('/parties/episode-room/anything', { headers: { Upgrade: 'websocket' } })).status()).toBe(401);
   // Changes sent from another website are refused even with a cookie.
   expect((await request.post('/api/shows', { headers: { Origin: 'https://evil.example' }, data: { name: 'x' } })).status()).toBe(403);
+  // RiGster gets the list of shows without a RiGster key (RG, Nov 9, 2026), but not the way into their files in Google Drive.
+  const shows = await request.get('/api/app/profiles');
+  expect(shows.status()).toBe(200);
+  expect(Array.isArray((await shows.json()).profiles)).toBe(true);
+  expect((await request.get('/api/app/drive-token')).status()).toBe(401);
+  expect((await request.post('/api/app/profiles/anything/uploads', { data: {} })).status()).toBe(401);
 
   // Sam isn't an admin: no People page, and the admin API says no.
   const sam = await signIn(browser, 'Sam Writer');

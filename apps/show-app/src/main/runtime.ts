@@ -831,7 +831,6 @@ export class Runtime extends EventEmitter {
 
   /** Gets the profiles from the website again, and brings this laptop's copy of the picked one up to date. */
   private async refreshProfiles(): Promise<void> {
-    if (!this.settings.key) return;
     try {
       this.profileList = await this.profiles.list();
       if (this.manualSession) await this.findGreenScreens();
@@ -881,6 +880,14 @@ export class Runtime extends EventEmitter {
    */
   private async syncProfile(): Promise<void> {
     if (this.manualSession) return;
+    // Without a RiGster key the shows are listed, but their files stay where they are until one is pasted.
+    if (!this.settings.key) {
+      if (this.profileList?.profiles.some((p) => p.id === this.settings.profileShowId)) {
+        this.profileStatus = { ...this.profileStatus, error: 'Paste a RiGster key to get this show’s files from Google Drive.' };
+        this.changed();
+      }
+      return;
+    }
     if (this.syncingProfile) {
       this.syncProfileAgain = true;
       return;

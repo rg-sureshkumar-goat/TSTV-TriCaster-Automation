@@ -132,10 +132,13 @@ export function registerProfileRoutes(app: App): void {
     return c.json({ ok: true });
   });
 
-  // ---- RiGster, with a RiGster key ----
+  // ---- RiGster: the list of shows for anyone, the rest with a RiGster key ----
 
   app.use('/app/*', async (c, next) => {
     if (c.req.path === '/api/app/episode') return next();
+    // The list of shows needs no key (RG, Nov 9, 2026), so a new RiGster shows them straight away. Their files
+    // stay private: getting into the Google Drive, and sending or removing files, still needs a key.
+    if (c.req.method === 'GET' && c.req.path === '/api/app/profiles') return next();
     if (!(await validKey(c.env, c.req.header('Authorization')))) return c.json({ error: 'That RiGster key doesn’t match an episode. Copy it again from the episode’s page on the website.' }, 401);
     await next();
   });

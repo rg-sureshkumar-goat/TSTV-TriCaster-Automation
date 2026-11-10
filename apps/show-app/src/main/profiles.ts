@@ -51,14 +51,14 @@ export class ProfileSync {
     private driveApi = 'https://www.googleapis.com/drive/v3',
   ) {}
 
-  private async website<T>(route: string, init: RequestInit = {}): Promise<T> {
+  private async website<T>(route: string, init: RequestInit = {}, needsKey = true): Promise<T> {
     const { siteUrl, key } = this.site();
-    if (!key) throw new ProfileError('Paste a RiGster key first: show profiles come from the website.');
+    if (!key && needsKey) throw new ProfileError('Paste a RiGster key to get this show’s files.');
     let response: Response;
     try {
       response = await fetch(`${siteUrl.replace(/\/+$/, '')}/api${route}`, {
         ...init,
-        headers: { Authorization: `Bearer ${key}`, ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(init.headers ?? {}) },
+        headers: { ...(key ? { Authorization: `Bearer ${key}` } : {}), ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(init.headers ?? {}) },
         signal: AbortSignal.timeout(20_000),
       });
     } catch {
@@ -69,8 +69,9 @@ export class ProfileSync {
     return data;
   }
 
+  /** The shows, which the website gives without a RiGster key (RG, Nov 9, 2026). */
   list(): Promise<ProfileList> {
-    return this.website<ProfileList>('/app/profiles');
+    return this.website<ProfileList>('/app/profiles', {}, false);
   }
 
   /** An hour's access to RiGster's files in the Drive, from the website. */

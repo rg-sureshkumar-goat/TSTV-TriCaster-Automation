@@ -19,6 +19,8 @@ const drive = new Map<string, { name: string; bytes: Buffer }>();
 const profiles: Record<string, Record<string, { driveFileId: string; fileName: string; size: number; md5: null; current: boolean }>> = { show1: {}, show2: {} };
 /** Which show the RiGster key's episode belongs to. */
 let keyShow = 'show1';
+/** How many times RiGster asked for the shows without a key. */
+let asksWithoutKey = 0;
 
 const show = (id: string, name: string) => ({ id, name, settings: { ...DEFAULT_SHOW_SETTINGS } });
 
@@ -36,7 +38,10 @@ beforeAll(async () => {
     req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => {
       const body = Buffer.concat(chunks);
-      if (req.headers.authorization !== `Bearer ${KEY}` && url.pathname.startsWith('/api/')) return json(401, { error: 'Bad key' });
+      // As on the real website, the list of shows needs no key.
+      const open = req.method === 'GET' && url.pathname === '/api/app/profiles';
+      if (req.headers.authorization !== `Bearer ${KEY}` && url.pathname.startsWith('/api/') && !open) return json(401, { error: 'Bad key' });
+      if (url.pathname === '/api/app/profiles' && !req.headers.authorization) asksWithoutKey++;
       if (url.pathname === '/api/app/episode') {
         return json(200, { episode: { id: 'ep1', title: 'Episode', airDate: '', airTime: '' }, show: show(keyShow, keyShow === 'show1' ? 'PrimeTime' : 'Sports') });
       }
@@ -93,16 +98,39 @@ const waitFor = async (check: () => boolean, ms = 10_000) => {
   }
 };
 
-/** A laptop with RiGster, its own memory, and the RiGster key pasted. */
-async function laptop(name: string): Promise<Runtime> {
+/** A laptop with RiGster, its own memory, and the RiGster key pasted (or none). */
+async function laptop(name: string, key = KEY): Promise<Runtime> {
   const store = new Store(path.join(folder, name));
-  await store.saveSettings({ ...(await store.settings()), siteUrl: site, key: KEY, simulatorAddress: '127.0.0.1:1' });
+  await store.saveSettings({ ...(await store.settings()), siteUrl: site, key, simulatorAddress: '127.0.0.1:1' });
   const runtime = new Runtime({ store, pickFiles: async () => [], pickFile: async () => null, driveApi: `${site}/drive/v3` });
   await runtime.start();
   return runtime;
 }
 
 const idle = (r: Runtime) => r.state().profileSync.checked && !r.state().profileSync.working;
+
+describe('a newly installed RiGster, with no RiGster key yet (RG, Nov 9, 2026)', () => {
+  it('lists every show, and gets a show’s files only once a key is pasted', async () => {
+    profiles.show1['greenScreen'] = { driveFileId: 'drive-early', fileName: 'Early.png', size: 5, md5: null, current: true };
+    drive.set('drive-early', { name: 'Early.png', bytes: Buffer.from('early') });
+    const fresh = await laptop('laptop-fresh', '');
+    await waitFor(() => fresh.state().profiles.length === 2);
+    expect(asksWithoutKey).toBeGreaterThan(0);
+    expect(fresh.state().profiles.map((p) => p.name)).toEqual(['PrimeTime', 'Sports']);
+    // Picking a show: its files wait for a key.
+    await fresh.act({ kind: 'setProfile', showId: 'show1' });
+    await waitFor(() => fresh.state().profileSync.error !== null);
+    expect(fresh.state().profileSync.error).toContain('Paste a RiGster key');
+    expect(fresh.state().greenScreen).toBeNull();
+    // With the key, they come down.
+    await fresh.act({ kind: 'connect', siteUrl: site, key: KEY });
+    await waitFor(() => fresh.state().greenScreen !== null);
+    expect(fresh.state().greenScreen?.file).toMatch(/Early\.png$/);
+    fresh.close();
+    delete profiles.show1['greenScreen'];
+    drive.delete('drive-early');
+  });
+});
 
 describe('show profiles shared through Google Drive', () => {
   let a: Runtime;

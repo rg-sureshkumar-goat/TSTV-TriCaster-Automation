@@ -139,7 +139,7 @@ function ProfileMenu({ state }: { state: AppState }) {
   const options = state.profiles.length ? state.profiles : state.profile ? [state.profile] : [];
   if (!options.length && !state.manualSession) {
     return (
-      <span className="profile-menu muted small" title="Show profiles come from the website: paste a RiGster key first">
+      <span className="profile-menu muted small" title="Show profiles come from the website: check the internet connection">
         No show profile yet
       </span>
     );
@@ -223,14 +223,8 @@ function ProfilePicker({ state }: { state: AppState }) {
         <strong>Open On Manual Mode</strong>
         <span className="small muted">Run the TC1 by hand: cameras, graphics and recording, with no rundown, prompter or RiGster key.</span>
       </button>
-      {!state.profiles.length && state.website.key && (
+      {!state.profiles.length && (
         <p className="muted">{state.profileSync.error ? `${state.profileSync.error}${shows.length ? ' Showing the show used last.' : ''}` : 'Getting the shows from the website…'}</p>
-      )}
-      {!state.website.key && (
-        <div className="picker-key">
-          <p>The shows come from the website. To see them, paste a RiGster key from any episode.</p>
-          <KeyPanel state={state} onDone={() => undefined} />
-        </div>
       )}
     </main>
   );
