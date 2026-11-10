@@ -65,6 +65,11 @@ export class Store {
     return path.join(this.folder, 'profiles');
   }
 
+  /** Where RiGster's copies of graphics in the wrong format are kept (see graphic-format.ts). */
+  convertedFolder(): string {
+    return path.join(this.folder, 'converted');
+  }
+
   /** Where the copies the Program box plays are kept (see makePlayable). */
   playableFolder(): string {
     return path.join(this.folder, 'playable');

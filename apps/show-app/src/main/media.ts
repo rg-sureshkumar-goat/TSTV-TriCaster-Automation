@@ -29,6 +29,12 @@ export interface FileInfo {
   driveFileId?: string;
   /** The copy the Program box plays, kept on this laptop (see makePlayable), once it's made. */
   playable?: string;
+  /**
+   * An L3, OTSL or OTSR graphic in the wrong format (RG, Nov 10, 2026): path is RiGster's copy in the right
+   * one (see graphic-format.ts), original the file it was made from, and fixes what was wrong with it.
+   */
+  original?: string;
+  fixes?: string[];
 }
 
 /** Every graphics or clip file in these paths, looking inside folders (one level down, like a USB drive's). */

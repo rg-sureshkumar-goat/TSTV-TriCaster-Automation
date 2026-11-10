@@ -20,6 +20,10 @@ export interface ElementView {
   playable: string | null;
   /** False when the app can't read its file right now (its drive is unplugged or blocked) and it has no copy yet. */
   fileFound: boolean;
+  /** An L3, OTSL or OTSR graphic being put in the right format right now (RG, Nov 10, 2026). */
+  converting: boolean;
+  /** What was wrong with its file's format, when RiGster made a copy in the right one; null otherwise. */
+  fixes: string[] | null;
   /** Where its file sits in DDR 2, counting from 0; null when DDR 2 doesn't have it. */
   ddrItem: number | null;
   skipped: boolean;

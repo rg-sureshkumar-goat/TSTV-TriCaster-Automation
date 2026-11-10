@@ -1626,3 +1626,9 @@ button.danger {
   width: 100%;
   margin: 4px 0;
 }
+
+/* An L3, OTSL or OTSR graphic RiGster put in the right format (RG, Nov 10, 2026). */
+.converted {
+  color: #d97706;
+  cursor: help;
+}

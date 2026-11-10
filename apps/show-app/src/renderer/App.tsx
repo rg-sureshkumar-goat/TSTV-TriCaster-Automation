@@ -1497,6 +1497,13 @@ function GraphicsWindow({ state, onClose, onImport }: { state: AppState; onClose
                         <>
                           <span className="ready">✓</span> {e.file} <span className="muted">{e.seconds ? duration(e.seconds) : ''}</span>
                           {e.ddrItem === null && <span className="missing"> not in DDR 2</span>}
+                          {/* L3, OTSL and OTSR graphics in the wrong format get a copy in the right one (RG, Nov 10, 2026). */}
+                          {e.converting && <span className="small muted converting"> · Converting to 1080p ProRes 4444…</span>}
+                          {e.fixes && (
+                            <span className="small converted" title={`RiGster plays its own copy in the right format (1080p, 29.97, ProRes 4444 with alpha). The original: ${e.fixes.join('; ')}.`}>
+                              {' '}· Converted to 1080p ProRes 4444
+                            </span>
+                          )}
                         </>
                       ) : (
                         <span className="missing">Missing</span>

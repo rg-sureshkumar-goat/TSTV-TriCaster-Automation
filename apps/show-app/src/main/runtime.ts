@@ -34,6 +34,7 @@ import {
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
 import { collectFiles, makePlayable, readable, readFile, thumbnail, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
+import { CHECKED_GRAPHIC_TYPES, checkGraphic, convertGraphic } from './graphic-format.ts';
 import type { ShowSettings } from '@tstv/shared';
 import { cableAddresses, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
 import { Feeds } from './feeds.ts';
@@ -131,6 +132,10 @@ export class Runtime extends EventEmitter {
    * plugged in) or blocked (macOS isn't letting the app read the drive).
    */
   private unreachable = new Map<string, 'missing' | 'blocked'>();
+  /** L3, OTSL and OTSR files already checked this time RiGster is open: in the right format, or not convertible. */
+  private formatChecked = new Set<string>();
+  /** The element whose graphic is being converted right now. */
+  private converting: string | null = null;
   /** Files FFmpeg couldn't make a playable copy of, so they aren't tried again and again. */
   private unplayable = new Set<string>();
   private makingPlayable = false;
@@ -400,7 +405,8 @@ export class Runtime extends EventEmitter {
     try {
       do {
         this.playableAgain = false;
-        let made = false;
+        // Graphics in the wrong format are converted first, so the Program box's copy is made from the right one.
+        let made = await this.fixGraphics();
         for (const info of [...Object.values(this.files), ...Object.values(this.permanent), ...(this.musicTrack ? [this.musicTrack] : []), ...(this.greenScreen ? [this.greenScreen] : []), ...Object.values(this.transitions)]) {
           if ((info.playable && (await exists(info.playable))) || this.unplayable.has(info.path)) continue;
           const found = await readable(info.path);
@@ -424,6 +430,47 @@ export class Runtime extends EventEmitter {
     } finally {
       this.makingPlayable = false;
     }
+  }
+
+  /**
+   * Checks each L3, OTSL and OTSR graphic's format, and plays a copy in the right one when it's wrong (RG,
+   * Nov 10, 2026: 1080p, 29.97, ProRes 4444 with alpha, QuickTime). One at a time, in the background.
+   */
+  private async fixGraphics(): Promise<boolean> {
+    let fixed = false;
+    for (const [id, info] of Object.entries(this.files)) {
+      const type = this.element(id)?.type;
+      if (!type || !CHECKED_GRAPHIC_TYPES.has(type) || info.original || this.formatChecked.has(info.path)) continue;
+      if ((await readable(info.path)) !== 'yes') continue;
+      const name = path.basename(info.path);
+      this.converting = id;
+      this.changed();
+      try {
+        const problems = await checkGraphic(info.path);
+        if (problems.length) {
+          const copy = await convertGraphic(info.path, this.deps.store.convertedFolder(), problems);
+          // Unless it was replaced or taken off its cue while it was being converted.
+          if (this.files[id] === info) {
+            this.files[id] = { ...(await readFile(copy)), original: info.path, fixes: problems.map((p) => p.text) };
+            this.note(`${name} converted to 1080p ProRes 4444: ${problems.map((p) => p.text).join('; ')}`);
+            fixed = true;
+          }
+        }
+        this.formatChecked.add(info.path);
+      } catch {
+        this.formatChecked.add(info.path);
+        this.note(`${name} is in the wrong format and couldn’t be converted; it plays as it is`);
+      } finally {
+        this.converting = null;
+      }
+      this.changed();
+    }
+    if (fixed) {
+      await this.writeFiles();
+      this.rebuild();
+      this.sendMedia();
+    }
+    return fixed;
   }
 
   /** Where the files that aren't on this laptop are: the drives' names (like “RG'S DRIVE”), or their folders. */
@@ -460,10 +507,16 @@ export class Runtime extends EventEmitter {
     const all = await collectFiles(paths);
     // Files already on a cue (imported again from the same drive, say) are read again and keep their cues.
     const onCues = new Map<string, () => Promise<void>>();
-    for (const [id, info] of Object.entries(this.files)) onCues.set(info.path, async () => void (this.files[id] = await readFile(info.path)));
+    for (const [id, info] of Object.entries(this.files)) {
+      onCues.set(info.path, async () => void (this.files[id] = await readFile(info.path)));
+      // A converted graphic's original, imported again: read again, and checked again (it may have been re-exported).
+      const original = info.original;
+      if (original) onCues.set(original, async () => void (this.files[id] = await readFile(original)));
+    }
     for (const [name, info] of Object.entries(this.permanent)) onCues.set(info.path, async () => void (this.permanent[name] = await readFile(info.path)));
     for (const file of all.filter((f) => onCues.has(f))) {
       await onCues.get(file)!();
+      this.formatChecked.delete(file);
       this.unreachable.delete(file);
       this.unplayable.delete(file);
     }
@@ -1010,6 +1063,8 @@ export class Runtime extends EventEmitter {
       thumbnail: file?.thumbnail ?? null,
       playable: file?.playable ? pathToFileURL(file.playable).href : null,
       fileFound: !file || !this.unreachable.has(file.path),
+      converting: this.converting === e.id,
+      fixes: file?.fixes ?? null,
       ddrItem: e.ddrItem,
       skipped: this.engine?.state.skipped.includes(e.id) ?? false,
     };
