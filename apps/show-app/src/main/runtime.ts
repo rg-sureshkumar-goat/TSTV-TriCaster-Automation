@@ -34,7 +34,7 @@ import {
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
 import { collectFiles, makePlayable, readable, readFile, thumbnail, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
-import { CHECKED_GRAPHIC_TYPES, checkGraphic, convertGraphic } from './graphic-format.ts';
+import { CHECKED_GRAPHIC_TYPES, checkGraphic, convertInBackground } from './graphic-format.ts';
 import type { ShowSettings } from '@tstv/shared';
 import { cableAddresses, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
 import { Feeds } from './feeds.ts';
@@ -500,7 +500,7 @@ export class Runtime extends EventEmitter {
     try {
       const problems = await checkGraphic(file);
       if (!problems.length) return null;
-      const copy = await convertGraphic(file, this.deps.store.convertedFolder(), problems);
+      const copy = await convertInBackground(file, this.deps.store.convertedFolder(), problems);
       return { ...(await readFile(copy)), original: file, fixes: problems.map((p) => p.text) };
     } finally {
       this.formatChecked.add(file);
@@ -1757,9 +1757,6 @@ export class Runtime extends EventEmitter {
   /** Resolves once a recording under way is finished and safely in its file. */
   async close(): Promise<void> {
     this.closed = true;
-    // The copy or conversion under way finishes first (a few seconds at most), so nothing is half-written.
-    const end = Date.now() + 5000;
-    while ((this.makingPlayable || this.fixing) && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
     this.liveSearch++;
     if (this.retryTimer) clearInterval(this.retryTimer);
     if (this.cableTimer) clearInterval(this.cableTimer);
@@ -1768,6 +1765,9 @@ export class Runtime extends EventEmitter {
     this.switcher.close();
     void this.playout?.close();
     await this.feeds?.close();
+    // Then the copy or conversion under way finishes (a few seconds at most), so nothing is half-written.
+    const end = Date.now() + 5000;
+    while ((this.makingPlayable || this.fixing) && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
   }
 }
 

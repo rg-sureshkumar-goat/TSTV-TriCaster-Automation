@@ -1,6 +1,7 @@
 // Where FFmpeg is. Run from the source, it's the one ffmpeg-static downloaded; in the installed app
 // (Phase 6) it's the copy packed with the app, in its bin folder.
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,3 +18,15 @@ function find(): string | null {
 }
 
 export const ffmpegPath = find();
+
+/**
+ * FFmpeg making a copy in the background (a graphic converted, or the Program box's copy) runs at low
+ * priority, so it never takes the CPU from the playout and the cues during a show (Nov 10, 2026).
+ */
+export function lowPriority(child: { pid?: number }): void {
+  try {
+    if (child.pid) os.setPriority(child.pid, os.constants.priority.PRIORITY_LOW);
+  } catch {
+    // Not allowed here: it runs at the usual priority.
+  }
+}

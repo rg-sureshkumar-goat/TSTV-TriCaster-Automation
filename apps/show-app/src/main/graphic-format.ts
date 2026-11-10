@@ -11,7 +11,8 @@ import { createHash } from 'node:crypto';
 import { mkdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { ffmpegPath } from './ffmpeg.ts';
+import { ffmpegPath, lowPriority } from './ffmpeg.ts';
+import { startWorker } from './workers.ts';
 
 const run = promisify(execFile);
 
@@ -78,6 +79,16 @@ export function clearOutsideBlack(rgba: Buffer, width = WIDTH, height = HEIGHT):
 
 /** Copies made before this version are made again (2: only the black around the graphic is cleared). */
 const COPY_VERSION = 2;
+
+/** Converts a graphic in a background worker (see convert-worker.ts), and says where its copy is. */
+export function convertInBackground(file: string, folder: string, problems: FormatProblem[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const worker = startWorker('convert-worker', { file, folder, problems });
+    worker.once('message', (m: { path?: string; error?: string }) => (m.path ? resolve(m.path) : reject(new Error(m.error))));
+    worker.once('error', reject);
+    worker.once('exit', (code) => reject(new Error(`The conversion stopped (${code}).`)));
+  });
+}
 
 export interface FormatProblem {
   /** What's wrong, for the producer: “it’s an .mp4, not a QuickTime .mov”. */
@@ -175,7 +186,9 @@ export async function convertGraphic(file: string, folder: string, problems: For
       const writing = ['-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${WIDTH}x${HEIGHT}`, '-framerate', '30000/1001', '-i', 'pipe:0', ...fromFile, ...(still ? ['-map', '0:v'] : []), ...prores, '-f', 'mov', partial];
       await clearAndWrite(reading, writing);
     } else {
-      await run(ffmpegPath, ['-v', 'error', '-y', ...input, '-map', '0:v:0', '-vf', picture, ...prores, ...sound, '-f', 'mov', partial], { timeout: 10 * 60_000 });
+      const making = run(ffmpegPath, ['-v', 'error', '-y', ...input, '-map', '0:v:0', '-vf', picture, ...prores, ...sound, '-f', 'mov', partial], { timeout: 10 * 60_000 });
+      lowPriority(making.child);
+      await making;
     }
     await rename(partial, out);
     return out;
@@ -189,6 +202,8 @@ export async function convertGraphic(file: string, folder: string, problems: For
 async function clearAndWrite(reading: string[], writing: string[]): Promise<void> {
   const reader = spawn(ffmpegPath!, reading, { stdio: ['ignore', 'pipe', 'ignore'] });
   const writer = spawn(ffmpegPath!, writing, { stdio: ['pipe', 'ignore', 'ignore'] });
+  lowPriority(reader);
+  lowPriority(writer);
   const finished = (p: ChildProcess) =>
     new Promise<void>((resolve, reject) => {
       p.on('error', reject);

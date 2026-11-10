@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, open, readdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { ffmpegPath } from './ffmpeg.ts';
+import { ffmpegPath, lowPriority } from './ffmpeg.ts';
 
 const run = promisify(execFile);
 
@@ -139,7 +139,9 @@ export async function makePlayable(file: string, folder: string): Promise<string
     ? ['-vf', `scale=640:-2${alpha ? ',format=yuva420p' : ''}`, '-c:v', 'libvpx-vp9', '-b:v', '800k', '-deadline', 'realtime', '-cpu-used', '8', '-row-mt', '1', ...(alpha ? ['-auto-alt-ref', '0'] : []), '-c:a', 'libopus', '-b:a', '96k', '-ac', '2', '-f', 'webm']
     : ['-frames:v', '1', '-vf', 'scale=640:-2,format=rgba', '-c:v', 'png', '-f', 'image2'];
   try {
-    await run(ffmpegPath, ['-v', 'error', '-y', '-i', file, ...args, partial], { timeout: 10 * 60_000 });
+    const making = run(ffmpegPath, ['-v', 'error', '-y', '-i', file, ...args, partial], { timeout: 10 * 60_000 });
+    lowPriority(making.child);
+    await making;
     await rename(partial, out);
     return out;
   } catch {

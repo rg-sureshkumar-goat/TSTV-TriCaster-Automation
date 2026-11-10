@@ -41,6 +41,7 @@ await bundle({
     main: path.join(root, 'src/main/main.ts'),
     'playout-worker': path.join(root, 'src/main/playout-worker.ts'),
     'feeds-worker': path.join(root, 'src/main/feeds-worker.ts'),
+    'convert-worker': path.join(root, 'src/main/convert-worker.ts'),
   },
   outdir: path.join(app, 'dist/main'),
   outExtension: { '.js': '.mjs' },
