@@ -136,6 +136,10 @@ export class Runtime extends EventEmitter {
   private formatChecked = new Set<string>();
   /** The element whose graphic is being converted right now. */
   private converting: string | null = null;
+  private fixing = false;
+  private fixAgain = false;
+  /** RiGster is closing: the copies and conversions in the background stop, and nothing more is saved. */
+  private closed = false;
   /** Files FFmpeg couldn't make a playable copy of, so they aren't tried again and again. */
   private unplayable = new Set<string>();
   private makingPlayable = false;
@@ -379,6 +383,7 @@ export class Runtime extends EventEmitter {
   }
 
   private async writeFiles(): Promise<void> {
+    if (this.closed) return;
     if (this.manualSession) return this.deps.store.saveManualSession({ order: this.manualOrder, files: this.files, greenScreen: this.greenScreen });
     const episode = this.website.episode;
     const profile = this.profileShow()?.id;
@@ -396,6 +401,9 @@ export class Runtime extends EventEmitter {
    * waits for it (see start).
    */
   private async makePlayables(): Promise<void> {
+    // Graphics in the wrong format are converted alongside, in a queue of their own, so a slow conversion
+    // never holds up the Program box's copies.
+    void this.fixGraphics();
     if (this.makingPlayable) {
       this.playableAgain = true;
       return;
@@ -407,6 +415,7 @@ export class Runtime extends EventEmitter {
         this.playableAgain = false;
         let made = false;
         for (const info of [...Object.values(this.files), ...Object.values(this.permanent), ...(this.musicTrack ? [this.musicTrack] : []), ...(this.greenScreen ? [this.greenScreen] : []), ...Object.values(this.transitions)]) {
+          if (this.closed) return;
           if ((info.playable && (await exists(info.playable))) || this.unplayable.has(info.path)) continue;
           const found = await readable(info.path);
           if (found !== (this.unreachable.get(info.path) ?? 'yes')) {
@@ -424,9 +433,6 @@ export class Runtime extends EventEmitter {
           }
           this.changed();
         }
-        // Then graphics in the wrong format are converted, after the Program box has its quicker copies; a
-        // converted one goes round again for its copy made from the right format.
-        if (await this.fixGraphics()) this.playableAgain = true;
         if (made) await this.writeFiles();
       } while (this.playableAgain);
     } finally {
@@ -438,9 +444,27 @@ export class Runtime extends EventEmitter {
    * Checks each L3, OTSL and OTSR graphic's format, and plays a copy in the right one when it's wrong (RG,
    * Nov 10, 2026: 1080p, 29.97, ProRes 4444 with alpha, QuickTime). One at a time, in the background.
    */
-  private async fixGraphics(): Promise<boolean> {
+  private async fixGraphics(): Promise<void> {
+    if (this.fixing) {
+      this.fixAgain = true;
+      return;
+    }
+    this.fixing = true;
+    try {
+      do {
+        this.fixAgain = false;
+        // A converted graphic gets its Program box copy made from the right format.
+        if (await this.fixGraphicsOnce()) void this.makePlayables();
+      } while (this.fixAgain);
+    } finally {
+      this.fixing = false;
+    }
+  }
+
+  private async fixGraphicsOnce(): Promise<boolean> {
     let fixed = false;
     for (const [id, info] of Object.entries(this.files)) {
+      if (this.closed) return false;
       const type = this.element(id)?.type;
       if (!type || !CHECKED_GRAPHIC_TYPES.has(type) || info.original || this.formatChecked.has(info.path)) continue;
       if ((await readable(info.path)) !== 'yes') continue;
@@ -1732,6 +1756,10 @@ export class Runtime extends EventEmitter {
 
   /** Resolves once a recording under way is finished and safely in its file. */
   async close(): Promise<void> {
+    this.closed = true;
+    // The copy or conversion under way finishes first (a few seconds at most), so nothing is half-written.
+    const end = Date.now() + 5000;
+    while ((this.makingPlayable || this.fixing) && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
     this.liveSearch++;
     if (this.retryTimer) clearInterval(this.retryTimer);
     if (this.cableTimer) clearInterval(this.cableTimer);

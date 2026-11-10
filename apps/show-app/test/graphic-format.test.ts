@@ -22,9 +22,9 @@ const usb = (name: string) => path.join(folder, 'usb', name);
 const bar = 'drawbox=x=100:y=500:w=600:h=120:color=white:t=fill,drawbox=x=300:y=530:w=100:h=60:color=black:t=fill';
 const make = (args: string[]) => run(ffmpeg, ['-v', 'error', '-y', ...args]);
 
-/** How see-through one spot of a clip is, a second in: 0 clear to 255 solid. */
+/** How see-through one spot of a clip is, half a second in: 0 clear to 255 solid. */
 async function alphaAt(file: string, x: number, y: number): Promise<number> {
-  const { stdout } = await run(ffmpeg, ['-v', 'error', '-ss', '1', '-i', file, '-frames:v', '1', '-vf', `format=rgba,alphaextract,crop=1:1:${x}:${y}`, '-f', 'rawvideo', '-pix_fmt', 'gray', 'pipe:1'], { encoding: 'buffer' });
+  const { stdout } = await run(ffmpeg, ['-v', 'error', '-ss', '0.5', '-i', file, '-frames:v', '1', '-vf', `format=rgba,alphaextract,crop=1:1:${x}:${y}`, '-f', 'rawvideo', '-pix_fmt', 'gray', 'pipe:1'], { encoding: 'buffer' });
   return (stdout as unknown as Buffer)[0];
 }
 
@@ -33,13 +33,13 @@ beforeAll(async () => {
   await mkdir(path.join(folder, 'usb'));
   await Promise.all([
     // An H.264 .mp4, 720p at 59.94, on black.
-    make(['-f', 'lavfi', '-i', `color=c=black:s=1280x720:d=2:r=60000/1001,${bar}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', usb('A1_L3_Score.mp4')]),
+    make(['-f', 'lavfi', '-i', `color=c=black:s=1280x720:d=1:r=60000/1001,${bar}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', usb('A1_L3_Score.mp4')]),
     // A still picture with see-through parts.
     make(['-f', 'lavfi', '-i', `color=c=black@0:s=1920x1080,format=rgba,${bar}`, '-frames:v', '1', usb('A2_OTSL_Map.png')]),
     // ProRes 4444 with an alpha channel that's solid everywhere.
-    make(['-f', 'lavfi', '-i', `color=c=black:s=1920x1080:d=2:r=30000/1001,format=rgba,${bar}`, '-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le', usb('A3_OTSR_Solid.mov')]),
+    make(['-f', 'lavfi', '-i', `color=c=black:s=1920x1080:d=1:r=30000/1001,format=rgba,${bar}`, '-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le', usb('A3_OTSR_Solid.mov')]),
     // Just right.
-    make(['-f', 'lavfi', '-i', `color=c=black@0:s=1920x1080:d=2:r=30000/1001,format=rgba,${bar}`, '-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le', usb('A4_L3_Good.mov')]),
+    make(['-f', 'lavfi', '-i', `color=c=black@0:s=1920x1080:d=1:r=30000/1001,format=rgba,${bar}`, '-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le', usb('A4_L3_Good.mov')]),
   ]);
 }, 60_000);
 
@@ -98,7 +98,9 @@ describe('importing graphics into RiGster', () => {
     runtime.website.emit('rundown');
   });
 
-  afterAll(() => runtime?.close());
+  afterAll(async () => {
+    await runtime?.close();
+  });
 
   it('converts the ones in the wrong format, and plays its copies', async () => {
     await runtime.act({ kind: 'addFiles', paths: [path.join(folder, 'usb')] });

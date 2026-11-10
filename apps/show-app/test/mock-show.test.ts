@@ -66,7 +66,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  runtime?.close();
+  await runtime?.close();
   await sim?.close();
   await rm(folder, { recursive: true, force: true });
 });
