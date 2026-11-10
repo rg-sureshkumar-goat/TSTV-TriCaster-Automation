@@ -45,6 +45,7 @@ jobs:
           name: rigster-${{ matrix.name }}
           path: |
             apps/show-app/release/out/*.dmg
+            apps/show-app/release/out/*.zip
             apps/show-app/release/out/*.exe
             apps/show-app/release/out/*.blockmap
             apps/show-app/release/out/latest*.yml
@@ -57,6 +58,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
+        with:
+          path: repo
       - uses: actions/download-artifact@v4
         with:
           path: out
@@ -64,7 +68,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # The Apple-chip Mac's latest-mac.yml tells Macs the new version's number (they download by hand).
+          # One latest-mac.yml for both Macs, listing each one's .zip, which RiGster downloads to update itself.
+          mkdir mac
+          node repo/apps/show-app/scripts/merge-latest-mac.mjs out/rigster-mac-apple-chip/latest-mac.yml out/rigster-mac-intel/latest-mac.yml mac/latest-mac.yml
           # Copies under names that never change, for the website's RiGster tab: …/releases/latest/download/<name>.
           mkdir fixed
           cp out/rigster-mac-apple-chip/*.dmg fixed/RiGster-Mac-Apple-chip.dmg
@@ -72,4 +78,6 @@ jobs:
           cp out/rigster-windows/*.exe fixed/RiGster-Windows-Setup.exe
           gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --title "RiGster ${GITHUB_REF_NAME#v}" \
             --notes "Download RiGster: Mac with an Apple chip (M1 or newer): RiGster-Mac-Apple-chip.dmg. Intel Mac: RiGster-Mac-Intel.dmg. Windows: RiGster-Windows-Setup.exe. The other files are the same downloads under this version's name, and the files RiGster checks for updates." \
-            out/rigster-mac-apple-chip/* out/rigster-mac-intel/*.dmg out/rigster-windows/* fixed/*
+            out/rigster-mac-apple-chip/*.dmg out/rigster-mac-apple-chip/*.zip out/rigster-mac-apple-chip/*.blockmap \
+            out/rigster-mac-intel/*.dmg out/rigster-mac-intel/*.zip out/rigster-mac-intel/*.blockmap \
+            mac/latest-mac.yml out/rigster-windows/* fixed/*

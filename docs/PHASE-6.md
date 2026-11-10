@@ -4,7 +4,7 @@ Phase 6 turns RiGster into a normal Mac and Windows app that anyone can install,
 
 - **Staying free:** RiGster isn't signed with a paid certificate, so Mac and Windows each ask once before opening it (steps below).
 - **Where people get it (RG, Nov 8, 2026):** the website's **RiGster** tab, for admins and contributors, with a button for each of the three versions. It always gives the newest release.
-- **Updates:** Windows updates itself. The Mac shows a **Get RiGster …** button that opens the download page.
+- **Updates:** Windows updates itself, and from 1.0.2 Macs do too (RG, Nov 10, 2026): RiGster downloads the new version, and **Update to …** installs it. Macs on 1.0.1 get 1.0.2 from the download page, once.
 
 ## Part 1: installers and updates (built)
 
@@ -20,8 +20,8 @@ Phase 6 turns RiGster into a normal Mac and Windows app that anyone can install,
   - Run it by hand to just build them and download them from the run's page, without publishing anything.
   - To publish a version, push a tag like `v1.0.1` (matching `apps/show-app/package.json`). The installers go up as a GitHub Release, which is where RiGster looks for updates. Publishing makes them public, so it only happens when RG says so.
 - **Updates:** RiGster checks when it opens and every four hours.
-  - **Windows:** it downloads a new version by itself. The top bar then shows **Update to 1.0.1**, which restarts RiGster into it; otherwise it installs when RiGster is closed. During a live show it just says it installs after the show.
-  - **Mac:** the top bar shows **Get RiGster 1.0.1**. It opens the download page; install it the same way as the first time.
+  - **Windows and Mac:** it downloads a new version by itself. The top bar then shows **Update to 1.0.2**, which restarts RiGster into it; otherwise it installs when RiGster is closed. During a live show it just says it installs after the show.
+  - **Macs on 1.0.1 or older** show **Get RiGster 1.0.2** once instead: it opens the download page, and from 1.0.2 on, updates install themselves.
 - **To make an installer on this Mac** (for this kind of Mac only): `npm run package -w apps/show-app`. It lands in `apps/show-app/release/out`.
 
 ## How to install RiGster

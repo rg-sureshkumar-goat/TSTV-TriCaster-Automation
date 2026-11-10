@@ -109,13 +109,14 @@ export function App() {
 // ---- Header: show and episode at the left; status lights and the episode key at the right ----
 
 /**
- * A new version of RiGster (Phase 6). Mac: a button to the download page. Windows: it downloads by itself,
- * then installs when RiGster is closed, or now with Restart to update, which isn't offered during a live show.
+ * A new version of RiGster (Phase 6). It downloads by itself, then installs when RiGster is closed, or now
+ * with Update, which isn't offered during a live show: on Windows, and on Macs too (RG, Nov 10, 2026). Only
+ * a Mac copy that can't replace itself gets a button to the download page instead.
  */
 function UpdateNote({ state }: { state: AppState }) {
   const update = state.update;
   if (!update) return null;
-  if (update.platform === 'mac') {
+  if (update.status === 'available') {
     return (
       <button className="update" onClick={() => act({ kind: 'getUpdate' })} title={`RiGster ${update.version} is out. Opens the download page: install it like the first time, and everything RiGster remembers stays.`}>
         Get RiGster {update.version}

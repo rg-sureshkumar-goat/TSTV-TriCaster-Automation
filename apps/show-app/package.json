@@ -1,7 +1,7 @@
 {
   "name": "@tstv/show-app",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "RiGster: runs the TriCaster from the rundown and the prompter (Mac and Windows)",
   "main": "main.mjs",

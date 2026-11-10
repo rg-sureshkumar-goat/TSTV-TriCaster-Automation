@@ -124,7 +124,8 @@ await makeInstaller({
     // Windows says "Windows protected your PC" until you click More info, then Run anyway.
     // The Mac's installer shows assets/license_en.txt by itself; Windows' is named below.
     mac: {
-      target: [{ target: onlyTheApp ? 'dir' : 'dmg', arch: [arch] }],
+      // The .dmg to install; the .zip is what RiGster downloads to update itself (RG, Nov 10, 2026).
+      target: onlyTheApp ? [{ target: 'dir', arch: [arch] }] : [{ target: 'dmg', arch: [arch] }, { target: 'zip', arch: [arch] }],
       category: 'public.app-category.video',
       ...(signed
         ? { hardenedRuntime: true, entitlements: macEntitlements, entitlementsInherit: macEntitlements, notarize: approved }
