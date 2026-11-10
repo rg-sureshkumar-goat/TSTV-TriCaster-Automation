@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, open, readdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { ffmpegPath, lowPriority } from './ffmpeg.ts';
+import { ffmpegPath, inBackground } from './ffmpeg.ts';
 
 const run = promisify(execFile);
 
@@ -140,7 +140,7 @@ export async function makePlayable(file: string, folder: string): Promise<string
     : ['-frames:v', '1', '-vf', 'scale=640:-2,format=rgba', '-c:v', 'png', '-f', 'image2'];
   try {
     const making = run(ffmpegPath, ['-v', 'error', '-y', '-i', file, ...args, partial], { timeout: 10 * 60_000 });
-    lowPriority(making.child);
+    inBackground(making.child);
     await making;
     await rename(partial, out);
     return out;

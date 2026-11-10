@@ -34,7 +34,8 @@ import {
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
 import { collectFiles, makePlayable, readable, readFile, thumbnail, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
-import { CHECKED_GRAPHIC_TYPES, checkGraphic, convertInBackground } from './graphic-format.ts';
+import { CHECKED_GRAPHIC_TYPES, checkGraphic, convertInBackground, stopConversions } from './graphic-format.ts';
+import { stopBackground } from './ffmpeg.ts';
 import type { ShowSettings } from '@tstv/shared';
 import { cableAddresses, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
 import { Feeds } from './feeds.ts';
@@ -1765,7 +1766,10 @@ export class Runtime extends EventEmitter {
     this.switcher.close();
     void this.playout?.close();
     await this.feeds?.close();
-    // Then the copy or conversion under way finishes (a few seconds at most), so nothing is half-written.
+    // Then the copies and conversions under way stop, leaving no file on a drive open, and RiGster waits
+    // for them to wind down (they're made again next time).
+    stopBackground();
+    stopConversions();
     const end = Date.now() + 5000;
     while ((this.makingPlayable || this.fixing) && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
   }

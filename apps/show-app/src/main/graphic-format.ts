@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { ffmpegPath, lowPriority } from './ffmpeg.ts';
+import { ffmpegPath, inBackground } from './ffmpeg.ts';
 import { startWorker } from './workers.ts';
 
 const run = promisify(execFile);
@@ -80,10 +80,20 @@ export function clearOutsideBlack(rgba: Buffer, width = WIDTH, height = HEIGHT):
 /** Copies made before this version are made again (2: only the black around the graphic is cleared). */
 const COPY_VERSION = 2;
 
+/** The workers converting graphics right now. */
+const workers = new Set<ReturnType<typeof startWorker>>();
+
+/** Stops the conversions under way, as RiGster closes: each worker stops its FFmpeg, then itself. */
+export function stopConversions(): void {
+  for (const worker of workers) worker.postMessage('stop');
+}
+
 /** Converts a graphic in a background worker (see convert-worker.ts), and says where its copy is. */
 export function convertInBackground(file: string, folder: string, problems: FormatProblem[]): Promise<string> {
   return new Promise((resolve, reject) => {
     const worker = startWorker('convert-worker', { file, folder, problems });
+    workers.add(worker);
+    worker.once('exit', () => workers.delete(worker));
     worker.once('message', (m: { path?: string; error?: string }) => (m.path ? resolve(m.path) : reject(new Error(m.error))));
     worker.once('error', reject);
     worker.once('exit', (code) => reject(new Error(`The conversion stopped (${code}).`)));
@@ -187,7 +197,7 @@ export async function convertGraphic(file: string, folder: string, problems: For
       await clearAndWrite(reading, writing);
     } else {
       const making = run(ffmpegPath, ['-v', 'error', '-y', ...input, '-map', '0:v:0', '-vf', picture, ...prores, ...sound, '-f', 'mov', partial], { timeout: 10 * 60_000 });
-      lowPriority(making.child);
+      inBackground(making.child);
       await making;
     }
     await rename(partial, out);
@@ -202,8 +212,8 @@ export async function convertGraphic(file: string, folder: string, problems: For
 async function clearAndWrite(reading: string[], writing: string[]): Promise<void> {
   const reader = spawn(ffmpegPath!, reading, { stdio: ['ignore', 'pipe', 'ignore'] });
   const writer = spawn(ffmpegPath!, writing, { stdio: ['pipe', 'ignore', 'ignore'] });
-  lowPriority(reader);
-  lowPriority(writer);
+  inBackground(reader);
+  inBackground(writer);
   const finished = (p: ChildProcess) =>
     new Promise<void>((resolve, reject) => {
       p.on('error', reject);
