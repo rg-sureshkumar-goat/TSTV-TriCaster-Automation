@@ -405,8 +405,7 @@ export class Runtime extends EventEmitter {
     try {
       do {
         this.playableAgain = false;
-        // Graphics in the wrong format are converted first, so the Program box's copy is made from the right one.
-        let made = await this.fixGraphics();
+        let made = false;
         for (const info of [...Object.values(this.files), ...Object.values(this.permanent), ...(this.musicTrack ? [this.musicTrack] : []), ...(this.greenScreen ? [this.greenScreen] : []), ...Object.values(this.transitions)]) {
           if ((info.playable && (await exists(info.playable))) || this.unplayable.has(info.path)) continue;
           const found = await readable(info.path);
@@ -425,6 +424,9 @@ export class Runtime extends EventEmitter {
           }
           this.changed();
         }
+        // Then graphics in the wrong format are converted, after the Program box has its quicker copies; a
+        // converted one goes round again for its copy made from the right format.
+        if (await this.fixGraphics()) this.playableAgain = true;
         if (made) await this.writeFiles();
       } while (this.playableAgain);
     } finally {
@@ -446,17 +448,13 @@ export class Runtime extends EventEmitter {
       this.converting = id;
       this.changed();
       try {
-        const problems = await checkGraphic(info.path);
-        if (problems.length) {
-          const copy = await convertGraphic(info.path, this.deps.store.convertedFolder(), problems);
-          // Unless it was replaced or taken off its cue while it was being converted.
-          if (this.files[id] === info) {
-            this.files[id] = { ...(await readFile(copy)), original: info.path, fixes: problems.map((p) => p.text) };
-            this.note(`${name} converted to 1080p ProRes 4444: ${problems.map((p) => p.text).join('; ')}`);
-            fixed = true;
-          }
+        const converted = await this.convertGraphic(info.path);
+        // Unless it was replaced or taken off its cue while it was being converted.
+        if (converted && this.files[id] === info) {
+          this.files[id] = converted;
+          this.note(`${name} converted to 1080p ProRes 4444: ${converted.fixes!.join('; ')}`);
+          fixed = true;
         }
-        this.formatChecked.add(info.path);
       } catch {
         this.formatChecked.add(info.path);
         this.note(`${name} is in the wrong format and couldn’t be converted; it plays as it is`);
@@ -471,6 +469,18 @@ export class Runtime extends EventEmitter {
       this.sendMedia();
     }
     return fixed;
+  }
+
+  /** A graphic's copy in the right format, read and ready to go on its cue; null when it's right already. */
+  private async convertGraphic(file: string): Promise<FileInfo | null> {
+    try {
+      const problems = await checkGraphic(file);
+      if (!problems.length) return null;
+      const copy = await convertGraphic(file, this.deps.store.convertedFolder(), problems);
+      return { ...(await readFile(copy)), original: file, fixes: problems.map((p) => p.text) };
+    } finally {
+      this.formatChecked.add(file);
+    }
   }
 
   /** Where the files that aren't on this laptop are: the drives' names (like “RG'S DRIVE”), or their folders. */
@@ -509,14 +519,15 @@ export class Runtime extends EventEmitter {
     const onCues = new Map<string, () => Promise<void>>();
     for (const [id, info] of Object.entries(this.files)) {
       onCues.set(info.path, async () => void (this.files[id] = await readFile(info.path)));
-      // A converted graphic's original, imported again: read again, and checked again (it may have been re-exported).
+      // A converted graphic's original, imported again: checked again, as it may have been re-exported. Its
+      // copy is made again only if it changed, so the cue goes straight back to the copy.
       const original = info.original;
-      if (original) onCues.set(original, async () => void (this.files[id] = await readFile(original)));
+      if (original) onCues.set(original, async () => void (this.files[id] = (await this.convertGraphic(original).catch(() => null)) ?? (await readFile(original))));
     }
     for (const [name, info] of Object.entries(this.permanent)) onCues.set(info.path, async () => void (this.permanent[name] = await readFile(info.path)));
     for (const file of all.filter((f) => onCues.has(f))) {
-      await onCues.get(file)!();
       this.formatChecked.delete(file);
+      await onCues.get(file)!();
       this.unreachable.delete(file);
       this.unplayable.delete(file);
     }

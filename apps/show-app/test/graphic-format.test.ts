@@ -121,8 +121,8 @@ describe('importing graphics into RiGster', () => {
     expect(await stat(usb('A1_L3_Score.mp4'))).toBeTruthy();
     expect(runtime.state().log.some((l) => l.text.startsWith('A1_L3_Score.mp4 converted to 1080p ProRes 4444'))).toBe(true);
     // Importing the drive again keeps the copies on their cues, without converting again.
+    // Straight away, not once a check in the background gets to it.
     await runtime.act({ kind: 'addFiles', paths: [path.join(folder, 'usb')] });
-    await new Promise((r) => setTimeout(r, 1500));
     expect(elements().find((e) => e.id === ids.L31)?.file).toBe('A1_L3_Score.mov');
     expect(elements().find((e) => e.id === ids.L31)?.fixes).not.toBeNull();
   }, 120_000);
