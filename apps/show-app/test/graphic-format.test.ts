@@ -182,3 +182,17 @@ describe('clearing the black around a graphic', () => {
     expect(px[(1 * w + 1) * 4]).toBe(104);
   });
 });
+
+describe('the playout’s clips after a conversion (RG at the studio, Nov 11, 2026)', () => {
+  it('gives the playout the converted file, though its name is the same', async () => {
+    const { playlistUpToDate } = await import('../src/main/runtime.ts');
+    const before = [{ name: 'A10_L3_STUDIO TOUR', path: '/Volumes/USB/A10_L3_STUDIO TOUR.m4v' }];
+    const after = [{ name: 'A10_L3_STUDIO TOUR', path: '/app/converted/x/A10_L3_STUDIO TOUR.mov' }];
+    // Live mode: the playout was given the original, so it's given the converted copy.
+    expect(playlistUpToDate(before, ['A10_L3_STUDIO TOUR'], ['/Volumes/USB/A10_L3_STUDIO TOUR.m4v'])).toBe(true);
+    expect(playlistUpToDate(after, ['A10_L3_STUDIO TOUR'], ['/Volumes/USB/A10_L3_STUDIO TOUR.m4v'])).toBe(false);
+    // The simulator's DDR 2 goes by name only.
+    expect(playlistUpToDate(after, ['A10_L3_STUDIO TOUR'], null)).toBe(true);
+    expect(playlistUpToDate(after, ['Something else'], null)).toBe(false);
+  });
+});

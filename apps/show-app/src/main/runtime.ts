@@ -153,6 +153,8 @@ export class Runtime extends EventEmitter {
   private retryTimer: ReturnType<typeof setInterval> | null = null;
   private cableTimer: ReturnType<typeof setInterval> | null = null;
   private syncingSimulator = false;
+  /** The files the playout was last given, in order: a converted graphic keeps its name, but not its file. */
+  private playoutFiles: string[] = [];
   /** Live mode's playout (Phase 5), which sends the graphics and music to the TC1's input 4 over NDI. */
   private playout: Playout | null = null;
   /** Live mode's view of the TC1's camera and program feeds, and the recording. */
@@ -245,6 +247,7 @@ export class Runtime extends EventEmitter {
 
   private newSwitcher(address: string, statePort?: number, mode: SwitcherMode = 'simulator', playout: Playout | null = null, localAddress?: string): Switcher {
     const switcher = new Switcher(address, statePort, mode, playout, localAddress);
+    this.playoutFiles = [];
     switcher.transitions = this.transitions;
     let playlist = '';
     switcher.on('change', () => {
@@ -1781,10 +1784,12 @@ export class Runtime extends EventEmitter {
     // so the TC1's DSK 2 doesn't hold it up (at the studio it was on from before, Oct 30, 2026).
     const busy = this.switcher.mode === 'live' ? ddrPlaying : ddrPlaying || dskOn;
     if (!clips || status !== 'connected' || busy || this.syncingSimulator) return;
-    if (clips.length === playlist.length && clips.every((c, i) => clipKey(c.name) === clipKey(playlist[i]))) return;
+    const live = this.switcher.mode === 'live';
+    if (playlistUpToDate(clips, playlist, live ? this.playoutFiles : null)) return;
     this.syncingSimulator = true;
     try {
       await this.switcher.loadPlaylist(clips);
+      if (live) this.playoutFiles = clips.map((c) => c.path ?? '');
       this.engine?.playlistReloaded();
       this.note(this.switcher.mode === 'live' ? `The playout now has the show’s ${clips.length} clips` : `The simulator’s DDR 2 now has the show’s ${clips.length} clips`);
     } catch {
@@ -1813,6 +1818,17 @@ export class Runtime extends EventEmitter {
     const end = Date.now() + 5000;
     while ((this.makingPlayable || this.fixing) && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
   }
+}
+
+/**
+ * Whether DDR 2 (or in live mode, the playout) already has these clips. By name; and in live mode by file
+ * too (playoutFiles: the files it was given), as the playout plays the files themselves, and a graphic
+ * RiGster converted keeps its name with a new file (RG at the studio, Nov 11, 2026: the TC1 kept showing
+ * the black background of the original until RiGster was opened again).
+ */
+export function playlistUpToDate(clips: { name: string; path?: string }[], names: string[], playoutFiles: string[] | null): boolean {
+  if (clips.length !== names.length || !clips.every((c, i) => clipKey(c.name) === clipKey(names[i]))) return false;
+  return !playoutFiles || clips.every((c, i) => (c.path ?? '') === playoutFiles[i]);
 }
 
 /**
