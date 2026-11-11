@@ -317,8 +317,14 @@ h3 {
 .queue li {
   user-select: none;
 }
+/*
+ * The Playlist (RG, Nov 11, 2026): the graphic on Program has a bold green outline, and the one up next the
+ * same outline dotted, so the two are easy to tell apart. Drawn just inside each box, so the list's edges
+ * never cut it off.
+ */
 .queue li.first {
-  outline: 2px solid var(--blue);
+  outline: 4px dotted var(--green);
+  outline-offset: -4px;
 }
 .queue .actions {
   margin-left: auto;
@@ -1596,7 +1602,8 @@ button.danger {
   box-shadow: inset 0 3px 0 var(--blue);
 }
 .queue li.on-air-item {
-  outline: 2px solid var(--red);
+  outline: 4px solid var(--green);
+  outline-offset: -4px;
 }
 .queue li.played,
 .queue li.passed {
