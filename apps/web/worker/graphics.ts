@@ -4,7 +4,8 @@
 // episode's RiGster key, gets the list and downloads each file onto its cue. The episode's folder is
 // deleted for good two weeks after its air date (deleteAiredGraphics, run every morning).
 import type { Hono } from 'hono';
-import { graphicsDeleteDate, isAttachable, type AttachedGraphic } from '@tstv/shared';
+import { graphicsDeleteDate, isAttachable, isFormatChecked, type AttachedGraphic } from '@tstv/shared';
+import { CONVERSION_TIMEOUT_MS, convertGraphic } from './conversions.ts';
 import { deleteForever, DriveError, fileInfo, shareByLink, startUpload } from './drive.ts';
 import { episodeFolder, openDrive } from './drive-layout.ts';
 import type { Env, User } from './env.ts';
@@ -22,7 +23,13 @@ export function mediaType(fileName: string): string {
 const NO_DRIVE = 'No Google Drive is connected yet. An admin connects one on the website’s Usage page.';
 
 function graphicJson(r: Record<string, unknown>): AttachedGraphic {
+  // A conversion that never reported back counts as failed, so the graphic doesn't say Converting forever.
+  const started = r.conversion_started as number | null;
+  const stuck = started !== null && started !== undefined && Date.now() - started > CONVERSION_TIMEOUT_MS;
   return {
+    converting: started !== null && started !== undefined && !stuck,
+    fixes: r.fixes ? (JSON.parse(String(r.fixes)) as string[]) : null,
+    convertError: stuck ? 'The converter didn’t finish. Replace the file to try again.' : ((r.convert_error as string | null) ?? null),
     elementId: String(r.element_id),
     driveFileId: String(r.drive_file_id),
     fileName: String(r.file_name),
@@ -35,7 +42,9 @@ function graphicJson(r: Record<string, unknown>): AttachedGraphic {
 
 async function attached(env: Env, episodeId: string): Promise<AttachedGraphic[]> {
   const { results } = await env.DB.prepare(
-    `SELECT g.*, u.name AS uploaded_by_name FROM episode_graphics g LEFT JOIN users u ON u.id = g.uploaded_by WHERE g.episode_id = ? ORDER BY g.uploaded_at`,
+    `SELECT g.*, u.name AS uploaded_by_name,
+       (SELECT j.created_at FROM graphic_conversions j WHERE j.episode_id = g.episode_id AND j.element_id = g.element_id AND j.drive_file_id = g.drive_file_id) AS conversion_started
+     FROM episode_graphics g LEFT JOIN users u ON u.id = g.uploaded_by WHERE g.episode_id = ? ORDER BY g.uploaded_at`,
   )
     .bind(episodeId)
     .all<Record<string, unknown>>();
@@ -99,7 +108,8 @@ export function registerGraphicsRoutes(app: App, visibleEpisode: VisibleEpisode)
     if (episode.status === 'archived') return c.json({ error: 'This episode is archived, so its graphics can’t change.' }, 403);
     const elementId = c.req.param('elementId');
     if (!validElementId(elementId)) return c.json({ error: 'That graphic isn’t in the rundown.' }, 400);
-    const body = await c.req.json<{ driveFileId?: string }>().catch(() => ({}) as Record<string, never>);
+    // The browser says the graphic's type and, for an L3, OTSL or OTSR, what's wrong with the file's format.
+    const body = await c.req.json<{ driveFileId?: string; elementType?: string; formatProblems?: string[] }>().catch(() => ({}) as Record<string, never>);
     try {
       const open = await openDrive(c.env);
       if (!open) return c.json({ error: NO_DRIVE }, 409);
@@ -114,12 +124,16 @@ export function registerGraphicsRoutes(app: App, visibleEpisode: VisibleEpisode)
       )
         .bind(episode.id, elementId, open.drive.email, file.id, file.name, file.size, file.md5, user.id, Date.now())
         .run();
+      await c.env.DB.prepare('DELETE FROM graphic_conversions WHERE episode_id = ? AND element_id = ?').bind(episode.id, elementId).run();
       if (before && before.drive_file_id !== file.id && before.email === open.drive.email) await deleteForever(open.token, before.drive_file_id).catch(() => undefined);
       // Shared by link, for Google Drive's own player in the preview window; if it doesn't work now, the
       // preview tries again.
       if (await shareByLink(open.token, file.id).then(() => true, () => false)) {
         await c.env.DB.prepare('UPDATE episode_graphics SET shared = 1 WHERE episode_id = ? AND element_id = ?').bind(episode.id, elementId).run();
       }
+      // An L3, OTSL or OTSR not in the right format is converted on GitHub's machines (RG, Nov 17, 2026).
+      const problems = Array.isArray(body.formatProblems) ? body.formatProblems : [];
+      if (isFormatChecked(String(body.elementType ?? '')) && problems.length) await convertGraphic(c.env, String(episode.id), elementId, file.id);
       return c.json({ graphics: await attached(c.env, String(episode.id)) });
     } catch (e) {
       return c.json({ error: e instanceof DriveError ? e.message : 'Google Drive didn’t answer.' }, 502);
@@ -188,6 +202,7 @@ export function registerGraphicsRoutes(app: App, visibleEpisode: VisibleEpisode)
       .bind(episode.id, elementId)
       .first<{ drive_file_id: string; email: string }>();
     await c.env.DB.prepare('DELETE FROM episode_graphics WHERE episode_id = ? AND element_id = ?').bind(episode.id, elementId).run();
+    await c.env.DB.prepare('DELETE FROM graphic_conversions WHERE episode_id = ? AND element_id = ?').bind(episode.id, elementId).run();
     if (before) {
       const open = await openDrive(c.env).catch(() => null);
       if (open && before.email === open.drive.email) await deleteForever(open.token, before.drive_file_id).catch(() => undefined);
@@ -210,6 +225,7 @@ export async function deleteEpisodeGraphics(env: Env, episodeId: string): Promis
     if (open && open.drive.email === folder.email) await deleteForever(open.token, folder.folder_id);
   }
   await env.DB.prepare('DELETE FROM episode_graphics WHERE episode_id = ?').bind(episodeId).run();
+  await env.DB.prepare('DELETE FROM graphic_conversions WHERE episode_id = ?').bind(episodeId).run();
   await env.DB.prepare('DELETE FROM episode_drive_folders WHERE episode_id = ?').bind(episodeId).run();
 }
 

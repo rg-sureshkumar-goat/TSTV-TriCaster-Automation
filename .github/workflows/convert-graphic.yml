@@ -1,0 +1,41 @@
+# Converts one rundown graphic to the right format (RG, Nov 17, 2026): 1920×1080, 29.97 frames a second,
+# Apple ProRes 4444 with alpha, in a QuickTime .mov. The website starts this when an L3, OTSL or OTSR graphic
+# in another format is attached to a rundown, with the job's id; the converter (tools/converter) gets the file
+# from Google Drive, converts it, puts the copy back, and tells the website, which swaps it in.
+#
+# Needs the repository secret CONVERTER_SECRET (the same one the website has). This log is public, so the
+# converter prints nothing secret.
+name: Convert a graphic
+run-name: Convert a rundown graphic
+
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: The conversion's job id, from the website
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: tools/converter
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Make sure FFmpeg is there
+        run: command -v ffmpeg || (sudo apt-get update -q && sudo apt-get install -y -q ffmpeg)
+      - name: Convert the graphic
+        env:
+          SITE_URL: https://tstv-show.tstv-rundown.workers.dev
+          CONVERTER_SECRET: ${{ secrets.CONVERTER_SECRET }}
+          # Passed through the environment, never pasted into the command.
+          JOB: ${{ inputs.job }}
+        run: node tools/converter/src/main.ts "$JOB"

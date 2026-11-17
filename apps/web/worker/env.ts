@@ -11,6 +11,12 @@ export interface Env {
   /** From Microsoft Entra: the app registration for "Sign in with Microsoft" (school and personal accounts). */
   MICROSOFT_CLIENT_ID?: string;
   MICROSOFT_CLIENT_SECRET?: string;
+  /**
+   * The graphic converter on GitHub's machines (RG, Nov 17, 2026): a GitHub access key that may start the
+   * repository's workflows, and a secret the converter shows the website (also a GitHub secret).
+   */
+  GITHUB_TOKEN?: string;
+  CONVERTER_SECRET?: string;
   /** Comma-separated emails that are always allowed in and are admins (the TD). */
   ADMIN_EMAILS?: string;
   /** For the admin's Usage page: the Cloudflare account and a read-only analytics token. */

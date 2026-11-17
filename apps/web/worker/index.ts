@@ -8,6 +8,7 @@ import { DEFAULT_SHOW_SETTINGS, normalizeShowSettings } from '@tstv/shared';
 import { authRoutes, getSessionUser } from './auth.ts';
 import type { Env, User } from './env.ts';
 import { sendInviteEmail } from './invite-email.ts';
+import { registerConversionRoutes } from './conversions.ts';
 import { deleteAiredGraphics, deleteEpisodeGraphics, graphicsForRiGster, registerGraphicsRoutes } from './graphics.ts';
 import { registerProfileRoutes } from './profiles.ts';
 import { fetchUsage } from './usage.ts';
@@ -73,6 +74,9 @@ app.get('/app/graphics', async (c) => {
 // RiGster's show profiles in Google Drive (Nov 2, 2026): RiGster's routes check its key, and the Drive's
 // connection routes check for an admin themselves.
 registerProfileRoutes(app);
+
+// The graphic converter on GitHub's machines reports here with its secret, not a sign-in (RG, Nov 17, 2026).
+registerConversionRoutes(app);
 
 app.use('*', signedIn);
 

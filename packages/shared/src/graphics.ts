@@ -28,4 +28,10 @@ export interface AttachedGraphic {
   md5: string | null;
   uploadedBy: string | null;
   uploadedAt: number;
+  /** An L3, OTSL or OTSR graphic being converted to the right format on GitHub's machines (Nov 17, 2026). */
+  converting?: boolean;
+  /** What was wrong with it, once the converted copy replaced it. */
+  fixes?: string[] | null;
+  /** Why it couldn't be converted (the original stays on the graphic). */
+  convertError?: string | null;
 }

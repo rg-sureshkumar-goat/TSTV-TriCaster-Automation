@@ -8,3 +8,4 @@ export * from './engine.ts';
 export * from './broadcast.ts';
 export * from './template.ts';
 export * from './graphics.ts';
+export * from './quicktime.ts';

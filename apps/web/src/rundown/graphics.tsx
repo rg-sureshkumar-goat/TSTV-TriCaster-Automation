@@ -3,7 +3,7 @@
 // folder, with a progress bar, and then shows beside the graphic. RiGster downloads each one onto its cue.
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api.ts';
-import { graphicsDeleteDate, isAttachable, type AttachedGraphic, type Element } from '@tstv/shared';
+import { graphicFormatProblems, graphicsDeleteDate, isAttachable, isFormatChecked, readVideoFormat, type AttachedGraphic, type Element } from '@tstv/shared';
 
 export interface EpisodeGraphics {
   driveConnected: boolean;
@@ -33,22 +33,29 @@ export function GraphicsProvider({ episodeId, readOnly, onError, children }: { e
   const load = useCallback(() => {
     api<EpisodeGraphics>(`/episodes/${episodeId}/graphics`).then(setData, () => undefined);
   }, [episodeId]);
+  // Every 30 seconds; every 5 while a graphic is being converted, so its new file shows soon after.
+  const converting = data?.graphics.some((g) => g.converting) ?? false;
   useEffect(() => {
     load();
-    const timer = setInterval(load, 30_000);
+    const timer = setInterval(load, converting ? 5_000 : 30_000);
     return () => clearInterval(timer);
-  }, [load]);
+  }, [load, converting]);
 
   const send = async (element: Element, file: File) => {
     const progress = (percent: number) => setSending((s) => ({ ...s, [element.id]: percent }));
     progress(0);
     try {
+      // An L3, OTSL or OTSR: its format is read first, here, so one in the wrong format can be converted.
+      const formatProblems = isFormatChecked(element.type) ? await formatProblemsOf(file) : [];
       const { uploadUrl } = await api<{ uploadUrl: string }>(`/episodes/${episodeId}/graphics/${element.id}/uploads`, {
         method: 'POST',
         body: { fileName: file.name, size: file.size, type: file.type || 'application/octet-stream', elementType: element.type },
       });
       const driveFileId = await sendToDrive(uploadUrl, file, progress);
-      const done = await api<{ graphics: AttachedGraphic[] }>(`/episodes/${episodeId}/graphics/${element.id}`, { method: 'POST', body: { driveFileId } });
+      const done = await api<{ graphics: AttachedGraphic[] }>(`/episodes/${episodeId}/graphics/${element.id}`, {
+        method: 'POST',
+        body: { driveFileId, elementType: element.type, formatProblems },
+      });
       setData((d) => (d ? { ...d, graphics: done.graphics } : d));
     } catch (e) {
       onError(`Couldn’t send ${file.name}: ${e instanceof Error ? e.message : String(e)}`);
@@ -81,6 +88,16 @@ export function GraphicsProvider({ episodeId, readOnly, onError, children }: { e
 
   const canChange = !readOnly && !data?.deletedAt && data?.driveConnected === true;
   return <GraphicsContext.Provider value={{ episodeId, data, sending, canChange, choose, remove: (e) => void remove(e) }}>{children}</GraphicsContext.Provider>;
+}
+
+/**
+ * What's wrong with a graphic's format (RG, Nov 17, 2026: 1080p, 29.97, ProRes 4444 with alpha, in a
+ * QuickTime .mov), read from the file's own index without uploading it; nothing when it's right.
+ */
+async function formatProblemsOf(file: File): Promise<string[]> {
+  const read = async (start: number, end: number) => new Uint8Array(await file.slice(start, end).arrayBuffer());
+  const format = await readVideoFormat(read, file.size).catch(() => null);
+  return graphicFormatProblems(file.name, format);
 }
 
 /** A file's size, like 172 MB. */
@@ -125,6 +142,13 @@ export function GraphicFile({ element }: { element: Element }) {
       </span>
     );
   }
+  if (attached?.converting) {
+    return (
+      <span className="graphic-file converting" role="status" title="It isn’t in the right format (1080p, 29.97, ProRes 4444 with alpha, QuickTime), so it’s being converted. The converted file replaces it.">
+        Converting {attached.fileName} to 1080p ProRes 4444…
+      </span>
+    );
+  }
   if (attached) {
     return (
       <span className="graphic-file attached" title={`${attached.fileName} (${size(attached.size)})${attached.uploadedBy ? `, added by ${attached.uploadedBy}` : ''}`}>
@@ -139,6 +163,16 @@ export function GraphicFile({ element }: { element: Element }) {
               Delete
             </button>
           </>
+        )}
+        {attached.fixes && (
+          <span className="graphic-tag converted" title={`Converted to 1080p, 29.97, ProRes 4444 with alpha. The original: ${attached.fixes.join('; ')}.`}>
+            Converted
+          </span>
+        )}
+        {attached.convertError && (
+          <span className="graphic-tag failed" title={attached.convertError}>
+            Not converted: {attached.convertError}
+          </span>
         )}
       </span>
     );

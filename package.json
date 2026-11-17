@@ -16,7 +16,7 @@
     "probe": "node tools/probe/probe.mjs",
     "simulator": "tsx tools/simulator/src/main.ts",
     "test": "vitest run",
-    "typecheck": "tsc -p tools/simulator && tsc -p tools/probe && tsc -p packages/shared && tsc -p apps/web && tsc -p apps/web/worker && tsc -p apps/show-app",
+    "typecheck": "tsc -p tools/simulator && tsc -p tools/probe && tsc -p tools/converter && tsc -p packages/shared && tsc -p apps/web && tsc -p apps/web/worker && tsc -p apps/show-app",
     "dev": "npm run dev -w apps/web",
     "test:e2e": "npm run test:e2e -w apps/web",
     "show-app": "npm start -w apps/show-app",

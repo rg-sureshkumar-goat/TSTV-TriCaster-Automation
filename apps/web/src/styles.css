@@ -2359,3 +2359,29 @@ button.live-on {
   padding: 10px 14px;
   border-top: 1px solid var(--border);
 }
+
+/* An L3, OTSL or OTSR graphic converted to the right format on GitHub's machines (RG, Nov 17, 2026). */
+.graphic-file.converting {
+  padding: 1px 6px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.graphic-tag {
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.graphic-tag.converted {
+  background: color-mix(in srgb, var(--ok) 15%, transparent);
+  color: var(--ok);
+}
+.graphic-tag.failed {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
