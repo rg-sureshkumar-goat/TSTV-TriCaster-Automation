@@ -141,6 +141,11 @@ export class Runtime extends EventEmitter {
   private retryTimer: ReturnType<typeof setInterval> | null = null;
   private cableTimer: ReturnType<typeof setInterval> | null = null;
   private syncingSimulator = false;
+  /** Getting the episode's graphics from the website right now (see syncEpisodeGraphics). */
+  private syncingGraphics = false;
+  /** The last problem getting them, so the Status box says it once, not every 30 seconds. */
+  private graphicsProblem: string | null = null;
+  private graphicsTimer: ReturnType<typeof setInterval> | null = null;
   /** The files the playout was last given, in order: a cue can keep its name with a new file. */
   private playoutFiles: string[] = [];
   /** Live mode's playout (Phase 5), which sends the graphics and music to the TC1's input 4 over NDI. */
@@ -213,6 +218,8 @@ export class Runtime extends EventEmitter {
     else void this.refreshProfiles();
     // Other laptops' changes to the profile arrive every two minutes.
     this.profileTimer = setInterval(() => void this.refreshProfiles(), 120_000);
+    // Graphics attached on the website arrive within 30 seconds (RG, Nov 17, 2026).
+    this.graphicsTimer = setInterval(() => void this.syncEpisodeGraphics(), 30_000);
     // A drive plugged in later is noticed by itself: its files get their playable copies.
     // So do the profile's files waiting to go to Google Drive.
     // A pulled cable can leave the TC1's connection looking open for minutes, so the cable itself is watched.
@@ -1206,6 +1213,52 @@ export class Runtime extends EventEmitter {
     this.rebuild();
     void this.refreshThumbnails();
     void this.makePlayables();
+    void this.syncEpisodeGraphics();
+  }
+
+  /**
+   * The graphics attached to the episode's rundown on the website (RG, Nov 17, 2026): each is downloaded
+   * onto this laptop and put on its cue, matched by the graphic it was attached to, so there's no guessing
+   * from file names. A file taken off a graphic on the website comes off its cue too, but only one that
+   * came from the website: files imported from a USB drive stay. Once the episode's folder is deleted, two
+   * weeks after it aired, the cues keep the copies on this laptop.
+   */
+  private async syncEpisodeGraphics(): Promise<void> {
+    const episode = this.website.episode;
+    if (!episode || this.manualSession || !this.settings.key || this.syncingGraphics || this.closed) return;
+    this.syncingGraphics = true;
+    try {
+      const { graphics, deletedAt } = await this.profiles.episodeGraphics();
+      let changed = false;
+      for (const g of graphics) {
+        if (this.files[g.elementId]?.driveFileId === g.driveFileId) continue;
+        const local = await this.profiles.download(`episodes/${episode.id}`, g);
+        // Another episode was opened while it downloaded.
+        if (this.website.episode?.id !== episode.id) return;
+        this.files[g.elementId] = { ...(await readFile(local)), driveFileId: g.driveFileId };
+        this.note(`${g.fileName} came from the rundown`);
+        changed = true;
+      }
+      if (!deletedAt) {
+        const online = new Set(graphics.map((g) => g.elementId));
+        for (const [id, info] of Object.entries(this.files)) {
+          if (!info.driveFileId || online.has(id)) continue;
+          delete this.files[id];
+          this.note(`${path.basename(info.path)} was taken off its graphic on the website`);
+          changed = true;
+        }
+      }
+      this.graphicsProblem = null;
+      if (changed) await this.saveFiles();
+      this.changed();
+    } catch (e) {
+      const problem = e instanceof Error ? e.message : String(e);
+      if (problem !== this.graphicsProblem) this.note(`Couldn’t get the rundown’s graphics: ${problem}`);
+      this.graphicsProblem = problem;
+      this.changed();
+    } finally {
+      this.syncingGraphics = false;
+    }
   }
 
   /**
@@ -1709,6 +1762,7 @@ export class Runtime extends EventEmitter {
     if (this.retryTimer) clearInterval(this.retryTimer);
     if (this.cableTimer) clearInterval(this.cableTimer);
     if (this.profileTimer) clearInterval(this.profileTimer);
+    if (this.graphicsTimer) clearInterval(this.graphicsTimer);
     this.website.close();
     this.switcher.close();
     void this.playout?.close();

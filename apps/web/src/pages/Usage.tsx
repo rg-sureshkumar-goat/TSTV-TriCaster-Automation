@@ -93,7 +93,6 @@ export function UsagePage() {
         </>
       )}
       <DriveBox />
-      <BoxConnection />
     </div>
   );
 }
@@ -170,82 +169,3 @@ function DriveBox() {
   );
 }
 
-interface BoxStatus {
-  setUp: boolean;
-  connected: boolean;
-  working: boolean | null;
-  login: string | null;
-  name: string | null;
-  enterprise: string | null;
-  connectedAt: number | null;
-  folder: string | null;
-}
-
-/** What came back from connecting Box (Box sends the admin back here). */
-const BOX_RESULTS: Record<string, { text: string; ok?: boolean }> = {
-  connected: { text: 'Box connected. The website made a “TSTV Rundowns” folder in it, so it can keep the show graphics there.', ok: true },
-  cancelled: { text: 'Connecting Box was cancelled on Box’s page.' },
-  expired: { text: 'That took too long. Click Connect Box again.' },
-  refused: { text: 'Box didn’t let the website in. With UT Austin’s Box, this usually means UT’s Box admins must approve the app first.' },
-  'admins-only': { text: 'Only an admin can connect Box.' },
-  'not-set-up': { text: 'The Box app isn’t set up on the website yet (its Client ID and secret).' },
-};
-
-/**
- * The show graphics in Box (RG, Nov 17, 2026): UT Austin's Box, if UT lets the website use it; Google Drive
- * if not. Step 1 is just this: connect it, and see whether UT allows it.
- */
-function BoxConnection() {
-  const { data, error, reload } = useLoad<BoxStatus>('/box');
-  const params = new URLSearchParams(window.location.search);
-  const result = BOX_RESULTS[params.get('box') ?? ''];
-  const detail = params.get('detail');
-  const disconnect = async () => {
-    if (!confirm('Disconnect Box? The website stops using it until Box is connected again. The files stay in Box.')) return;
-    await api('/box', { method: 'DELETE' });
-    reload();
-  };
-  return (
-    <section className="drive-box">
-      <h2>Box</h2>
-      <p className="muted">
-        For the show graphics: a <strong>TSTV Rundowns</strong> folder with a folder for each show, holding its permanent graphics and a folder for each
-        episode’s graphics.
-      </p>
-      {result && (
-        <p className={result.ok ? 'notice ok' : 'notice'}>
-          {result.text}
-          {detail && <span className="small muted"> What Box said: {detail}</span>}
-        </p>
-      )}
-      {error && <p className="error">{error}</p>}
-      {data && (
-        <>
-          {data.connected ? (
-            <p>
-              Connected to <strong>{data.login}</strong>
-              {data.enterprise ? <> ({data.enterprise})</> : null}
-              {data.connectedAt ? <span className="muted"> since {new Date(data.connectedAt).toLocaleDateString()}</span> : null}.{' '}
-              {data.working === false ? <span className="error">The connection has stopped working: connect Box again.</span> : null}
-              {data.folder && (
-                <a href={data.folder} target="_blank" rel="noreferrer">
-                  Open the TSTV Rundowns folder
-                </a>
-              )}
-            </p>
-          ) : (
-            <p className="muted">{data.setUp ? 'Box isn’t connected yet.' : 'The Box app isn’t set up on the website yet.'}</p>
-          )}
-          <div className="row">
-            {data.setUp && (
-              <a className={`button${data.connected ? '' : ' primary'}`} href="/api/box/connect">
-                {data.connected ? 'Connect a different Box' : 'Connect Box'}
-              </a>
-            )}
-            {data.connected && <button onClick={disconnect}>Disconnect</button>}
-          </div>
-        </>
-      )}
-    </section>
-  );
-}

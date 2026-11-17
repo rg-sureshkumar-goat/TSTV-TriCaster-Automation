@@ -2216,3 +2216,53 @@ button.live-on {
   border-color: var(--accent);
   color: var(--accent-text);
 }
+
+/* The file attached to each graphic in the rundown, in Google Drive (RG, Nov 17, 2026). */
+.element-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+.graphic-choose {
+  padding: 1px 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.graphic-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  font-size: 11px;
+}
+.graphic-file .graphic-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ok, #16a34a);
+  font-size: 11px;
+}
+.graphic-remove {
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.graphic-file.sending {
+  position: relative;
+  overflow: hidden;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.graphic-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: color-mix(in srgb, var(--accent, #14679b) 25%, transparent);
+  z-index: -1;
+}
+.graphics-note {
+  margin-top: 2px;
+}

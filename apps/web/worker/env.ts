@@ -11,9 +11,6 @@ export interface Env {
   /** From Microsoft Entra: the app registration for "Sign in with Microsoft" (school and personal accounts). */
   MICROSOFT_CLIENT_ID?: string;
   MICROSOFT_CLIENT_SECRET?: string;
-  /** From UT Austin's Box developer console: the app that lets the website keep the show graphics in Box (Nov 17, 2026). */
-  BOX_CLIENT_ID?: string;
-  BOX_CLIENT_SECRET?: string;
   /** Comma-separated emails that are always allowed in and are admins (the TD). */
   ADMIN_EMAILS?: string;
   /** For the admin's Usage page: the Cloudflare account and a read-only analytics token. */

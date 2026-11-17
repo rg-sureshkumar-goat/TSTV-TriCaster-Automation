@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { accessToken, fileInfo, isSlot, makeFolder, startUpload } from '../drive.ts';
+import { accessToken, deleteForever, fileInfo, isSlot, makeFolder, move, rename, startUpload } from '../drive.ts';
+import { episodeFolderName } from '../drive-layout.ts';
 
 /** A pretend Google that answers each request with the next answer, and remembers what it was asked. */
 function google(...answers: Response[]) {
@@ -53,4 +54,28 @@ describe('RiGster’s Google Drive', () => {
     expect(isSlot('permanent:Station ID', ['Show Intro'])).toBe(false);
     expect(isSlot('something', ['Station ID'])).toBe(false);
   });
+
+  it('lets the website’s page send a file straight to Google, by naming the page’s address', async () => {
+    const { fetchFn, asked } = google(new Response(null, { status: 200, headers: { Location: 'https://upload.example/session-2' } }));
+    await startUpload('a1', 'folder-1', { name: 'A1_L3_Score.mov', size: 10, type: 'video/quicktime' }, fetchFn, 'https://tstv-show.tstv-rundown.workers.dev');
+    expect((asked[0].init.headers as Record<string, string>).Origin).toBe('https://tstv-show.tstv-rundown.workers.dev');
+  });
+
+  it('renames and moves files, and deletes them for good (gone already is fine)', async () => {
+    const { fetchFn, asked } = google(Response.json({ id: 'root' }), Response.json({ id: 'f1' }), new Response(null, { status: 204 }), new Response('{}', { status: 404 }));
+    await rename('a1', 'root', 'TSTV Rundowns', fetchFn);
+    expect(JSON.parse(String(asked[0].init.body))).toEqual({ name: 'TSTV Rundowns' });
+    await move('a1', 'f1', 'show-folder', 'permanent-folder', fetchFn);
+    expect(asked[1].url).toContain('addParents=permanent-folder');
+    expect(asked[1].url).toContain('removeParents=show-folder');
+    await deleteForever('a1', 'episode-folder', fetchFn);
+    expect(asked[2].init.method).toBe('DELETE');
+    await deleteForever('a1', 'gone', fetchFn);
+  });
+
+  it('names an episode’s folder by its air date, then its title, so they sort by date (RG, Nov 17, 2026)', () => {
+    expect(episodeFolderName({ title: 'PrimeTime 11/20', air_date: '2026-11-20' })).toBe('2026-11-20 PrimeTime 11-20');
+    expect(episodeFolderName({ title: 'No date yet', air_date: null })).toBe('No date yet');
+  });
 });
+

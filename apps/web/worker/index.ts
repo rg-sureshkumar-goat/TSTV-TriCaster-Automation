@@ -8,7 +8,7 @@ import { DEFAULT_SHOW_SETTINGS, normalizeShowSettings } from '@tstv/shared';
 import { authRoutes, getSessionUser } from './auth.ts';
 import type { Env, User } from './env.ts';
 import { sendInviteEmail } from './invite-email.ts';
-import { registerBoxRoutes } from './box-routes.ts';
+import { deleteAiredGraphics, deleteEpisodeGraphics, graphicsForRiGster, registerGraphicsRoutes } from './graphics.ts';
 import { registerProfileRoutes } from './profiles.ts';
 import { fetchUsage } from './usage.ts';
 
@@ -63,13 +63,21 @@ app.get('/app/episode', async (c) => {
   });
 });
 
+/** The files attached to the episode's rundown (RG, Nov 17, 2026), for RiGster to download onto their cues. */
+app.get('/app/graphics', async (c) => {
+  const row = await episodeForKey(c.env, c.req.header('Authorization')?.replace(/^Bearer\s+/i, ''));
+  if (!row) return c.json({ error: 'That key doesn’t match an episode. Copy it again from the episode’s page on the website.' }, 401);
+  return c.json(await graphicsForRiGster(c.env, String(row.id)));
+});
+
 // RiGster's show profiles in Google Drive (Nov 2, 2026): RiGster's routes check its key, and the Drive's
 // connection routes check for an admin themselves.
 registerProfileRoutes(app);
-// The show graphics in Box (RG, Nov 17, 2026): its connection routes check for an admin themselves.
-registerBoxRoutes(app);
 
 app.use('*', signedIn);
+
+// The graphics attached to a rundown, kept in Google Drive (RG, Nov 17, 2026).
+registerGraphicsRoutes(app, (env, user, id) => visibleEpisode(env, user, id));
 
 const now = () => Date.now();
 
@@ -368,6 +376,8 @@ app.post('/episodes/:id/unarchive', adminOnly, async (c) => {
 app.delete('/episodes/:id', adminOnly, async (c) => {
   const id = c.req.param('id');
   if (!(await c.env.DB.prepare('SELECT 1 FROM episodes WHERE id = ?').bind(id).first())) return c.json({ error: 'Episode not found.' }, 404);
+  // Its graphics folder in Google Drive goes too (RG, Nov 17, 2026).
+  await deleteEpisodeGraphics(c.env, id).catch((e) => console.error('Couldn’t delete the episode’s graphics:', e));
   await c.env.DB.prepare('DELETE FROM episodes WHERE id = ?').bind(id).run();
   const room = await getServerByName(c.env.EpisodeRoom, id);
   await room.fetch(new Request(`https://room/parties/episode-room/${id}/delete`, { method: 'POST' }));
@@ -457,6 +467,10 @@ app.onError((err, c) => {
 });
 
 export default {
+  /** Every morning (wrangler.jsonc): episodes' graphics folders are deleted two weeks after they air. */
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(deleteAiredGraphics(env, new Date().toISOString().slice(0, 10)).then((ids) => void (ids.length && console.log(`Deleted the graphics of ${ids.length} aired episode(s).`))));
+  },
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/parties/')) {

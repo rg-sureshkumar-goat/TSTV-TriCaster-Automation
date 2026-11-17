@@ -19,6 +19,8 @@ const drive = new Map<string, { name: string; bytes: Buffer }>();
 const profiles: Record<string, Record<string, { driveFileId: string; fileName: string; size: number; md5: null; current: boolean }>> = { show1: {}, show2: {} };
 /** Which show the RiGster key's episode belongs to. */
 let keyShow = 'show1';
+/** The files attached to the key's episode's rundown on the website (RG, Nov 17, 2026). */
+let episodeGraphics: { elementId: string; driveFileId: string; fileName: string; size: number; md5: null; uploadedBy: null; uploadedAt: number }[] = [];
 /** How many times RiGster asked for the shows without a key. */
 let asksWithoutKey = 0;
 
@@ -48,6 +50,7 @@ beforeAll(async () => {
       if (url.pathname === '/api/app/profiles') {
         return json(200, { drive: { connected: true, email: 'rg@example.com' }, profiles: [{ ...show('show1', 'PrimeTime'), files: profiles.show1 }, { ...show('show2', 'Sports'), files: profiles.show2 }] });
       }
+      if (url.pathname === '/api/app/graphics') return json(200, { graphics: episodeGraphics, deletedAt: null });
       if (url.pathname === '/api/app/drive-token') return json(200, { token: 'drive-token', expiresAt: Date.now() + 3_600_000 });
       const m = /^\/api\/app\/profiles\/([^/]+)\/(uploads|files)(?:\/(.+))?$/.exec(url.pathname);
       if (m && m[2] === 'uploads') {
@@ -201,5 +204,36 @@ describe('show profiles shared through Google Drive', () => {
     expect(a.state().episode?.title).toBe('Episode');
     a.close();
     b.close();
+  });
+});
+
+describe('graphics attached to the rundown on the website (RG, Nov 17, 2026)', () => {
+  it('come down onto their cues, by graphic, and come off when taken off on the website', async () => {
+    // The key's episode is PrimeTime's, the show this laptop opens on.
+    keyShow = 'show1';
+    const r = await laptop('laptop-graphics');
+    // Whatever the first sync after connecting is doing finishes first.
+    await waitFor(() => !(r as unknown as { syncingGraphics: boolean }).syncingGraphics);
+    const files = () => (r as unknown as { files: Record<string, { path: string; driveFileId?: string }> }).files;
+    const sync = () => (r as unknown as { syncEpisodeGraphics: () => Promise<void> }).syncEpisodeGraphics();
+    // A file from a USB drive is already on another cue.
+    files()['usb-cue'] = { path: path.join(folder, 'A2_VO_Usb.mov') };
+    drive.set('drive-l3', { name: 'A1_L3_Score.mov', bytes: Buffer.from('lower third') });
+    episodeGraphics = [{ elementId: 'el-l3', driveFileId: 'drive-l3', fileName: 'A1_L3_Score.mov', size: 11, md5: null, uploadedBy: null, uploadedAt: 1 }];
+    await sync();
+    expect(files()['el-l3']?.driveFileId).toBe('drive-l3');
+    expect(await readFile(files()['el-l3'].path, 'utf8')).toBe('lower third');
+    // Replaced on the website: the new file takes its place.
+    drive.set('drive-l3b', { name: 'A1_L3_Score v2.mov', bytes: Buffer.from('lower third 2') });
+    episodeGraphics = [{ elementId: 'el-l3', driveFileId: 'drive-l3b', fileName: 'A1_L3_Score v2.mov', size: 13, md5: null, uploadedBy: null, uploadedAt: 2 }];
+    await sync();
+    expect(path.basename(files()['el-l3'].path)).toBe('drive-l3b-A1_L3_Score v2.mov');
+    // Taken off on the website: off its cue. The USB file stays.
+    episodeGraphics = [];
+    await sync();
+    expect(files()['el-l3']).toBeUndefined();
+    expect(files()['usb-cue']).toBeDefined();
+    expect(r.state().log.some((l) => l.text === 'A1_L3_Score.mov came from the rundown')).toBe(true);
+    await r.close();
   });
 });

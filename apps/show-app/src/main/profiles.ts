@@ -10,7 +10,7 @@ import https from 'node:https';
 import path from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import type { ShowSettings } from '@tstv/shared';
+import type { AttachedGraphic, ShowSettings } from '@tstv/shared';
 
 /** A file in a show's profile, as the website lists it. current: in the Drive that's connected now. */
 export interface ProfileFile {
@@ -74,6 +74,14 @@ export class ProfileSync {
     return this.website<ProfileList>('/app/profiles', {}, false);
   }
 
+  /**
+   * The files attached to the episode's rundown on the website (RG, Nov 17, 2026), by graphic, for the
+   * episode of the RiGster key. deletedAt: when its folder was deleted, two weeks after it aired.
+   */
+  episodeGraphics(): Promise<{ graphics: AttachedGraphic[]; deletedAt: number | null }> {
+    return this.website('/app/graphics');
+  }
+
   /** An hour's access to RiGster's files in the Drive, from the website. */
   private async access(): Promise<string> {
     if (this.token && this.token.expiresAt > Date.now() + 5 * 60_000) return this.token.token;
@@ -81,13 +89,13 @@ export class ProfileSync {
     return this.token.token;
   }
 
-  /** Where a profile file is kept on this laptop. */
-  localPath(showId: string, file: ProfileFile): string {
+  /** Where a profile file (or, under "episodes/<id>", an episode's graphic) is kept on this laptop. */
+  localPath(showId: string, file: Pick<ProfileFile, 'driveFileId' | 'fileName'>): string {
     return path.join(this.folder, showId, `${file.driveFileId}-${file.fileName.replace(/[\\/:*?"<>|]/g, '_')}`);
   }
 
   /** Downloads a profile file onto this laptop, unless it's already here. Returns where it is. */
-  async download(showId: string, file: ProfileFile, progress: Progress = () => undefined): Promise<string> {
+  async download(showId: string, file: Pick<ProfileFile, 'driveFileId' | 'fileName' | 'size'>, progress: Progress = () => undefined): Promise<string> {
     const target = this.localPath(showId, file);
     const there = await stat(target).catch(() => null);
     if (there && there.size === file.size) return target;

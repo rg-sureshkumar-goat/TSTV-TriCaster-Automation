@@ -363,8 +363,8 @@ test('admins manage people, shows, episodes and commercial breaks', async ({ bro
 
   const rg = await signIn(browser, 'RG (TD)');
   await expect(rg.locator('.me')).toContainText('RG (TD) (Admin)');
-  // The menu runs Shows, People, Search; Usage is the ⓘ at the top left.
-  await expect(rg.locator('.topbar nav a')).toHaveText(['Shows', 'People', 'Search']);
+  // The menu runs Shows, People, Search, RiGster (Nov 8, 2026); Usage is the ⓘ at the top left.
+  await expect(rg.locator('.topbar nav a')).toHaveText(['Shows', 'People', 'Search', 'RiGster']);
   await rg.getByRole('link', { name: 'Usage' }).click();
   await expect(rg.getByRole('heading', { name: 'Usage' })).toBeVisible();
 

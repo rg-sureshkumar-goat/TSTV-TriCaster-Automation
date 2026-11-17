@@ -5,6 +5,7 @@ import { api, useLoad, type User } from '../lib/api.ts';
 import { Link, navigate } from '../lib/router.tsx';
 import { formatDate, formatTime } from '../lib/format.ts';
 import { RundownGrid } from '../rundown/RundownGrid.tsx';
+import { GraphicsDeleteNote, GraphicsProvider } from '../rundown/graphics.tsx';
 import { useEpisodeDoc, type CueEvent, type Presence } from '../rundown/useEpisodeDoc.ts';
 import { exportCsv, exportPdf } from '../rundown/export.ts';
 import { ConnectionBadge, PresenceList } from '../components/RoomStatus.tsx';
@@ -140,6 +141,7 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
     );
   }
   return (
+    <GraphicsProvider episodeId={episode.id} readOnly={readOnly} onError={setMessage}>
     <div className="page wide">
       <p className="crumbs">
         <Link to="/">Shows</Link> › <Link to={`/shows/${show.id}`}>{show.name}</Link> ›
@@ -167,6 +169,8 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
                 </button>
               )}
             </p>
+            {/* When the episode's graphics are deleted from Google Drive (RG, Nov 17, 2026). */}
+            <GraphicsDeleteNote airDate={episode.airDate} formatDate={formatDate} />
           </div>
         )}
         <div className="episode-actions">
@@ -243,6 +247,7 @@ function EpisodeView({ data, sectionId, user, reload }: { data: EpisodeData; sec
         </Suspense>
       )}
     </div>
+    </GraphicsProvider>
   );
 }
 

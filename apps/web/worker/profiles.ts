@@ -7,11 +7,11 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { normalizeShowSettings } from '@tstv/shared';
 import { base64url, cookieOptions, decodeJwtPayload, getSessionUser, randomToken } from './auth.ts';
 import { accessToken, DRIVE_SCOPE, DriveError, fileInfo, isSlot, makeFolder, startUpload, trash } from './drive.ts';
+import { openDrive, permanentFolder, ROOT_FOLDER } from './drive-layout.ts';
 import type { Env, User } from './env.ts';
 
 type App = Hono<{ Bindings: Env; Variables: { user: User } }>;
 const DRIVE_COOKIE = 'tstv_drive';
-const ROOT_FOLDER = 'RiGster';
 
 interface DriveLink {
   email: string;
@@ -28,14 +28,6 @@ async function validKey(env: Env, header: string | undefined): Promise<boolean> 
   const key = header?.replace(/^Bearer\s+/i, '');
   if (!key || !/^tstv-[A-Za-z0-9_-]{20,}$/.test(key)) return false;
   return (await env.DB.prepare('SELECT 1 FROM episodes WHERE app_key = ?').bind(key).first()) !== null;
-}
-
-async function showFolder(env: Env, token: string, drive: DriveLink, show: { id: string; name: string }): Promise<string> {
-  const known = await env.DB.prepare('SELECT folder_id FROM show_drive_folders WHERE show_id = ? AND email = ?').bind(show.id, drive.email).first<{ folder_id: string }>();
-  if (known) return known.folder_id;
-  const id = await makeFolder(token, show.name, drive.root_folder_id);
-  await env.DB.prepare('INSERT OR REPLACE INTO show_drive_folders (show_id, email, folder_id) VALUES (?, ?, ?)').bind(show.id, drive.email, id).run();
-  return id;
 }
 
 async function showFor(env: Env, id: string): Promise<{ id: string; name: string; permanentGraphics: string[] } | null> {
@@ -107,7 +99,7 @@ export function registerProfileRoutes(app: App): void {
     try {
       const root = await makeFolder(data.access_token, ROOT_FOLDER, null);
       await c.env.DB.prepare(
-        'INSERT OR REPLACE INTO drive_link (id, email, refresh_token, root_folder_id, connected_by, connected_at) VALUES (1, ?, ?, ?, ?, ?)',
+        'INSERT OR REPLACE INTO drive_link (id, email, refresh_token, root_folder_id, connected_by, connected_at, layout) VALUES (1, ?, ?, ?, ?, ?, 1)',
       )
         .bind(claims.email.toLowerCase(), data.refresh_token, root, user.id, Date.now())
         .run();
@@ -186,11 +178,11 @@ export function registerProfileRoutes(app: App): void {
     const fileName = String(body.fileName ?? '').replace(/[\\/]/g, '_').slice(0, 200);
     const size = Number(body.size);
     if (!fileName || !Number.isFinite(size) || size <= 0) return c.json({ error: 'The file’s name or size is missing.' }, 400);
-    const drive = await link(c.env);
-    if (!drive) return c.json({ error: 'No Google Drive is connected yet. An admin connects one on the website’s Usage page.' }, 409);
     try {
-      const { token } = await accessToken(drive.refresh_token, client(c.env));
-      const folder = await showFolder(c.env, token, drive, show);
+      const open = await openDrive(c.env);
+      if (!open) return c.json({ error: 'No Google Drive is connected yet. An admin connects one on the website’s Usage page.' }, 409);
+      const { drive, token } = open;
+      const folder = await permanentFolder(c.env, token, drive, show);
       const uploadUrl = await startUpload(token, folder, { name: fileName, size, type: String(body.type || 'application/octet-stream') });
       return c.json({ uploadUrl });
     } catch (e) {
@@ -205,13 +197,13 @@ export function registerProfileRoutes(app: App): void {
     if (!show) return c.json({ error: 'That show doesn’t exist any more.' }, 404);
     const slot = String(body.slot ?? '');
     if (!isSlot(slot, show.permanentGraphics)) return c.json({ error: 'That isn’t one of this show’s profile’s files.' }, 400);
-    const drive = await link(c.env);
-    if (!drive) return c.json({ error: 'No Google Drive is connected yet.' }, 409);
     try {
-      const { token } = await accessToken(drive.refresh_token, client(c.env));
-      const folder = await showFolder(c.env, token, drive, show);
+      const open = await openDrive(c.env);
+      if (!open) return c.json({ error: 'No Google Drive is connected yet.' }, 409);
+      const { drive, token } = open;
+      const folder = await permanentFolder(c.env, token, drive, show);
       const file = await fileInfo(token, String(body.driveFileId ?? ''));
-      if (!file || file.trashed || !file.parents.includes(folder)) return c.json({ error: 'That file isn’t in the show’s folder in the Drive.' }, 400);
+      if (!file || file.trashed || !file.parents.includes(folder)) return c.json({ error: 'That file isn’t in the show’s Permanent folder in the Drive.' }, 400);
       const before = await c.env.DB.prepare('SELECT drive_file_id, email FROM show_profile_files WHERE show_id = ? AND slot = ?').bind(show.id, slot).first<{ drive_file_id: string; email: string }>();
       await c.env.DB.prepare(
         'INSERT OR REPLACE INTO show_profile_files (show_id, slot, email, drive_file_id, file_name, size, md5, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',

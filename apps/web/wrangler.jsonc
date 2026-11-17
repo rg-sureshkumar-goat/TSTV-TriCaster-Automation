@@ -23,6 +23,9 @@
     "bindings": [{ "name": "EpisodeRoom", "class_name": "EpisodeRoom" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["EpisodeRoom"] }],
+  // Every morning at 11:00 UTC (5 or 6 am in Austin): episodes' graphics folders in Google Drive are deleted
+  // two weeks after they air (RG, Nov 17, 2026). Cron triggers are free.
+  "triggers": { "crons": ["0 11 * * *"] },
   "vars": {
     // Only the local .dev.vars file turns this on, and only for localhost.
     "DEV_LOGIN": "false"

@@ -7,3 +7,4 @@ export * from './media.ts';
 export * from './engine.ts';
 export * from './broadcast.ts';
 export * from './template.ts';
+export * from './graphics.ts';

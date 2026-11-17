@@ -65,6 +65,8 @@ export async function startUpload(
   folder: string,
   file: { name: string; size: number; type: string },
   fetchFn: typeof fetch = fetch,
+  /** The website's address, when a browser sends the file: Google then lets that page send it (CORS). */
+  origin?: string,
 ): Promise<string> {
   const response = await fetchFn(`${UPLOAD}/files?uploadType=resumable&fields=id,name,size,md5Checksum`, {
     method: 'POST',
@@ -73,6 +75,7 @@ export async function startUpload(
       'Content-Type': 'application/json; charset=UTF-8',
       'X-Upload-Content-Length': String(file.size),
       'X-Upload-Content-Type': file.type,
+      ...(origin ? { Origin: origin } : {}),
     },
     body: JSON.stringify({ name: file.name, parents: [folder] }),
   });
@@ -93,6 +96,26 @@ export async function fileInfo(token: string, id: string, fetchFn: typeof fetch 
   } catch {
     return null;
   }
+}
+
+/** Renames a file or folder. */
+export async function rename(token: string, id: string, name: string, fetchFn: typeof fetch = fetch): Promise<void> {
+  await drive(token, `${API}/files/${encodeURIComponent(id)}?fields=id`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }, fetchFn);
+}
+
+/** Moves a file from one folder to another. */
+export async function move(token: string, id: string, from: string, to: string, fetchFn: typeof fetch = fetch): Promise<void> {
+  const query = new URLSearchParams({ addParents: to, removeParents: from, fields: 'id' });
+  await drive(token, `${API}/files/${encodeURIComponent(id)}?${query}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{}' }, fetchFn);
+}
+
+/**
+ * Deletes a file, or a folder with everything in it, for good: unlike the trash, it frees the Drive's space
+ * straight away (RG, Nov 17, 2026: an episode's graphics go two weeks after it airs). Gone already is fine.
+ */
+export async function deleteForever(token: string, id: string, fetchFn: typeof fetch = fetch): Promise<void> {
+  const response = await fetchFn(`${API}/files/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok && response.status !== 404) throw new DriveError(`Google Drive answered ${response.status}.`);
 }
 
 /** Moves a file to the Drive's trash (it can still be brought back from there for 30 days). */

@@ -46,6 +46,7 @@ import { timeAgo } from '../lib/format.ts';
 import { Popover } from '../components/Popover.tsx';
 import { Link } from '../lib/router.tsx';
 import { ELEMENT_HELP, GraphicMenu } from './GraphicMenu.tsx';
+import { GraphicFile } from './graphics.tsx';
 
 interface GridProps {
   episodeId: string;
@@ -764,8 +765,8 @@ function ElementsCell({ section, label, permanent, cued, media, doc, me, readOnl
   return (
     <div className="elements">
       {section.elements.map((e, i) => (
+        <span className="element-item" key={e.id}>
         <button
-          key={e.id}
           className={`element-chip ${chipClass(e.type)}${cued.has(e.id) ? '' : ' uncued'}${media[e.id] ? ' has-file' : reported && e.type !== 'MUSIC' ? ' no-file' : ''}`}
           disabled={readOnly}
           title={`${e.type === 'PERM' ? `Permanent graphic: ${e.name}` : `${e.type}: ${ELEMENT_HELP[e.type]}`}${cued.has(e.id) ? '' : ' · no cue in the script yet'}${fileNote(e)}`}
@@ -781,6 +782,9 @@ function ElementsCell({ section, label, permanent, cued, media, doc, me, readOnl
             </>
           )}
         </button>
+        {/* The file attached to it, in Google Drive (RG, Nov 17, 2026). */}
+        <GraphicFile element={e} />
+        </span>
       ))}
       {!readOnly && (
         <button className="element-add" aria-label={`Add a graphic to ${label}`} title="Add a graphic" onClick={(ev) => toggle('add', ev.currentTarget)}>
