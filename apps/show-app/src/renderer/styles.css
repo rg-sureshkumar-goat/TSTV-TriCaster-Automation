@@ -1633,3 +1633,19 @@ button.danger {
   width: 100%;
   margin: 4px 0;
 }
+
+/* The time of day, to the millisecond (RG, Nov 17, 2026), under Elapsed: a box like its numbers, the whole
+   width of the panel, with digits that don't shift as they change. */
+.wall-clock {
+  margin-top: 10px;
+  padding: 6px 8px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}

@@ -1109,6 +1109,31 @@ function RecordButton({ state }: { state: AppState }) {
   );
 }
 
+/** The computer's time, like 6:30:15.123 PM, as the hours, minutes, seconds and milliseconds. */
+export function clockText(date: Date): string {
+  const hours = date.getHours() % 12 || 12;
+  const pad = (n: number, width = 2) => String(n).padStart(width, '0');
+  return `${hours}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)} ${date.getHours() < 12 ? 'AM' : 'PM'}`;
+}
+
+/**
+ * The time of day, to the millisecond (RG, Nov 17, 2026), from this computer's clock. It's redrawn every
+ * time the screen is, without redrawing the rest of the panel.
+ */
+function WallClock() {
+  const text = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let frame = 0;
+    const tick = () => {
+      if (text.current) text.current.textContent = clockText(new Date());
+      frame = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return <div ref={text} className="wall-clock" role="timer" aria-label="Time of day" />;
+}
+
 function Status({ state }: { state: AppState }) {
   const now = useNow();
   const { automation, clock, switcher, lastCue } = state;
@@ -1138,6 +1163,8 @@ function Status({ state }: { state: AppState }) {
         <dt>Elapsed</dt>
         <dd>{clock.startedAt ? duration((now - clock.startedAt) / 1000) : '0:00'}</dd>
       </dl>
+      {/* The time of day, from this computer's clock, to the millisecond, with no label (RG, Nov 17, 2026). */}
+      <WallClock />
       {lastCue && (
         <p className="small muted last-cue">
           Last cue: {lastCue.label}
