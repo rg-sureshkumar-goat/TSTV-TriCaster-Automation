@@ -489,7 +489,8 @@ function Cue({ line }: { line: PrompterCue }) {
       <span>TAKE {line.camera.toUpperCase()}</span>
     </span>
   ) : (
-    <span className={`p-cue ${elementKind(line.element.type)}`} data-marker="cue" data-section={line.sectionId} data-element={line.element.id}>
+    // SOT and PKG cues are taller, to stand out on the prompter (RG, Nov 17, 2026).
+    <span className={`p-cue ${elementKind(line.element.type)}${line.element.type === 'SOT' || line.element.type === 'PKG' ? ' tall' : ''}`} data-marker="cue" data-section={line.sectionId} data-element={line.element.id}>
       <span>{cueLabel(line.element).toUpperCase()}</span>
     </span>
   );

@@ -1928,6 +1928,14 @@ button.danger {
 .p-break {
   border-top: 2px dashed currentColor;
   border-bottom: 2px dashed currentColor;
+  /* Taller, to stand out on the prompter (RG, Nov 17, 2026). */
+  padding: 1.2em 0;
+}
+
+/* SOT and PKG cues: taller boxes, to stand out on the prompter (RG, Nov 17, 2026). */
+.p-cue.tall span {
+  padding-top: 0.8em;
+  padding-bottom: 0.8em;
 }
 
 /* The reading line: big white arrows at each side, where cues fire (RG, Oct 29, 2026). */
