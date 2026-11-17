@@ -1649,3 +1649,7 @@ button.danger {
   border: 1px solid var(--border);
   border-radius: 6px;
 }
+/* The milliseconds, smaller than the hours, minutes and seconds (RG, Nov 17, 2026). */
+.wall-clock-ms {
+  font-size: 0.65em;
+}

@@ -1109,11 +1109,14 @@ function RecordButton({ state }: { state: AppState }) {
   );
 }
 
-/** The computer's time, like 6:30:15.123 PM, as the hours, minutes, seconds and milliseconds. */
-export function clockText(date: Date): string {
-  const hours = date.getHours() % 12 || 12;
+/** The computer's time, like 6:30:15, .123 and PM: the milliseconds are shown smaller (RG, Nov 17, 2026). */
+export function clockParts(date: Date): { time: string; ms: string; half: string } {
   const pad = (n: number, width = 2) => String(n).padStart(width, '0');
-  return `${hours}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)} ${date.getHours() < 12 ? 'AM' : 'PM'}`;
+  return {
+    time: `${date.getHours() % 12 || 12}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
+    ms: `.${pad(date.getMilliseconds(), 3)}`,
+    half: date.getHours() < 12 ? 'AM' : 'PM',
+  };
 }
 
 /**
@@ -1121,17 +1124,28 @@ export function clockText(date: Date): string {
  * time the screen is, without redrawing the rest of the panel.
  */
 function WallClock() {
-  const text = useRef<HTMLDivElement>(null);
+  const time = useRef<HTMLSpanElement>(null);
+  const ms = useRef<HTMLSpanElement>(null);
+  const half = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     let frame = 0;
     const tick = () => {
-      if (text.current) text.current.textContent = clockText(new Date());
+      const now = clockParts(new Date());
+      if (time.current) time.current.textContent = now.time;
+      if (ms.current) ms.current.textContent = now.ms;
+      if (half.current) half.current.textContent = ` ${now.half}`;
       frame = requestAnimationFrame(tick);
     };
     tick();
     return () => cancelAnimationFrame(frame);
   }, []);
-  return <div ref={text} className="wall-clock" role="timer" aria-label="Time of day" />;
+  return (
+    <div className="wall-clock" role="timer" aria-label="Time of day">
+      <span ref={time} />
+      <span ref={ms} className="wall-clock-ms" />
+      <span ref={half} />
+    </div>
+  );
 }
 
 function Status({ state }: { state: AppState }) {
