@@ -34,7 +34,6 @@ import {
 } from '@tstv/shared';
 import type { Action, AppState, ElementView, FileProblem, SectionView } from '../shared/api.ts';
 import { collectFiles, makePlayable, readable, readFile, thumbnail, THUMBNAIL_VERSION, type FileInfo } from './media.ts';
-import { CHECKED_GRAPHIC_TYPES, checkGraphic, convertInBackground, existingCopy, stopConversions } from './graphic-format.ts';
 import { stopBackground } from './ffmpeg.ts';
 import type { ShowSettings } from '@tstv/shared';
 import { cableAddresses, keepNdiOnCable, listSources, loadNdi } from './ndi.ts';
@@ -133,17 +132,6 @@ export class Runtime extends EventEmitter {
    * plugged in) or blocked (macOS isn't letting the app read the drive).
    */
   private unreachable = new Map<string, 'missing' | 'blocked'>();
-  /** L3, OTSL and OTSR files already checked this time RiGster is open: in the right format, or not convertible. */
-  private formatChecked = new Set<string>();
-  /**
-   * Graphics found in the wrong format while the broadcast was live, and what's wrong with each: RiGster
-   * doesn't convert during a show (RG, Nov 10, 2026), so they're converted as soon as it ends.
-   */
-  private afterTheShow = new Map<string, string[]>();
-  /** The element whose graphic is being converted right now. */
-  private converting: string | null = null;
-  private fixing = false;
-  private fixAgain = false;
   /** RiGster is closing: the copies and conversions in the background stop, and nothing more is saved. */
   private closed = false;
   /** Files FFmpeg couldn't make a playable copy of, so they aren't tried again and again. */
@@ -153,7 +141,7 @@ export class Runtime extends EventEmitter {
   private retryTimer: ReturnType<typeof setInterval> | null = null;
   private cableTimer: ReturnType<typeof setInterval> | null = null;
   private syncingSimulator = false;
-  /** The files the playout was last given, in order: a converted graphic keeps its name, but not its file. */
+  /** The files the playout was last given, in order: a cue can keep its name with a new file. */
   private playoutFiles: string[] = [];
   /** Live mode's playout (Phase 5), which sends the graphics and music to the TC1's input 4 over NDI. */
   private playout: Playout | null = null;
@@ -203,13 +191,8 @@ export class Runtime extends EventEmitter {
       }
       this.clock = { startedAt: broadcast.startedAt ?? Date.now(), sectionLabel: null, overUnderSeconds: null };
       this.note('Live: automation is following the prompter');
-      // No conversions during the show: the one under way stops, and is done again once it ends.
-      if (this.converting) this.note(`Converting ${this.view(this.converting)?.file ?? 'a graphic'} stopped for the show; it’s converted when the show ends`);
-      stopConversions();
     } else {
       this.note('Live broadcast ended: automation stopped');
-      // The graphics found in the wrong format during the show are converted now.
-      void this.fixGraphics();
     }
     this.reportStatus();
     this.changed();
@@ -415,9 +398,7 @@ export class Runtime extends EventEmitter {
    * waits for it (see start).
    */
   private async makePlayables(): Promise<void> {
-    // Graphics in the wrong format are converted alongside, in a queue of their own, so a slow conversion
-    // never holds up the Program box's copies.
-    void this.fixGraphics();
+    void this.backToOriginals();
     if (this.makingPlayable) {
       this.playableAgain = true;
       return;
@@ -455,99 +436,25 @@ export class Runtime extends EventEmitter {
   }
 
   /**
-   * Checks each L3, OTSL and OTSR graphic's format, and plays a copy in the right one when it's wrong (RG,
-   * Nov 10, 2026: 1080p, 29.97, ProRes 4444 with alpha, QuickTime). One at a time, in the background.
+   * Graphics RiGster converted before its file converter was taken out (RG, Nov 17, 2026) play their
+   * original files again, once their drive can be read: each cue goes back to the file that was imported.
    */
-  private async fixGraphics(): Promise<void> {
-    if (this.fixing) {
-      this.fixAgain = true;
-      return;
-    }
-    this.fixing = true;
-    try {
-      do {
-        this.fixAgain = false;
-        // A converted graphic gets its Program box copy made from the right format.
-        if (await this.fixGraphicsOnce()) void this.makePlayables();
-      } while (this.fixAgain);
-    } finally {
-      this.fixing = false;
-    }
-  }
-
-  private async fixGraphicsOnce(): Promise<boolean> {
-    let fixed = false;
+  private async backToOriginals(): Promise<void> {
+    let changed = false;
     for (const [id, info] of Object.entries(this.files)) {
-      if (this.closed) return false;
-      const type = this.element(id)?.type;
-      if (!type || !CHECKED_GRAPHIC_TYPES.has(type) || info.original || this.formatChecked.has(info.path)) continue;
-      // Already found wrong during the show: it waits for the show to end.
-      if (this.afterTheShow.has(info.path) && this.isLive()) continue;
-      if ((await readable(info.path)) !== 'yes') continue;
-      const name = path.basename(info.path);
-      // During the show it's only checked, not converted.
-      this.converting = this.isLive() ? null : id;
-      this.changed();
-      try {
-        const converted = await this.convertGraphic(info.path);
-        // Unless it was replaced or taken off its cue while it was being converted.
-        if (converted && this.files[id] === info) {
-          this.files[id] = converted;
-          this.note(`${name} converted to 1080p ProRes 4444: ${converted.fixes!.join('; ')}`);
-          fixed = true;
-        }
-      } catch {
-        // Stopped as the live broadcast started, or as RiGster closed: it's converted later.
-        if (!this.isLive() && !this.closed) {
-          this.formatChecked.add(info.path);
-          this.afterTheShow.delete(info.path);
-          this.note(`${name} is in the wrong format and couldn’t be converted; it plays as it is`);
-        }
-      } finally {
-        this.converting = null;
-      }
-      this.changed();
+      if (this.closed) return;
+      if (!info.original || (await readable(info.original)) !== 'yes') continue;
+      const original = await readFile(info.original);
+      // Unless it was replaced or taken off its cue in the meantime.
+      if (this.files[id] !== info) continue;
+      this.files[id] = original;
+      changed = true;
     }
-    if (fixed) {
-      await this.writeFiles();
-      this.rebuild();
-      this.sendMedia();
-    }
-    return fixed;
-  }
-
-  /**
-   * A graphic's copy in the right format, read and ready to go on its cue; null when it's right already, or
-   * when it's wrong but the broadcast is live: checking is quick, but converting waits until the show ends
-   * (RG, Nov 10, 2026), unless its copy was already made before.
-   */
-  private async convertGraphic(file: string): Promise<FileInfo | null> {
-    const problems = await checkGraphic(file).catch((e: unknown) => {
-      this.formatChecked.add(file);
-      throw e;
-    });
-    if (!problems.length) {
-      this.formatChecked.add(file);
-      this.afterTheShow.delete(file);
-      return null;
-    }
-    const fixes = problems.map((p) => p.text);
-    const folder = this.deps.store.convertedFolder();
-    let copy = await existingCopy(file, folder);
-    if (!copy && this.isLive()) {
-      this.afterTheShow.set(file, fixes);
-      return null;
-    }
-    // Marked as waiting while it converts, so it's picked up again if the show starts first.
-    this.afterTheShow.set(file, fixes);
-    copy ??= await convertInBackground(file, folder, problems);
-    this.formatChecked.add(file);
-    this.afterTheShow.delete(file);
-    return { ...(await readFile(copy)), original: file, fixes };
-  }
-
-  private isLive(): boolean {
-    return this.website.broadcast().live;
+    if (!changed) return;
+    await this.writeFiles();
+    this.rebuild();
+    this.sendMedia();
+    void this.makePlayables();
   }
 
   /** Where the files that aren't on this laptop are: the drives' names (like “RG'S DRIVE”), or their folders. */
@@ -586,14 +493,12 @@ export class Runtime extends EventEmitter {
     const onCues = new Map<string, () => Promise<void>>();
     for (const [id, info] of Object.entries(this.files)) {
       onCues.set(info.path, async () => void (this.files[id] = await readFile(info.path)));
-      // A converted graphic's original, imported again: checked again, as it may have been re-exported. Its
-      // copy is made again only if it changed, so the cue goes straight back to the copy.
+      // A graphic converted before the converter was taken out: imported again, it goes back to this file.
       const original = info.original;
-      if (original) onCues.set(original, async () => void (this.files[id] = (await this.convertGraphic(original).catch(() => null)) ?? (await readFile(original))));
+      if (original) onCues.set(original, async () => void (this.files[id] = await readFile(original)));
     }
     for (const [name, info] of Object.entries(this.permanent)) onCues.set(info.path, async () => void (this.permanent[name] = await readFile(info.path)));
     for (const file of all.filter((f) => onCues.has(f))) {
-      this.formatChecked.delete(file);
       await onCues.get(file)!();
       this.unreachable.delete(file);
       this.unplayable.delete(file);
@@ -1141,9 +1046,6 @@ export class Runtime extends EventEmitter {
       thumbnail: file?.thumbnail ?? null,
       playable: file?.playable ? pathToFileURL(file.playable).href : null,
       fileFound: !file || !this.unreachable.has(file.path),
-      converting: this.converting === e.id,
-      fixes: file?.fixes ?? null,
-      fixesAfterTheShow: (file && this.afterTheShow.get(file.path)) ?? null,
       ddrItem: e.ddrItem,
       skipped: this.engine?.state.skipped.includes(e.id) ?? false,
     };
@@ -1811,20 +1713,19 @@ export class Runtime extends EventEmitter {
     this.switcher.close();
     void this.playout?.close();
     await this.feeds?.close();
-    // Then the copies and conversions under way stop, leaving no file on a drive open, and RiGster waits
-    // for them to wind down (they're made again next time).
+    // Then the copies under way stop, leaving no file on a drive open, and RiGster waits for them to wind
+    // down (they're made again next time).
     stopBackground();
-    stopConversions();
     const end = Date.now() + 5000;
-    while ((this.makingPlayable || this.fixing) && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
+    while (this.makingPlayable && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
   }
 }
 
 /**
  * Whether DDR 2 (or in live mode, the playout) already has these clips. By name; and in live mode by file
- * too (playoutFiles: the files it was given), as the playout plays the files themselves, and a graphic
- * RiGster converted keeps its name with a new file (RG at the studio, Nov 11, 2026: the TC1 kept showing
- * the black background of the original until RiGster was opened again).
+ * too (playoutFiles: the files it was given), as the playout plays the files themselves, and a cue can keep
+ * its name with a new file (RG at the studio, Nov 11, 2026: the TC1 kept playing the old file until RiGster
+ * was opened again).
  */
 export function playlistUpToDate(clips: { name: string; path?: string }[], names: string[], playoutFiles: string[] | null): boolean {
   if (clips.length !== names.length || !clips.every((c, i) => clipKey(c.name) === clipKey(names[i]))) return false;

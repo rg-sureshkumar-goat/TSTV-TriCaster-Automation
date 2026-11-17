@@ -30,8 +30,8 @@ export interface FileInfo {
   /** The copy the Program box plays, kept on this laptop (see makePlayable), once it's made. */
   playable?: string;
   /**
-   * An L3, OTSL or OTSR graphic in the wrong format (RG, Nov 10, 2026): path is RiGster's copy in the right
-   * one (see graphic-format.ts), original the file it was made from, and fixes what was wrong with it.
+   * Set only on a graphic RiGster converted while it had a file converter (Nov 10–17, 2026): path is that
+   * copy, original the file imported. RiGster puts the cue back on original (see backToOriginals).
    */
   original?: string;
   fixes?: string[];

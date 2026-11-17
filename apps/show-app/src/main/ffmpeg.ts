@@ -23,7 +23,7 @@ export const ffmpegPath = find();
 const background = new Set<{ pid?: number; kill(signal?: NodeJS.Signals): boolean; once(event: 'exit', listener: () => void): unknown }>();
 
 /**
- * FFmpeg making a copy in the background (a graphic converted, or the Program box's copy) runs at low
+ * FFmpeg making a copy in the background (the Program box's copy) runs at low
  * priority, so it never takes the CPU from the playout and the cues during a show (Nov 10, 2026).
  */
 export function inBackground(child: { pid?: number; kill(signal?: NodeJS.Signals): boolean; once(event: 'exit', listener: () => void): unknown }): void {
