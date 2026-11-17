@@ -1928,8 +1928,8 @@ button.danger {
 .p-break {
   border-top: 2px dashed currentColor;
   border-bottom: 2px dashed currentColor;
-  /* Taller, to stand out on the prompter (RG, Nov 17, 2026). */
-  padding: 1.2em 0;
+  /* Taller, to stand out on the prompter (RG, Nov 17, 2026; a bit taller again the same day). */
+  padding: 2em 0;
 }
 
 /* SOT and PKG cues: taller boxes, to stand out on the prompter (RG, Nov 17, 2026). */
