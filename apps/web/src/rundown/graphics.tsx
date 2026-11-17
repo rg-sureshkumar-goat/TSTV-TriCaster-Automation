@@ -188,9 +188,26 @@ function GraphicPreviewButton({ episodeId, element, file }: { episodeId: string;
       <button className="link-button graphic-name" onClick={() => setOpen(true)} aria-label={`Preview ${file.fileName}`}>
         ✓ {file.fileName}
       </button>
-      {open && <GraphicPreview src={`/api/episodes/${episodeId}/graphics/${element.id}/media`} file={file} label={`${element.type}${element.name ? ` ${element.name}` : ''}`} onClose={() => setOpen(false)} />}
+      {open && (
+        <GraphicPreview
+          src={`/api/episodes/${episodeId}/graphics/${element.id}/media`}
+          drivePlayer={`/episodes/${episodeId}/graphics/${element.id}/drive-player`}
+          file={file}
+          label={`${element.type}${element.name ? ` ${element.name}` : ''}`}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </>
   );
+}
+
+/**
+ * Whether this browser can't play the file itself: Chrome can't play Apple ProRes, which TSTV's graphics
+ * are (.mov). Safari can. A file that fails to play once it's tried counts too (see GraphicPreview).
+ */
+function cannotPlayHere(fileName: string): boolean {
+  if (!/\.mov$/i.test(fileName)) return false;
+  return document.createElement('video').canPlayType('video/quicktime') === '';
 }
 
 const isImage = (name: string) => /\.(png|jpe?g|gif|tiff?)$/i.test(name);
@@ -204,16 +221,27 @@ function clock(seconds: number): string {
 /**
  * A graphic playing in a window over the rundown (RG, Nov 17, 2026), on a checkerboard so its see-through
  * parts show: play and pause, a bar to drag through it, and back or forward 10 seconds. Space plays and
- * pauses, ← and → skip 10 seconds, and Escape closes it.
+ * pauses, ← and → skip 10 seconds, and Escape closes it. In a browser that can't play the file (Chrome and
+ * Apple ProRes), it shows Google Drive's own player instead, as Drive does: Google's copy, with a black
+ * background where the graphic is see-through, and Drive's own controls (RG, Nov 17, 2026).
  */
-export function GraphicPreview({ src, file, label, onClose }: { src: string; file: AttachedGraphic; label: string; onClose: () => void }) {
+export function GraphicPreview({ src, drivePlayer, file, label, onClose }: { src: string; drivePlayer: string; file: AttachedGraphic; label: string; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [length, setLength] = useState(0);
-  const [cannotPlay, setCannotPlay] = useState(false);
   const image = isImage(file.fileName);
+  const [cannotPlay, setCannotPlay] = useState(() => !image && cannotPlayHere(file.fileName));
+  /** Google Drive's player for the file, once the website has shared it; or why it couldn't. */
+  const [player, setPlayer] = useState<{ url: string } | { error: string } | null>(null);
+  useEffect(() => {
+    if (!cannotPlay || player) return;
+    api<{ playerUrl: string }>(drivePlayer, { method: 'POST' }).then(
+      (r) => setPlayer({ url: r.playerUrl }),
+      (e: unknown) => setPlayer({ error: e instanceof Error ? e.message : String(e) }),
+    );
+  }, [cannotPlay, player, drivePlayer]);
 
   useEffect(() => {
     if (dialog.current && !dialog.current.open) dialog.current.showModal();
@@ -252,9 +280,19 @@ export function GraphicPreview({ src, file, label, onClose }: { src: string; fil
         {image ? (
           <img src={src} alt={file.fileName} />
         ) : cannotPlay ? (
-          <p className="graphic-preview-note">
-            This browser can’t play {file.fileName}. Apple ProRes graphics (.mov) play in <strong>Safari</strong> on a Mac: open this page there to preview it.
-          </p>
+          player && 'url' in player ? (
+            <iframe className="graphic-preview-drive" src={player.url} title={`Google Drive’s player for ${file.fileName}`} allow="autoplay; fullscreen" />
+          ) : (
+            <p className="graphic-preview-note">
+              {player && 'error' in player ? (
+                <>
+                  Google Drive’s player isn’t available: {player.error} Apple ProRes graphics (.mov) play in <strong>Safari</strong> on a Mac.
+                </>
+              ) : (
+                'Opening Google Drive’s player…'
+              )}
+            </p>
+          )
         ) : (
           <video
             ref={video}
@@ -271,6 +309,12 @@ export function GraphicPreview({ src, file, label, onClose }: { src: string; fil
           />
         )}
       </div>
+      {cannotPlay && player && 'url' in player && (
+        <p className="graphic-preview-drive-note muted small">
+          Google Drive’s copy, as on Drive: it has no see-through parts, so they show black. If it says it’s still being processed, Google is preparing it: try
+          again in a few minutes. <strong>Safari</strong> on a Mac plays the original, see-through parts and all.
+        </p>
+      )}
       {!image && !cannotPlay && (
         <div className="graphic-preview-controls">
           <button onClick={() => skip(-10)} aria-label="Back 10 seconds" title="Back 10 seconds (←)">

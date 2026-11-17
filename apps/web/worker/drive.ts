@@ -118,6 +118,19 @@ export async function deleteForever(token: string, id: string, fetchFn: typeof f
   if (!response.ok && response.status !== 404) throw new DriveError(`Google Drive answered ${response.status}.`);
 }
 
+/**
+ * Shares a file as "anyone with the link can view", so Google Drive's own player can show it in the rundown's
+ * preview window (RG, Nov 17, 2026). The link is only ever shown to people signed in to the website.
+ */
+export async function shareByLink(token: string, id: string, fetchFn: typeof fetch = fetch): Promise<void> {
+  await drive(
+    token,
+    `${API}/files/${encodeURIComponent(id)}/permissions?fields=id`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }) },
+    fetchFn,
+  );
+}
+
 /** Moves a file to the Drive's trash (it can still be brought back from there for 30 days). */
 export async function trash(token: string, id: string, fetchFn: typeof fetch = fetch): Promise<void> {
   await drive(token, `${API}/files/${encodeURIComponent(id)}?fields=id`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }, fetchFn).catch(() => undefined);

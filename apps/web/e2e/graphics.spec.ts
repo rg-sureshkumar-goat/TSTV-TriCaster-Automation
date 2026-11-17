@@ -31,6 +31,7 @@ test('a graphic’s file can be previewed, replaced and deleted from the rundown
   });
 
   // The pretend Google Drive: connected, and holding what's attached.
+  let nextName = 'A1_L3_Score.webm';
   let attached: { elementId: string; driveFileId: string; fileName: string; size: number; md5: null; uploadedBy: string; uploadedAt: number }[] = [];
   const state = () => ({ driveConnected: true, deleteOn: '2026-12-04', deletedAt: null, folderUrl: null, graphics: attached });
   await page.route(`**/api/episodes/${ids.episode}/graphics`, (route) => route.fulfill({ json: state() }));
@@ -39,10 +40,17 @@ test('a graphic’s file can be previewed, replaced and deleted from the rundown
   await page.route(new RegExp(`/api/episodes/${ids.episode}/graphics/([^/]+)$`), async (route) => {
     const elementId = new URL(route.request().url()).pathname.split('/').pop()!;
     if (route.request().method() === 'DELETE') attached = [];
-    else attached = [{ elementId, driveFileId: 'drive-1', fileName: 'A1_L3_Score.webm', size: CLIP.length, md5: null, uploadedBy: 'RG', uploadedAt: Date.now() }];
+    else attached = [{ elementId, driveFileId: 'drive-1', fileName: nextName, size: CLIP.length, md5: null, uploadedBy: 'RG', uploadedAt: Date.now() }];
     await route.fulfill({ json: { graphics: attached } });
   });
   // Like the website's own route, it answers a Range request with just that part, so the video can seek.
+  // Google Drive's own player, for a file the browser can't play (Chrome and Apple ProRes).
+  let shared = 0;
+  await page.route('**/graphics/*/drive-player', (route) => {
+    shared++;
+    return route.fulfill({ json: { playerUrl: 'https://drive.google.com/file/d/drive-1/preview' } });
+  });
+  await page.route('https://drive.google.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<body style="background:#000;color:#fff">Drive’s player</body>' }));
   await page.route('**/graphics/*/media', (route) => {
     const m = /bytes=(\d+)-(\d*)/.exec(route.request().headers()['range'] ?? '');
     if (!m) return route.fulfill({ body: CLIP, contentType: 'video/webm', headers: { 'Accept-Ranges': 'bytes' } });
@@ -93,4 +101,17 @@ test('a graphic’s file can be previewed, replaced and deleted from the rundown
   page.once('dialog', (d) => void d.accept());
   await page.getByRole('button', { name: 'Delete A1_L3_Score.webm from L3' }).click();
   await expect(page.getByRole('button', { name: 'Choose graphic for L3' })).toBeVisible();
+
+  // An Apple ProRes .mov, which Chrome can't play: the preview shows Google Drive's player, as Drive does.
+  test.skip(await page.evaluate(() => document.createElement('video').canPlayType('video/quicktime') !== ''), 'This browser plays QuickTime itself.');
+  nextName = 'A1_L3_Score.mov';
+  const again = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Choose graphic for L3' }).click();
+  await (await again).setFiles({ name: 'A1_L3_Score.mov', mimeType: 'video/quicktime', buffer: CLIP });
+  await page.getByRole('button', { name: 'Preview A1_L3_Score.mov' }).click();
+  const drive = page.getByRole('dialog', { name: 'Preview of A1_L3_Score.mov' });
+  await expect(drive.locator('iframe[title="Google Drive’s player for A1_L3_Score.mov"]')).toHaveAttribute('src', 'https://drive.google.com/file/d/drive-1/preview');
+  await expect(drive.getByText('no see-through parts')).toBeVisible();
+  await expect(drive.getByRole('button', { name: 'Play' })).toHaveCount(0);
+  expect(shared).toBeGreaterThan(0);
 });

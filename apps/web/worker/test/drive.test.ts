@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accessToken, deleteForever, fileInfo, isSlot, makeFolder, move, rename, startUpload } from '../drive.ts';
+import { accessToken, deleteForever, fileInfo, isSlot, makeFolder, move, rename, shareByLink, startUpload } from '../drive.ts';
 import { episodeFolderName } from '../drive-layout.ts';
 
 /** A pretend Google that answers each request with the next answer, and remembers what it was asked. */
@@ -77,5 +77,11 @@ describe('RiGster’s Google Drive', () => {
     expect(episodeFolderName({ title: 'PrimeTime 11/20', air_date: '2026-11-20' })).toBe('2026-11-20 PrimeTime 11-20');
     expect(episodeFolderName({ title: 'No date yet', air_date: null })).toBe('No date yet');
   });
-});
 
+  it('shares a graphic as “anyone with the link can view”, for Drive’s own player (RG, Nov 17, 2026)', async () => {
+    const { fetchFn, asked } = google(Response.json({ id: 'anyoneWithLink' }));
+    await shareByLink('a1', 'file-1', fetchFn);
+    expect(asked[0].url).toContain('/files/file-1/permissions');
+    expect(JSON.parse(String(asked[0].init.body))).toEqual({ role: 'reader', type: 'anyone' });
+  });
+});

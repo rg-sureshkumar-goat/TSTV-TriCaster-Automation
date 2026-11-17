@@ -2346,3 +2346,16 @@ button.live-on {
   font-size: 13px;
   color: var(--muted, #6b7280);
 }
+
+/* Google Drive's own player, for a browser that can't play the graphic itself (Chrome and ProRes). */
+.graphic-preview-drive {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+}
+.graphic-preview-drive-note {
+  margin: 0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}

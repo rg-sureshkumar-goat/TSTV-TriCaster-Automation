@@ -5,7 +5,7 @@
 // deleted for good two weeks after its air date (deleteAiredGraphics, run every morning).
 import type { Hono } from 'hono';
 import { graphicsDeleteDate, isAttachable, type AttachedGraphic } from '@tstv/shared';
-import { deleteForever, DriveError, fileInfo, startUpload } from './drive.ts';
+import { deleteForever, DriveError, fileInfo, shareByLink, startUpload } from './drive.ts';
 import { episodeFolder, openDrive } from './drive-layout.ts';
 import type { Env, User } from './env.ts';
 
@@ -115,6 +115,11 @@ export function registerGraphicsRoutes(app: App, visibleEpisode: VisibleEpisode)
         .bind(episode.id, elementId, open.drive.email, file.id, file.name, file.size, file.md5, user.id, Date.now())
         .run();
       if (before && before.drive_file_id !== file.id && before.email === open.drive.email) await deleteForever(open.token, before.drive_file_id).catch(() => undefined);
+      // Shared by link, for Google Drive's own player in the preview window; if it doesn't work now, the
+      // preview tries again.
+      if (await shareByLink(open.token, file.id).then(() => true, () => false)) {
+        await c.env.DB.prepare('UPDATE episode_graphics SET shared = 1 WHERE episode_id = ? AND element_id = ?').bind(episode.id, elementId).run();
+      }
       return c.json({ graphics: await attached(c.env, String(episode.id)) });
     } catch (e) {
       return c.json({ error: e instanceof DriveError ? e.message : 'Google Drive didn’t answer.' }, 502);
@@ -146,6 +151,31 @@ export function registerGraphicsRoutes(app: App, visibleEpisode: VisibleEpisode)
       if (v) headers.set(h, v);
     }
     return new Response(google.body, { status: google.status, headers });
+  });
+
+  /**
+   * Makes sure the graphic's file is shared by link, then gives Google Drive's player for it, for a browser
+   * that can't play the file itself (Chrome and Apple ProRes; RG, Nov 17, 2026). Drive's copy has no
+   * see-through parts, like Drive's own preview.
+   */
+  app.post('/episodes/:id/graphics/:elementId/drive-player', async (c) => {
+    const episode = await visibleEpisode(c.env, c.get('user'), c.req.param('id'));
+    if (!episode) return c.json({ error: 'Episode not found.' }, 404);
+    const row = await c.env.DB.prepare('SELECT drive_file_id, email, shared FROM episode_graphics WHERE episode_id = ? AND element_id = ?')
+      .bind(episode.id, c.req.param('elementId'))
+      .first<{ drive_file_id: string; email: string; shared: number }>();
+    if (!row) return c.json({ error: 'That graphic has no file.' }, 404);
+    if (!row.shared) {
+      try {
+        const open = await openDrive(c.env);
+        if (!open || open.drive.email !== row.email) return c.json({ error: NO_DRIVE }, 409);
+        await shareByLink(open.token, row.drive_file_id);
+        await c.env.DB.prepare('UPDATE episode_graphics SET shared = 1 WHERE episode_id = ? AND element_id = ?').bind(episode.id, c.req.param('elementId')).run();
+      } catch (e) {
+        return c.json({ error: e instanceof DriveError ? e.message : 'Google Drive didn’t answer.' }, 502);
+      }
+    }
+    return c.json({ playerUrl: `https://drive.google.com/file/d/${encodeURIComponent(row.drive_file_id)}/preview` });
   });
 
   /** Takes the file off the graphic (deleted for good, to save space). */
