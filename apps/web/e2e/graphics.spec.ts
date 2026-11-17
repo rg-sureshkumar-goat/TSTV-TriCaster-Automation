@@ -1,0 +1,96 @@
+// The graphics attached to a rundown (RG, Nov 17, 2026): Choose graphic, then the file's name with Replace and
+// Delete beside it, and its preview window. Google Drive is made up here, so the test needs no real Drive.
+import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+
+const opened: BrowserContext[] = [];
+test.afterEach(async () => {
+  await Promise.all(opened.splice(0).map((c) => c.close()));
+});
+
+async function signIn(browser: Browser, name: string): Promise<Page> {
+  const context = await browser.newContext();
+  opened.push(context);
+  const page = await context.newPage();
+  await page.goto('/');
+  await page.getByRole('button', { name }).click();
+  await expect(page.getByRole('link', { name: 'Shows', exact: true })).toBeVisible();
+  return page;
+}
+
+// A 30-second test clip, in a format every browser here plays.
+const CLIP = readFileSync(new URL('./fixtures/graphic.webm', import.meta.url));
+
+test('a graphic’s file can be previewed, replaced and deleted from the rundown', async ({ browser }) => {
+  const page = await signIn(browser, 'RG (TD)');
+  const ids = await page.evaluate(async () => {
+    const post = (url: string, body: unknown) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
+    const show = await post('/api/shows', { name: 'Graphics Show' });
+    const episode = await post(`/api/shows/${show.id}/episodes`, { title: 'Graphics Episode', airDate: '2026-11-20', airTime: '18:00' });
+    return { episode: episode.id as string };
+  });
+
+  // The pretend Google Drive: connected, and holding what's attached.
+  let attached: { elementId: string; driveFileId: string; fileName: string; size: number; md5: null; uploadedBy: string; uploadedAt: number }[] = [];
+  const state = () => ({ driveConnected: true, deleteOn: '2026-12-04', deletedAt: null, folderUrl: null, graphics: attached });
+  await page.route(`**/api/episodes/${ids.episode}/graphics`, (route) => route.fulfill({ json: state() }));
+  await page.route(`**/api/episodes/${ids.episode}/graphics/*/uploads`, (route) => route.fulfill({ json: { uploadUrl: 'https://upload.example/session' } }));
+  await page.route('https://upload.example/session', (route) => route.fulfill({ json: { id: 'drive-1' }, headers: { 'Access-Control-Allow-Origin': '*' } }));
+  await page.route(new RegExp(`/api/episodes/${ids.episode}/graphics/([^/]+)$`), async (route) => {
+    const elementId = new URL(route.request().url()).pathname.split('/').pop()!;
+    if (route.request().method() === 'DELETE') attached = [];
+    else attached = [{ elementId, driveFileId: 'drive-1', fileName: 'A1_L3_Score.webm', size: CLIP.length, md5: null, uploadedBy: 'RG', uploadedAt: Date.now() }];
+    await route.fulfill({ json: { graphics: attached } });
+  });
+  // Like the website's own route, it answers a Range request with just that part, so the video can seek.
+  await page.route('**/graphics/*/media', (route) => {
+    const m = /bytes=(\d+)-(\d*)/.exec(route.request().headers()['range'] ?? '');
+    if (!m) return route.fulfill({ body: CLIP, contentType: 'video/webm', headers: { 'Accept-Ranges': 'bytes' } });
+    const start = Number(m[1]);
+    const end = m[2] ? Number(m[2]) : CLIP.length - 1;
+    return route.fulfill({
+      status: 206,
+      body: CLIP.subarray(start, end + 1),
+      contentType: 'video/webm',
+      headers: { 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${start}-${end}/${CLIP.length}` },
+    });
+  });
+
+  await page.goto(`/episodes/${ids.episode}`);
+  await expect(page.getByText('deleted on')).toBeVisible();
+  await page.getByRole('button', { name: 'Add a graphic to A1' }).click();
+  await page.getByRole('menuitem').filter({ hasText: /^L3/ }).click();
+
+  // Choose graphic: the file goes up, and its name shows, with Replace and Delete beside it.
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Choose graphic for L3' }).click();
+  await (await chooser).setFiles({ name: 'A1_L3_Score.webm', mimeType: 'video/webm', buffer: CLIP });
+  await expect(page.getByRole('button', { name: 'Preview A1_L3_Score.webm' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Replace A1_L3_Score.webm on L3' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Delete A1_L3_Score.webm from L3' })).toBeVisible();
+
+  // The name opens the preview, which plays, pauses, skips 10 seconds either way and seeks with its bar.
+  await page.getByRole('button', { name: 'Preview A1_L3_Score.webm' }).click();
+  const preview = page.getByRole('dialog', { name: 'Preview of A1_L3_Score.webm' });
+  await expect(preview).toBeVisible();
+  const video = preview.locator('video');
+  const at = () => video.evaluate((v: HTMLVideoElement) => v.currentTime);
+  await expect(preview.getByRole('button', { name: 'Pause' })).toBeVisible();
+  await preview.getByRole('button', { name: 'Pause' }).click();
+  await expect(preview.getByRole('button', { name: 'Play' })).toBeVisible();
+  await video.evaluate((v: HTMLVideoElement) => (v.currentTime = 2));
+  await preview.getByRole('button', { name: 'Forward 10 seconds' }).click();
+  await expect.poll(at).toBeGreaterThanOrEqual(11.9);
+  await preview.getByRole('button', { name: 'Back 10 seconds' }).click();
+  await expect.poll(at).toBeLessThan(3);
+  await preview.getByRole('slider', { name: 'Position in the graphic' }).fill('20');
+  await expect.poll(at).toBeGreaterThanOrEqual(19.9);
+  await expect(preview.locator('.graphic-preview-time').last()).toHaveText('0:30');
+  await preview.getByRole('button', { name: 'Close the preview' }).click();
+  await expect(preview).toBeHidden();
+
+  // Delete takes it off, after asking.
+  page.once('dialog', (d) => void d.accept());
+  await page.getByRole('button', { name: 'Delete A1_L3_Score.webm from L3' }).click();
+  await expect(page.getByRole('button', { name: 'Choose graphic for L3' })).toBeVisible();
+});

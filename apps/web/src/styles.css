@@ -2244,10 +2244,13 @@ button.live-on {
   color: var(--ok, #16a34a);
   font-size: 11px;
 }
-.graphic-remove {
-  padding: 0 4px;
-  font-size: 12px;
-  line-height: 1.2;
+.graphic-action {
+  padding: 1px 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.graphic-action.danger {
+  color: var(--danger, #b91c1c);
 }
 .graphic-file.sending {
   position: relative;
@@ -2265,4 +2268,81 @@ button.live-on {
 }
 .graphics-note {
   margin-top: 2px;
+}
+
+/* A graphic playing in its preview window (RG, Nov 17, 2026), on a checkerboard so see-through parts show. */
+.graphic-preview {
+  width: min(960px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.graphic-preview::backdrop {
+  background: rgba(15, 18, 24, 0.55);
+}
+.graphic-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.graphic-preview-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.graphic-preview-picture {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  background-color: #6b7280;
+  background-image: linear-gradient(45deg, #4b5563 25%, transparent 25%), linear-gradient(-45deg, #4b5563 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #4b5563 75%), linear-gradient(-45deg, transparent 75%, #4b5563 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+}
+.graphic-preview-picture video,
+.graphic-preview-picture img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+.graphic-preview-note {
+  max-width: 460px;
+  padding: 16px 20px;
+  border-radius: 8px;
+  background: var(--bg);
+  text-align: center;
+}
+.graphic-preview-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+.graphic-preview-controls .play {
+  min-width: 44px;
+}
+.graphic-preview-bar {
+  flex: 1;
+  min-width: 80px;
+  accent-color: var(--accent);
+}
+.graphic-preview-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--muted, #6b7280);
 }

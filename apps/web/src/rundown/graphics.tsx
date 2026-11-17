@@ -1,7 +1,7 @@
 // The files attached to a rundown's graphics (RG, Nov 17, 2026). Each graphic in a section's Graphics column
 // has a Choose graphic button: the file goes straight from this computer to Google Drive, into the episode's
 // folder, with a progress bar, and then shows beside the graphic. RiGster downloads each one onto its cue.
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../lib/api.ts';
 import { graphicsDeleteDate, isAttachable, type AttachedGraphic, type Element } from '@tstv/shared';
 
@@ -14,6 +14,7 @@ export interface EpisodeGraphics {
 }
 
 interface GraphicsContextValue {
+  episodeId: string;
   data: EpisodeGraphics | null;
   /** Percent sent, for each graphic whose file is on its way. */
   sending: Record<string, number>;
@@ -69,7 +70,7 @@ export function GraphicsProvider({ episodeId, readOnly, onError, children }: { e
 
   const remove = async (element: Element) => {
     const attached = data?.graphics.find((g) => g.elementId === element.id);
-    if (!attached || !confirm(`Take ${attached.fileName} off this graphic? It’s deleted from the Google Drive.`)) return;
+    if (!attached || !confirm(`Delete ${attached.fileName} from this graphic? It’s deleted from Google Drive for good.`)) return;
     try {
       const done = await api<{ graphics: AttachedGraphic[] }>(`/episodes/${episodeId}/graphics/${element.id}`, { method: 'DELETE' });
       setData((d) => (d ? { ...d, graphics: done.graphics } : d));
@@ -79,7 +80,7 @@ export function GraphicsProvider({ episodeId, readOnly, onError, children }: { e
   };
 
   const canChange = !readOnly && !data?.deletedAt && data?.driveConnected === true;
-  return <GraphicsContext.Provider value={{ data, sending, canChange, choose, remove: (e) => void remove(e) }}>{children}</GraphicsContext.Provider>;
+  return <GraphicsContext.Provider value={{ episodeId, data, sending, canChange, choose, remove: (e) => void remove(e) }}>{children}</GraphicsContext.Provider>;
 }
 
 /** A file's size, like 172 MB. */
@@ -127,13 +128,17 @@ export function GraphicFile({ element }: { element: Element }) {
   if (attached) {
     return (
       <span className="graphic-file attached" title={`${attached.fileName} (${size(attached.size)})${attached.uploadedBy ? `, added by ${attached.uploadedBy}` : ''}`}>
-        <button className="link-button graphic-name" disabled={!graphics.canChange} onClick={() => graphics.choose(element)} aria-label={`Replace the file on ${element.type}: ${attached.fileName}`}>
-          ✓ {attached.fileName}
-        </button>
+        {/* The name opens its preview (RG, Nov 17, 2026); Replace and Delete sit beside it. */}
+        <GraphicPreviewButton episodeId={graphics.episodeId} element={element} file={attached} />
         {graphics.canChange && (
-          <button className="graphic-remove" onClick={() => graphics.remove(element)} aria-label={`Take ${attached.fileName} off ${element.type}`} title="Take this file off">
-            ×
-          </button>
+          <>
+            <button className="graphic-action" onClick={() => graphics.choose(element)} aria-label={`Replace ${attached.fileName} on ${element.type}`}>
+              Replace
+            </button>
+            <button className="graphic-action danger" onClick={() => graphics.remove(element)} aria-label={`Delete ${attached.fileName} from ${element.type}`}>
+              Delete
+            </button>
+          </>
         )}
       </span>
     );
@@ -172,5 +177,129 @@ export function GraphicsDeleteNote({ airDate, formatDate }: { airDate: string; f
         </>
       )}
     </p>
+  );
+}
+
+/** The green file name: opens the preview window. */
+function GraphicPreviewButton({ episodeId, element, file }: { episodeId: string; element: Element; file: AttachedGraphic }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button className="link-button graphic-name" onClick={() => setOpen(true)} aria-label={`Preview ${file.fileName}`}>
+        ✓ {file.fileName}
+      </button>
+      {open && <GraphicPreview src={`/api/episodes/${episodeId}/graphics/${element.id}/media`} file={file} label={`${element.type}${element.name ? ` ${element.name}` : ''}`} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+const isImage = (name: string) => /\.(png|jpe?g|gif|tiff?)$/i.test(name);
+
+/** Minutes and seconds, like 0:07 or 1:23. */
+function clock(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/**
+ * A graphic playing in a window over the rundown (RG, Nov 17, 2026), on a checkerboard so its see-through
+ * parts show: play and pause, a bar to drag through it, and back or forward 10 seconds. Space plays and
+ * pauses, ← and → skip 10 seconds, and Escape closes it.
+ */
+export function GraphicPreview({ src, file, label, onClose }: { src: string; file: AttachedGraphic; label: string; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const video = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [time, setTime] = useState(0);
+  const [length, setLength] = useState(0);
+  const [cannotPlay, setCannotPlay] = useState(false);
+  const image = isImage(file.fileName);
+
+  useEffect(() => {
+    if (dialog.current && !dialog.current.open) dialog.current.showModal();
+  }, []);
+
+  const toggle = () => {
+    const v = video.current;
+    if (!v) return;
+    if (v.paused) void v.play().catch(() => undefined);
+    else v.pause();
+  };
+  const skip = (by: number) => {
+    const v = video.current;
+    if (v) v.currentTime = Math.min(Math.max(0, v.currentTime + by), v.duration || v.currentTime + by);
+  };
+  const keys = (e: React.KeyboardEvent) => {
+    if (image || cannotPlay) return;
+    if (e.key === ' ') toggle();
+    else if (e.key === 'ArrowLeft') skip(-10);
+    else if (e.key === 'ArrowRight') skip(10);
+    else return;
+    e.preventDefault();
+  };
+
+  return (
+    <dialog ref={dialog} className="graphic-preview" aria-label={`Preview of ${file.fileName}`} onClose={onClose} onKeyDown={keys} onClick={(e) => e.target === dialog.current && dialog.current?.close()}>
+      <div className="graphic-preview-head">
+        <h2>
+          {label} <span className="muted">{file.fileName}</span>
+        </h2>
+        <button className="close-button" onClick={() => dialog.current?.close()} aria-label="Close the preview">
+          ×
+        </button>
+      </div>
+      <div className="graphic-preview-picture">
+        {image ? (
+          <img src={src} alt={file.fileName} />
+        ) : cannotPlay ? (
+          <p className="graphic-preview-note">
+            This browser can’t play {file.fileName}. Apple ProRes graphics (.mov) play in <strong>Safari</strong> on a Mac: open this page there to preview it.
+          </p>
+        ) : (
+          <video
+            ref={video}
+            src={src}
+            autoPlay
+            playsInline
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+            onLoadedMetadata={(e) => setLength(e.currentTarget.duration)}
+            onDurationChange={(e) => setLength(e.currentTarget.duration)}
+            onError={() => setCannotPlay(true)}
+            onClick={toggle}
+          />
+        )}
+      </div>
+      {!image && !cannotPlay && (
+        <div className="graphic-preview-controls">
+          <button onClick={() => skip(-10)} aria-label="Back 10 seconds" title="Back 10 seconds (←)">
+            « 10s
+          </button>
+          <button className="primary play" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} title="Play or pause (Space)">
+            {playing ? '❚❚' : '▶'}
+          </button>
+          <button onClick={() => skip(10)} aria-label="Forward 10 seconds" title="Forward 10 seconds (→)">
+            10s »
+          </button>
+          <span className="graphic-preview-time">{clock(time)}</span>
+          <input
+            type="range"
+            className="graphic-preview-bar"
+            aria-label="Position in the graphic"
+            min={0}
+            max={length || 0}
+            step={0.01}
+            value={Math.min(time, length || 0)}
+            onChange={(e) => {
+              const v = video.current;
+              if (v) v.currentTime = Number(e.target.value);
+              setTime(Number(e.target.value));
+            }}
+          />
+          <span className="graphic-preview-time">{clock(length)}</span>
+        </div>
+      )}
+    </dialog>
   );
 }

@@ -12,6 +12,13 @@ import type { Env, User } from './env.ts';
 type App = Hono<{ Bindings: Env; Variables: { user: User } }>;
 type VisibleEpisode = (env: Env, user: User, id: string) => Promise<Record<string, unknown> | null>;
 
+/** What kind of file it is, from its name, so the browser knows how to play it. */
+export function mediaType(fileName: string): string {
+  const ext = fileName.toLowerCase().split('.').pop() ?? '';
+  const types: Record<string, string> = { mov: 'video/quicktime', mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', tif: 'image/tiff', tiff: 'image/tiff', gif: 'image/gif' };
+  return types[ext] ?? 'application/octet-stream';
+}
+
 const NO_DRIVE = 'No Google Drive is connected yet. An admin connects one on the website’s Usage page.';
 
 function graphicJson(r: Record<string, unknown>): AttachedGraphic {
@@ -112,6 +119,33 @@ export function registerGraphicsRoutes(app: App, visibleEpisode: VisibleEpisode)
     } catch (e) {
       return c.json({ error: e instanceof DriveError ? e.message : 'Google Drive didn’t answer.' }, 502);
     }
+  });
+
+  /**
+   * The graphic's file, streamed from the Drive for its preview window (RG, Nov 17, 2026). Seeking works:
+   * the browser's Range header goes to Google, and the part asked for comes back. Anyone who can see the
+   * episode can preview it, though the file is in the admin's Drive.
+   */
+  app.get('/episodes/:id/graphics/:elementId/media', async (c) => {
+    const episode = await visibleEpisode(c.env, c.get('user'), c.req.param('id'));
+    if (!episode) return c.json({ error: 'Episode not found.' }, 404);
+    const row = await c.env.DB.prepare('SELECT drive_file_id, file_name, email FROM episode_graphics WHERE episode_id = ? AND element_id = ?')
+      .bind(episode.id, c.req.param('elementId'))
+      .first<{ drive_file_id: string; file_name: string; email: string }>();
+    if (!row) return c.json({ error: 'That graphic has no file.' }, 404);
+    const open = await openDrive(c.env).catch(() => null);
+    if (!open || open.drive.email !== row.email) return c.json({ error: NO_DRIVE }, 409);
+    const range = c.req.header('Range');
+    const google = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(row.drive_file_id)}?alt=media`, {
+      headers: { Authorization: `Bearer ${open.token}`, ...(range ? { Range: range } : {}) },
+    });
+    if (!google.ok && google.status !== 206) return c.json({ error: `Google Drive answered ${google.status}.` }, 502);
+    const headers = new Headers({ 'Content-Type': mediaType(row.file_name), 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, max-age=300' });
+    for (const h of ['Content-Length', 'Content-Range']) {
+      const v = google.headers.get(h);
+      if (v) headers.set(h, v);
+    }
+    return new Response(google.body, { status: google.status, headers });
   });
 
   /** Takes the file off the graphic (deleted for good, to save space). */
