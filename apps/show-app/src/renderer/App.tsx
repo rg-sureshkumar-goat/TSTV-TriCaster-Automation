@@ -1109,11 +1109,14 @@ function RecordButton({ state }: { state: AppState }) {
   );
 }
 
-/** The computer's time, like 6:30:15, .123 and PM: the milliseconds are shown smaller (RG, Nov 17, 2026). */
+/**
+ * The computer's time, like 06:30:15, .123 and PM: hours, minutes and seconds always two digits; AM or PM
+ * smaller than them, and the milliseconds smaller still (RG, Nov 17, 2026).
+ */
 export function clockParts(date: Date): { time: string; ms: string; half: string } {
   const pad = (n: number, width = 2) => String(n).padStart(width, '0');
   return {
-    time: `${date.getHours() % 12 || 12}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
+    time: `${pad(date.getHours() % 12 || 12)}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
     ms: `.${pad(date.getMilliseconds(), 3)}`,
     half: date.getHours() < 12 ? 'AM' : 'PM',
   };
@@ -1143,7 +1146,7 @@ function WallClock() {
     <div className="wall-clock" role="timer" aria-label="Time of day">
       <span ref={time} />
       <span ref={ms} className="wall-clock-ms" />
-      <span ref={half} />
+      <span ref={half} className="wall-clock-half" />
     </div>
   );
 }
