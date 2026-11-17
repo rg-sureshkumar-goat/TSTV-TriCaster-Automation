@@ -65,6 +65,11 @@ export class Store {
     return path.join(this.folder, 'profiles');
   }
 
+  /** Where RiGster's show logs are kept, a file per day (see show-log.ts). */
+  logsFolder(): string {
+    return path.join(this.folder, 'logs');
+  }
+
   /** Where the copies the Program box plays are kept (see makePlayable). */
   playableFolder(): string {
     return path.join(this.folder, 'playable');

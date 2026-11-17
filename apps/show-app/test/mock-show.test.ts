@@ -2,7 +2,7 @@
 // rundown and the prompter's cues, following the brief's cue rules.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -168,6 +168,16 @@ describe('a mock show on the simulator', () => {
     await waitFor(() => clipOnAir() === 'A4_SOT_Coach');
     await waitFor(() => !state().dsks.main_dsk2.onAir, 4000);
     expect(runtime.state().lastCue?.label).toBe('Take SOT (A4)');
+    // The show log has it all, to the millisecond: the prompter's cues, what was sent, what the TC1 said (RG, Nov 17, 2026).
+    const log = (runtime as unknown as { showLog: { flushed(): Promise<void>; fileFor(): string } }).showLog;
+    await log.flushed();
+    const text = await readFile(log.fileFor(), 'utf8');
+    expect(text).toMatch(/^\d{2}:\d{2}:\d{2}\.\d{3}  /);
+    expect(text).toContain('Prompter: cue Take SOT (A4)');
+    expect(text).toContain('Prompter: section A4 starts');
+    expect(text).toMatch(/Sending: \[\{"kind":"dsk","on":true\}\]/);
+    expect(text).toContain('DSK 2 on; clip');
+    expect(text).toContain('Status: Take SOT (A4)');
   }, 30_000);
 
   it('in manual mode, fires only what the producer presses, and Continue hands the show back to the prompter', async () => {

@@ -44,6 +44,7 @@ import { DEFAULT_SETTINGS, type Settings, type Store } from './store.ts';
 import { askSwitcher, Switcher, type PlaylistClip, type SwitcherMode } from './switcher.ts';
 import type { UpdateState } from './updates.ts';
 import { WebsiteLink, type CueEvent } from './website.ts';
+import { ShowLog } from './show-log.ts';
 
 /** What RiGster asks for until it sees the TC1's cable (RG, Nov 2, 2026). */
 export const PLUG_IN = 'Plug in the TC1 Cable to Connect to TC1';
@@ -124,6 +125,8 @@ export class Runtime extends EventEmitter {
   private problems: FileProblem[] = [];
   private lastCue: AppState['lastCue'] = null;
   private log: AppState['log'] = [];
+  /** Everything that happens during a show, kept in a file per day (RG, Nov 17, 2026; see show-log.ts). */
+  private showLog: ShowLog;
   private clock: AppState['clock'] = { startedAt: null, sectionLabel: null, overUnderSeconds: null };
   private greenScreen: FileInfo | null = null;
   private musicTrack: FileInfo | null = null;
@@ -169,6 +172,7 @@ export class Runtime extends EventEmitter {
 
   constructor(private deps: RuntimeDeps) {
     super();
+    this.showLog = new ShowLog(deps.store.logsFolder());
     this.profiles = new ProfileSync(() => ({ siteUrl: this.settings.siteUrl, key: this.settings.key }), deps.store.profileFolder(), deps.driveApi);
     this.switcher = this.newSwitcher(DEFAULT_SETTINGS.simulatorAddress);
     this.website.on('change', () => this.changed());
@@ -205,6 +209,7 @@ export class Runtime extends EventEmitter {
 
   /** Starts up with what was remembered: the TC1 (or, in tests, the simulator), and the last episode's key. */
   async start(): Promise<void> {
+    this.showLog.write('RiGster opened');
     this.settings = await this.deps.store.settings();
     if (this.deps.alwaysLive) {
       // Not connected until the TC1 is found: nothing is sent anywhere until then.
@@ -253,7 +258,16 @@ export class Runtime extends EventEmitter {
       // DDR 2 may have been waiting for the clip on air to finish.
       void this.syncSimulator();
     });
+    // What the TC1 and the playout report, in the show log, each time it changes (RG, Nov 17, 2026).
+    let reported = '';
+    switcher.on('change', () => {
+      const s = switcher.snapshot;
+      const now = `TC1 ${s.status}: program ${s.programInput ?? '—'}, DSK 2 ${s.dskOn ? 'on' : 'off'}${s.layoutOn ? ', LITES layout' : ''}${s.transition ? `, ${s.transition.which} transition` : ''}; clip ${s.ddrItem ?? '—'} ${s.ddrPlaying ? 'playing' : 'stopped'}${s.ddrPaused ? ' (paused)' : ''}${this.playout?.state.error ? `; playout error: ${this.playout.state.error}` : ''}`;
+      if (now !== reported) this.showLog.write(now);
+      reported = now;
+    });
     switcher.on('clipEnded', (item: number | null) => {
+      this.showLog.write(`Clip ${item ?? '?'} ended (on air: ${this.named(this.engine?.state.onAir)})`);
       if (!this.engine) return;
       const ended = this.view(this.engine.state.onAir);
       void this.run(this.engine.clipEnded(item), ended ? `${ended.label} ended` : 'Clip ended');
@@ -263,10 +277,21 @@ export class Runtime extends EventEmitter {
 
   private note(text: string): void {
     this.log = [{ at: Date.now(), text }, ...this.log].slice(0, 50);
+    this.showLog.write(`Status: ${text}`);
+  }
+
+  /** A section or cue by its name, for the show log: "A2", "Take TEASE (A2)", or the id if it's not known. */
+  private named(id: string | null | undefined): string {
+    if (!id) return 'nothing';
+    const element = this.view(id);
+    if (element) return `${element.label} (${element.sectionLabel})`;
+    const section = this.plan?.sections.find((s) => s.id === id);
+    return section?.label ?? id;
   }
 
   private async run(commands: SwitcherCommand[], why: string): Promise<void> {
     if (commands.length) this.note(why);
+    if (commands.length) this.showLog.write(`Sending: ${JSON.stringify(commands)} (on air now: ${this.named(this.engine?.state.onAir)}, clip cued: ${this.engine?.state.cued ?? 'none'})`);
     await this.switcher.run(commands);
     if (commands.length && this.plan?.sections.flatMap((s) => s.elements).find((e) => e.id === this.engine?.state.onAir)?.type !== 'LITES') await this.switcher.leaveStrayLayout();
     this.changed();
@@ -331,6 +356,9 @@ export class Runtime extends EventEmitter {
   }
 
   private async onCue(event: CueEvent): Promise<void> {
+    this.showLog.write(
+      `Prompter: ${event.kind === 'section' ? `section ${this.named(event.sectionId)} starts` : `cue ${this.named(event.elementId)}`} (${Date.now() - event.at} ms after the reading line; ${this.website.broadcast().live ? 'live' : 'not live'}, ${this.engine?.state.manual ? 'manual' : 'automation'})`,
+    );
     if (!this.engine || !this.plan) return;
     // Before Start live broadcast (and after End), prompter cues are ignored: the app does only what the
     // producer does by hand.
@@ -1772,6 +1800,7 @@ export class Runtime extends EventEmitter {
     stopBackground();
     const end = Date.now() + 5000;
     while (this.makingPlayable && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
+    await this.showLog.close();
   }
 }
 
