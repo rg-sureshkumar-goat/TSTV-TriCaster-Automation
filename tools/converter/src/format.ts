@@ -1,5 +1,6 @@
 // Checking and converting L3, OTSL and OTSR graphics (RG, Nov 17, 2026), on GitHub's free machines (see
-// main.ts and .github/workflows/convert-graphic.yml). The right format is 1920×1080, 29.97 frames a second,
+// main.ts and .github/workflows/convert-graphic.yml). The right format is 1920×1080, 29.97 frames a second
+// (23.98 is accepted too, RG, Nov 17, 2026, as the website's check does; a converted copy comes out 29.97),
 // Apple ProRes 4444 with alpha, in a QuickTime .mov. A still picture becomes a 5-second clip. A graphic with
 // no see-through parts has the black around it, joined to the picture's edges, made see-through; black
 // inside it (text, a box with color around it) stays, as TSTV's graphics use black (RG, Nov 10, 2026).
@@ -69,7 +70,8 @@ export async function checkGraphic(file: string): Promise<FormatProblem[]> {
   const size = /\b(\d{2,5})x(\d{2,5})\b/.exec(video);
   if (size && (size[1] !== '1920' || size[2] !== '1080')) problems.push({ text: `it’s ${size[1]}×${size[2]}, not 1920×1080` });
   const fps = Number(/([\d.]+) fps/.exec(video)?.[1]);
-  if (!still && Number.isFinite(fps) && Math.abs(fps - 29.97) > 0.01) problems.push({ text: `it’s ${fps} frames a second, not 29.97` });
+  // 29.97 or 23.98 (the same rule as GRAPHIC_FRAME_RATES in packages/shared, which this can't import on GitHub).
+  if (!still && Number.isFinite(fps) && ![29.97, 23.98].some((rate) => Math.abs(fps - rate) <= 0.01)) problems.push({ text: `it’s ${fps} frames a second, not 29.97 or 23.98` });
   // See-through parts: an alpha channel, and somewhere actually see-through (a file can have one that's
   // solid everywhere). Looked at a quarter, half and three quarters of the way in, as a graphic may animate on.
   const alpha = /\b(yuva\w*|rgba\w*|argb|bgra|abgr|gbrap\w*|ya8|ya16\w*|pal8)\b/.test(video);

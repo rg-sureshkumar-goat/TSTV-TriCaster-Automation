@@ -31,9 +31,12 @@ beforeAll(async () => {
   folder = await mkdtemp(path.join(os.tmpdir(), 'tstv-converter-'));
   const make = (name: string, args: string[]) => run(ffmpeg, ['-v', 'error', '-y', ...args, path.join(folder, name)]);
   await make('wrong.mp4', ['-f', 'lavfi', '-i', `color=c=black:s=1280x720:d=1:r=60000/1001,${bar}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p']);
+  await make('right-23.98.mov', ['-f', 'lavfi', '-i', `color=c=black@0:s=1920x1080:d=1:r=24000/1001,format=rgba,${bar}`, '-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le']);
   await make('right.mov', ['-f', 'lavfi', '-i', `color=c=black@0:s=1920x1080:d=1:r=30000/1001,format=rgba,${bar}`, '-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le']);
   drive.set('wrong', await readFile(path.join(folder, 'wrong.mp4')));
   drive.set('right', await readFile(path.join(folder, 'right.mov')));
+  drive.set('right-23.98', await readFile(path.join(folder, 'right-23.98.mov')));
+  jobs['job-3'] = { fileName: 'B3_L3_ADHIA.mov', driveFileId: 'right-23.98' };
   jobs['job-1'] = { fileName: 'A1_L3_Score.mp4', driveFileId: 'wrong' };
   jobs['job-2'] = { fileName: 'A2_L3_Good.mov', driveFileId: 'right' };
   let next = 1;
@@ -107,6 +110,10 @@ describe('the graphic converter on GitHub’s machines', () => {
   it('leaves a graphic already in the right format as it is', async () => {
     expect(await runJob({ url: site, secret: SECRET }, 'job-2', options())).toBe('unchanged');
     expect(results['job-2']).toEqual({ unchanged: true });
+  }, 60_000);
+
+  it('leaves one at 23.98 frames a second as it is too (RG, Nov 17, 2026)', async () => {
+    expect(await runJob({ url: site, secret: SECRET }, 'job-3', options())).toBe('unchanged');
   }, 60_000);
 
   it('names the copy after the original, as a .mov', () => {

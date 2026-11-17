@@ -1,10 +1,18 @@
 // Reading an L3, OTSL or OTSR graphic's format in the browser, before it's uploaded (RG, Nov 17, 2026): the
-// right one is 1920×1080, 29.97 frames a second, Apple ProRes 4444 with alpha, in a QuickTime .mov. A
+// right one is 1920×1080, 29.97 frames a second (or 23.98, RG, Nov 17, 2026: the graphics team's exports),
+// Apple ProRes 4444 with alpha, in a QuickTime .mov. A
 // QuickTime file keeps those details in a small index (its "moov" box), so only that is read, not the
 // whole file. A graphic in any other format is converted on GitHub's machines after it's uploaded.
 
 /** The element types whose graphics must be in the right format. */
 export const FORMAT_CHECKED_TYPES = ['L3', 'OTSL', 'OTSR'] as const;
+
+/** The frame rates a graphic may have: 29.97, and 23.98 (RG, Nov 17, 2026). Converted ones come out 29.97. */
+export const GRAPHIC_FRAME_RATES = [29.97, 23.98] as const;
+
+export function isGraphicFrameRate(fps: number | null): boolean {
+  return fps !== null && GRAPHIC_FRAME_RATES.some((rate) => Math.abs(fps - rate) <= 0.01);
+}
 
 export function isFormatChecked(type: string): boolean {
   return (FORMAT_CHECKED_TYPES as readonly string[]).includes(type);
@@ -114,7 +122,7 @@ export function graphicFormatProblems(fileName: string, format: VideoFormat | nu
   if (ext !== '.mov') problems.push(`it’s ${ext ? `an ${ext}` : 'not a .mov'} file, not a QuickTime .mov`);
   if (format.codec !== 'ap4h') problems.push(`it’s ${codecName(format.codec)}, not ProRes 4444`);
   if (format.width !== 1920 || format.height !== 1080) problems.push(`it’s ${format.width}×${format.height}, not 1920×1080`);
-  if (format.fps === null || Math.abs(format.fps - 29.97) > 0.01) problems.push(`it’s ${format.fps ?? 'an unknown number of'} frames a second, not 29.97`);
+  if (!isGraphicFrameRate(format.fps)) problems.push(`it’s ${format.fps ?? 'an unknown number of'} frames a second, not 29.97 or 23.98`);
   if (format.depth !== 32) problems.push('it has no alpha channel (no see-through parts)');
   return problems;
 }
